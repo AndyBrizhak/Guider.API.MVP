@@ -23,8 +23,8 @@
         public async Task CreateAsync(Place place) =>
             await _placeCollection.InsertOneAsync(place);
 
-        public async Task UpdateAsync(string id, Place updatedBusiness) =>
-            await _placeCollection.ReplaceOneAsync(b => b.Id == id, updatedBusiness);
+        public async Task UpdateAsync(string id, Place updatedPlace) =>
+            await _placeCollection.ReplaceOneAsync(b => b.Id == id, updatedPlace);
 
         public async Task DeleteAsync(string id) =>
             await _placeCollection.DeleteOneAsync(b => b.Id == id);
