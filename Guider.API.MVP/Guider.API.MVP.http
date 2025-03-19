@@ -1,0 +1,6 @@
+@Guider.API.MVP_HostAddress = http://localhost:5120
+
+GET {{Guider.API.MVP_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
