@@ -1,4 +1,5 @@
 ﻿using Guider.API.MVP;
+using Guider.API.MVP.Services;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
@@ -24,6 +25,8 @@ builder.Services.AddScoped(sp =>
     var client = sp.GetRequiredService<IMongoClient>();
     return client.GetDatabase(settings.DatabaseName);
 });
+
+builder.Services.AddSingleton<PlaceService>();
 
 builder.Services.AddControllers();
 
