@@ -26,6 +26,7 @@ builder.Services.AddScoped(sp =>
     return client.GetDatabase(settings.DatabaseName);
 });
 
+// Сервис для  CRUD операций
 builder.Services.AddSingleton<PlaceService>();
 
 builder.Services.AddControllers();
