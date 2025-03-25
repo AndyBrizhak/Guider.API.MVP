@@ -95,5 +95,26 @@ namespace Guider.API.MVP.Controllers
             var jsonResult = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance);
             return Content(jsonResult, "application/json");
         }
+
+
+        /// <summary>
+        /// Получение списка Places для карты на главной странице, с выводом идентификатора,  
+        /// категории, названия и координат каждого элепмента. Для локаллизации по гео можно использовать условный геометрический центр Коста-Рики, это lat 9.5 и long -84. Для мобильной версии может быть использованы данные по гео из API мобильного устройства.
+        /// </summary>
+        /// <param name="lat">Широта в decimal</param>
+        /// <param name="lng">Долгота в decimal</param>
+        /// <param name="radiusMeters">Радиус в метрах</param>
+        /// <param name="limit">Лимит выводимых объектов на карте в integer</param>
+        /// <returns></returns>
+        [HttpGet("nearbyCenter")]
+        public async Task<ActionResult<string>> GetNearbyPlacesCenter(
+        [FromHeader] decimal lat,
+        [FromHeader] decimal lng,
+        [FromHeader] int radiusMeters = 500000,
+        [FromHeader] int limit = 200)
+        {
+            var jsonResult = await _placeService.GetNearbyPlacesAsyncCenter(lat, lng, radiusMeters, limit);
+            return Content(jsonResult, "application/json");
+        }
     }
 }

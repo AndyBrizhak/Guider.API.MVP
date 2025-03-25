@@ -37,7 +37,9 @@
         //    var filter = Builders<BsonDocument>.Filter.Eq("_id", ObjectId.Parse(id));
         //    return await _placeCollection.DeleteOneAsync(filter);
         //}
+        
 
+        // Гео с выводом отсортированного списка с id, distance, name, img_link
         public async Task<string> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters)
         {
             var pipeline = new[]
@@ -69,6 +71,38 @@
 
             var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
             return result.ToJson();
+        }
+
+        public async Task<string> GetNearbyPlacesAsyncCenter(decimal latitude, decimal longitude, int radiusMeters, int limit)
+        {
+            var pipeline = new[]
+            {
+            new BsonDocument("$geoNear", new BsonDocument
+            {
+                ///*{ "near", new BsonDocument { { "type", "Point" }, { "coordinates", new BsonArray { longitude, latitude } }*/ } },
+                { "near", new BsonArray { longitude, latitude } },  // Массив координат
+                { "distanceField", "distance" },
+                { "maxDistance", radiusMeters },
+                { "spherical", true },
+                //{ "limit", limit }
+            })
+            ,
+            new BsonDocument("$project", new BsonDocument
+            {
+                { "_id", 1 },
+                { "category", 1 },
+                { "name", 1 },
+                { "location.coordinates", 1 }
+            }),
+            new BsonDocument("$limit", limit) // Ограничение результата
+        };
+
+            var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+            if (results.Count == 0)
+            {
+                return "[]"; // Возвращаем пустой массив
+            }
+            return results.ToJson();  // Возвращаем JSON-строку
         }
     }
 }
