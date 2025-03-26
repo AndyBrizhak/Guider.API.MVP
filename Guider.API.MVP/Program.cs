@@ -1,6 +1,7 @@
 ﻿using Guider.API.MVP;
 using Guider.API.MVP.Services;
 using Microsoft.Extensions.Options;
+using Microsoft.OpenApi.Models;
 using MongoDB.Driver;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,22 +10,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Настройка MongoDB через appsettings.json
 builder.Services.Configure<MongoDbSettings>(
-    builder.Configuration.GetSection("MongoDB"));
+    builder.Configuration.GetSection("MongoDbSettings"));
 
 // Регистрация MongoClient в DI-контейнере
-builder.Services.AddSingleton<IMongoClient>(sp =>
-{
-    var settings = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
-    return new MongoClient(settings.ConnectionString);
-});
-
-// Регистрация базы данных
-builder.Services.AddScoped(sp =>
-{
-    var settings = sp.GetRequiredService<IOptions<MongoDbSettings>>().Value;
-    var client = sp.GetRequiredService<IMongoClient>();
-    return client.GetDatabase(settings.DatabaseName);
-});
+builder.Services.AddSingleton<PlaceService>();
 
 // Сервис для  CRUD операций
 builder.Services.AddSingleton<PlaceService>();
@@ -33,7 +22,10 @@ builder.Services.AddControllers();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Places API", Version = "v1" });
+});
 
 var app = builder.Build();
 
