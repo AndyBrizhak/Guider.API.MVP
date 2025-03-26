@@ -113,8 +113,8 @@
             return results.ToJson();  // Возвращаем JSON-строку
         }
 
-        
 
+        // Поиск по категории и тегам
         public async Task<string> GetPlacesNearbyByCategoryByTagsAsyncAsync(decimal lat, decimal lng, int maxDistanceMeters, string? category = null, List<string>? filterTags = null)
         {
             var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
