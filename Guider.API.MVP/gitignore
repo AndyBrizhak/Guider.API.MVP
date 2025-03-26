@@ -6,7 +6,7 @@
 # dotenv files
 .env
 appsettings.json
-appsettings.develoment.json
+appsettings.Develoment.json
 Persistance/Migrations/*.*
 
 # Ignore all autodoc files
