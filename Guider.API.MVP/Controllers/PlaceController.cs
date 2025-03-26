@@ -116,5 +116,17 @@ namespace Guider.API.MVP.Controllers
             var jsonResult = await _placeService.GetNearbyPlacesAsyncCenter(lat, lng, radiusMeters, limit);
             return Content(jsonResult, "application/json");
         }
+
+        [HttpGet("searchByCategoryByTags")]
+        public async Task<IActionResult> GetPlacesNearbyByCategoryByTagsAsync(
+            [FromQuery] decimal lat,
+            [FromQuery] decimal lng,
+            [FromQuery] int maxDistanceMeters,
+        [FromQuery] string category,
+        [FromQuery] List<string>? filterTags = null)
+        {
+            var places = await _placeService.GetPlacesNearbyByCategoryByTagsAsyncAsync(lat, lng, maxDistanceMeters, category, filterTags);
+            return Ok(places);
+        }
     }
 }

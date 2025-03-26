@@ -493,4 +493,3 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
-/Guider.API.MVP/appsettings.Development.json
