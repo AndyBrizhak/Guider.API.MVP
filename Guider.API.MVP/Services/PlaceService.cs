@@ -1,6 +1,7 @@
 ﻿namespace Guider.API.MVP.Services
 {
     using Guider.API.MVP.Models;
+    using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Options;
     using MongoDB.Bson;
     using MongoDB.Driver;
@@ -65,6 +66,9 @@
                     {
                         { "$arrayElemAt", new BsonArray { "$img_link", 0 } } // Первая ссылка на изображение
                     }
+                },
+                {
+                    "web", 1
                 }
             })
         };
@@ -92,10 +96,14 @@
                 { "_id", 1 },
                 { "category", 1 },
                 { "name", 1 },
-                { "location.coordinates", 1 }
+                { "location.coordinates", 1 },
+                {
+                    "web", 1
+                }
+
             }),
             new BsonDocument("$limit", limit) // Ограничение результата
-        };
+            };
 
             var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
             if (results.Count == 0)
@@ -104,5 +112,54 @@
             }
             return results.ToJson();  // Возвращаем JSON-строку
         }
+
+        
+
+        public async Task<string> GetPlacesNearbyByCategoryByTagsAsyncAsync(decimal lat, decimal lng, int maxDistanceMeters, string? category = null, List<string>? filterTags = null)
+        {
+            var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
+        {
+            { "near", new BsonDocument
+                {
+                    { "type", "Point" },
+                    { "coordinates", new BsonArray { lng, lat } }
+                }
+            },
+            { "distanceField", "distance" },
+            { "maxDistance", maxDistanceMeters },
+            { "spherical", true }
+        });
+
+            var projectStage = new BsonDocument("$project", new BsonDocument
+        {
+            { "_id", 1 },
+            { "distance", 1 },
+            { "name", 1 },
+            { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
+            { "web", 1 },
+            { "category", 1 },
+            { "tags", 1 }
+        });
+
+            var pipeline = new[] { geoNearStage, projectStage };
+
+            var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+
+            if (!string.IsNullOrEmpty(category))
+            {
+                results = results.Where(doc => System.Text.RegularExpressions.Regex.IsMatch(doc["category"].AsString, category, System.Text.RegularExpressions.RegexOptions.IgnoreCase)).ToList();
+            }
+
+            if (filterTags != null && filterTags.Any())
+            {
+                results = results.Where(doc =>
+                    doc.Contains("tags") && doc["tags"].IsBsonArray &&
+                    doc["tags"].AsBsonArray.Any(tag => filterTags.Any(filterTag =>
+                        System.Text.RegularExpressions.Regex.IsMatch(tag.AsString, filterTag, System.Text.RegularExpressions.RegexOptions.IgnoreCase)))).ToList();
+            }
+
+            return results.ToJson();
+        }
     }
 }
+
