@@ -19,7 +19,10 @@ namespace Guider.API.MVP.Controllers
             _placeService = placeService;
         }
 
-        // 1️⃣ Получить все документы
+        /// <summary>
+        /// Получить все документы из коллекции Places
+        /// </summary>
+        /// <returns></returns>        
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
