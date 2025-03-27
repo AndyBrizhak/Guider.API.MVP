@@ -24,6 +24,12 @@
         public async Task<BsonDocument?> GetByIdAsync(string id) =>
         await _placeCollection.Find(b => b["_id"] == ObjectId.Parse(id)).FirstOrDefaultAsync();
 
+        public async Task<BsonDocument> GetPlaceByWebAsync(string web)
+        {
+            var filter = Builders<BsonDocument>.Filter.Eq("web", web);
+            return await _placeCollection.Find(filter).FirstOrDefaultAsync();
+        }
+
         public async Task CreateAsync(BsonDocument place) =>
             await _placeCollection.InsertOneAsync(place);
 

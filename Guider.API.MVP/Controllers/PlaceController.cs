@@ -40,6 +40,25 @@ namespace Guider.API.MVP.Controllers
             return Ok(placeJson);
         }
 
+        [HttpGet("search/{web}")]
+        public async Task<ActionResult<string>> GetPlaceByWeb([FromRoute] string web)
+        {
+            if (string.IsNullOrEmpty(web))
+            {
+                return BadRequest("Web parameter is required.");
+            }
+
+            var place = await _placeService.GetPlaceByWebAsync(web);
+
+            if (place == null)
+            {
+                return NotFound($"No place found with web: {web}");
+            }
+
+            var placeJson = place.ToJson();
+            return Ok(placeJson);
+        }
+
         // 3️⃣ Добавить новый документ
         [HttpPost]
         public async Task<IActionResult> Create(BsonDocument place)
