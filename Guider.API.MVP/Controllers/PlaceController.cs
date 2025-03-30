@@ -153,7 +153,10 @@ namespace Guider.API.MVP.Controllers
 
         /// <summary>
         /// Получение списка Places для карты на главной странице, с выводом идентификатора,  
-        /// категории, названия и координат каждого элепмента. Для локаллизации по гео можно использовать условный геометрический центр Коста-Рики, это lat 9.5 и long -84. Для мобильной версии может быть использованы данные по гео из API мобильного устройства.
+        /// категории, названия и координат каждого элепмента. 
+        /// Для локаллизации по гео можно использовать условный геометрический центр Коста-Рики, 
+        /// это lat 9.5 и long -84. 
+        /// Для мобильной версии может быть использованы данные по гео из API мобильного устройства.
         /// </summary>
         /// <param name="lat">Широта в decimal</param>
         /// <param name="lng">Долгота в decimal</param>
@@ -191,5 +194,27 @@ namespace Guider.API.MVP.Controllers
             var places = await _placeService.GetPlacesNearbyByCategoryByTagsAsyncAsync(lat, lng, maxDistanceMeters, category, filterTags);
             return Ok(places);
         }
+
+        /// <summary>
+        /// Получить ближайшие места с текстовым поиском
+        /// </summary>
+        /// <param name="lat">Широта</param>
+        /// <param name="lng">Долгота</param>
+        /// <param name="maxDistanceMeters">Максимальное расстояние в метрах</param>
+        /// <param name="limit">Лимит результатов</param>
+        /// <param name="searchText">Текст для поиска</param>
+        /// <returns>Список ближайших мест в формате JSON</returns>
+        [HttpGet("geonear/search")]
+        public async Task<ActionResult<string>> GetPlacesNearbyWithTextSearch(
+            [FromQuery] decimal lat,
+            [FromQuery] decimal lng,
+            [FromQuery] int maxDistanceMeters,
+            [FromQuery] int limit,
+            [FromQuery] string searchText)
+        {
+            var jsonResult = await _placeService.GetPlacesNearbyWithTextSearchAsync(lat, lng, maxDistanceMeters, limit, searchText);
+            return Content(jsonResult, "application/json");
+        }
+
     }
 }

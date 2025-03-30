@@ -173,7 +173,7 @@
             { "category", 1 },
             { "tags", 1 }
         });
-
+            // Фильтрация по категории
             var pipeline = new[] { geoNearStage, projectStage };
 
             var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
@@ -193,6 +193,57 @@
 
             return results.ToJson();
         }
+
+        public async Task<string> GetPlacesNearbyWithTextSearchAsync(decimal lat, decimal lng, int maxDistanceMeters, int limit, string searchText)
+        {
+            var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
+    {
+        { "near", new BsonDocument
+            {
+                { "type", "Point" },
+                { "coordinates", new BsonArray { lng, lat } }
+            }
+        },
+        { "distanceField", "distance" },
+        { "maxDistance", maxDistanceMeters },
+        { "spherical", true }
+    });
+
+            var matchStage = new BsonDocument("$match", new BsonDocument
+    {
+        { "$or", new BsonArray
+            {
+                new BsonDocument("name", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                new BsonDocument("description", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                new BsonDocument("address.city", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                new BsonDocument("address.country", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                new BsonDocument("address.province", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                new BsonDocument("address.street", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                new BsonDocument("category", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                new BsonDocument("keywords", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                new BsonDocument("tags", new BsonDocument("$regex", searchText).Add("$options", "i"))
+            }
+        }
+    });
+
+            var projectStage = new BsonDocument("$project", new BsonDocument
+    {
+        { "_id", 1 },
+        { "distance", 1 },
+        { "name", 1 },
+        { "address.city", 1 },
+        { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
+        { "web", 1 }
+    });
+
+            var limitStage = new BsonDocument("$limit", limit);
+
+            var pipeline = new[] { geoNearStage, matchStage, projectStage, limitStage };
+
+            var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+            return results.ToJson();
+        }
+
     }
 }
 
