@@ -22,7 +22,7 @@ namespace Guider.API.MVP.Controllers
         /// <summary>
         /// Получить все документы из коллекции Places
         /// </summary>
-        /// <returns></returns>        
+        /// <returns>Список документов в формате JSON</returns>      
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -30,7 +30,11 @@ namespace Guider.API.MVP.Controllers
             return Ok(places.ToJson());
         }
 
-        // 2️⃣ Получить документ по ID
+        /// <summary>
+        /// Получить документ по ID
+        /// </summary>
+        /// <param name="id">Идентификатор документа</param>
+        /// <returns>Документ в формате JSON</returns>
         [HttpGet("{id}")]
         public async Task<ActionResult<string>> GetById(string id)
         {
@@ -40,41 +44,62 @@ namespace Guider.API.MVP.Controllers
             return Ok(placeJson);
         }
 
-        [HttpGet("search/{web}")]
-        public async Task<ActionResult<string>> GetPlaceByWeb([FromRoute] string web)
+        //[HttpGet("search/{web}")]
+        //public async Task<ActionResult<string>> GetPlaceByWeb([FromRoute] string web)
+        //{
+        //    if (string.IsNullOrEmpty(web))
+        //    {
+        //        return BadRequest("Web parameter is required.");
+        //    }
+
+        //    var place = await _placeService.GetPlaceByWebAsync(web);
+
+        //    if (place == null)
+        //    {
+        //        return NotFound($"No place found with web: {web}");
+        //    }
+
+        //    var placeJson = place.ToJson();
+        //    return Ok(placeJson);
+        //}
+
+        /// <summary>
+        /// Получить документ по ID из заголовка
+        /// </summary>
+        /// <param name="web">Веб параметр</param>
+        /// <param name="id">Идентификатор документа</param>
+        /// <returns>Документ в формате JSON</returns>
+        [HttpGet("place/id")]
+        public async Task<ActionResult<string>> GetPlaceByIdFromHeader(
+            [FromQuery] string web,
+             [FromQuery] string id)
         {
-            if (string.IsNullOrEmpty(web))
+            var result = await _placeService.GetPlaceByIdFromHeaderAsync(id);
+
+            if (result == null)
             {
-                return BadRequest("Web parameter is required.");
+                return NotFound(new { message = "Place not found" });
             }
 
-            var place = await _placeService.GetPlaceByWebAsync(web);
-
-            if (place == null)
-            {
-                return NotFound($"No place found with web: {web}");
-            }
-
-            var placeJson = place.ToJson();
-            return Ok(placeJson);
+            return Ok(result.ToJson());
         }
 
         // 3️⃣ Добавить новый документ
-        [HttpPost]
-        public async Task<IActionResult> Create(BsonDocument place)
-        {
-            await _placeService.CreateAsync(place);
+        //[HttpPost]
+        //public async Task<IActionResult> Create(BsonDocument place)
+        //{
+        //    await _placeService.CreateAsync(place);
 
-            // Получаем сгенерированный _id из BsonDocument
-            var id = place.Contains("_id") ? place["_id"].ToString() : null;
+        //    // Получаем сгенерированный _id из BsonDocument
+        //    var id = place.Contains("_id") ? place["_id"].ToString() : null;
 
-            if (id == null)
-            {
-                return BadRequest("Не удалось получить _id нового документа.");
-            }
+        //    if (id == null)
+        //    {
+        //        return BadRequest("Не удалось получить _id нового документа.");
+        //    }
 
-            return CreatedAtAction(nameof(GetById), new { id }, place);
-        }
+        //    return CreatedAtAction(nameof(GetById), new { id }, place);
+        //}
 
         // 4️⃣ Обновить документ по ID
         //[HttpPut("{id}")]
@@ -108,7 +133,14 @@ namespace Guider.API.MVP.Controllers
         //    return NoContent();
         //}
 
-        [HttpGet("nearby")]
+        /// <summary>
+        /// Получить ближайшие места
+        /// </summary>
+        /// <param name="lat">Широта</param>
+        /// <param name="lng">Долгота</param>
+        /// <param name="maxDistance">Максимальное расстояние</param>
+        /// <returns>Список ближайших мест в формате JSON</returns>
+        [HttpGet("geonear")]
         public async Task<ActionResult<string>> GetNearbyPlaces(
         [FromHeader(Name = "X-Latitude")] decimal lat,
         [FromHeader(Name = "X-Longitude")] decimal lng,
@@ -127,8 +159,8 @@ namespace Guider.API.MVP.Controllers
         /// <param name="lng">Долгота в decimal</param>
         /// <param name="radiusMeters">Радиус в метрах</param>
         /// <param name="limit">Лимит выводимых объектов на карте в integer</param>
-        /// <returns></returns>
-        [HttpGet("nearbyCenter")]
+        /// <returns>Список ближайших мест в формате JSON</returns>
+        [HttpGet("geonearlimit")]
         public async Task<ActionResult<string>> GetNearbyPlacesCenter(
         [FromHeader] decimal lat,
         [FromHeader] decimal lng,
@@ -139,7 +171,16 @@ namespace Guider.API.MVP.Controllers
             return Content(jsonResult, "application/json");
         }
 
-        [HttpGet("searchByCategoryByTags")]
+        /// <summary>
+        /// Получить места по категории и тегам
+        /// </summary>
+        /// <param name="lat">Широта</param>
+        /// <param name="lng">Долгота</param>
+        /// <param name="maxDistanceMeters">Максимальное расстояние в метрах</param>
+        /// <param name="category">Категория</param>
+        /// <param name="filterTags">Теги для фильтрации</param>
+        /// <returns>Список мест в формате JSON</returns>
+        [HttpGet("geo/category/tags")]
         public async Task<IActionResult> GetPlacesNearbyByCategoryByTagsAsync(
             [FromQuery] decimal lat,
             [FromQuery] decimal lng,

@@ -21,17 +21,44 @@
         public async Task<List<BsonDocument>> GetAllAsync() =>
             await _placeCollection.Find(_ => true).ToListAsync();
 
-        public async Task<BsonDocument?> GetByIdAsync(string id) =>
-        await _placeCollection.Find(b => b["_id"] == ObjectId.Parse(id)).FirstOrDefaultAsync();
+        //public async Task<BsonDocument?> GetByIdAsync(string id) =>
+        //await _placeCollection.Find(b => b["_id"] == ObjectId.Parse(id)).FirstOrDefaultAsync();
+        public async Task<BsonDocument?> GetByIdAsync(string id)
+        {
+            if (!ObjectId.TryParse(id, out var objectId))
+            {
+                return null; // Если id невалидный, просто возвращаем null
+            }
+
+            var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+            return await _placeCollection.Find(filter).FirstOrDefaultAsync();
+        }
 
         public async Task<BsonDocument> GetPlaceByWebAsync(string web)
         {
+            if (string.IsNullOrEmpty(web))
+            {
+                return null; // Избегаем ненужного запроса, если параметр пустой
+            }
+
             var filter = Builders<BsonDocument>.Filter.Eq("web", web);
             return await _placeCollection.Find(filter).FirstOrDefaultAsync();
         }
 
-        public async Task CreateAsync(BsonDocument place) =>
-            await _placeCollection.InsertOneAsync(place);
+        public async Task<BsonDocument?> GetPlaceByIdFromHeaderAsync(string id)
+        {
+            if (!ObjectId.TryParse(id, out var objectId))
+            {
+                return null; // Защита от невалидного ObjectId
+            }
+
+            var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+            return await _placeCollection.Find(filter).FirstOrDefaultAsync();
+        }
+
+
+        //public async Task CreateAsync(BsonDocument place) =>
+        //    await _placeCollection.InsertOneAsync(place);
 
         //public async Task UpdateAsync(string id, BsonDocument updatedPlace)
         //{
@@ -44,7 +71,7 @@
         //    var filter = Builders<BsonDocument>.Filter.Eq("_id", ObjectId.Parse(id));
         //    return await _placeCollection.DeleteOneAsync(filter);
         //}
-        
+
 
         // Гео с выводом отсортированного списка с id, distance, name, img_link
         public async Task<string> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters)
