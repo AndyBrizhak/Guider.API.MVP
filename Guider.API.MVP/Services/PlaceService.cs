@@ -17,7 +17,7 @@
             var database = client.GetDatabase(mongoSettings.Value.DatabaseName);
             _placeCollection = database.GetCollection<BsonDocument>(mongoSettings.Value.CollectionName);
         }
-
+        // Получить все документы из коллекции Places
         public async Task<List<BsonDocument>> GetAllAsync() =>
             await _placeCollection.Find(_ => true).ToListAsync();
 
