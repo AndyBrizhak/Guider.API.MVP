@@ -33,7 +33,7 @@
             var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
             return await _placeCollection.Find(filter).FirstOrDefaultAsync();
         }
-
+        // Получить документ по имени
         public async Task<BsonDocument> GetPlaceByWebAsync(string web)
         {
             if (string.IsNullOrEmpty(web))
