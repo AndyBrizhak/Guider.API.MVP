@@ -17,15 +17,48 @@
             var database = client.GetDatabase(mongoSettings.Value.DatabaseName);
             _placeCollection = database.GetCollection<BsonDocument>(mongoSettings.Value.CollectionName);
         }
-
+        // Получить все документы из коллекции Places
         public async Task<List<BsonDocument>> GetAllAsync() =>
             await _placeCollection.Find(_ => true).ToListAsync();
 
-        public async Task<BsonDocument?> GetByIdAsync(string id) =>
-        await _placeCollection.Find(b => b["_id"] == ObjectId.Parse(id)).FirstOrDefaultAsync();
+        //public async Task<BsonDocument?> GetByIdAsync(string id) =>
+        //await _placeCollection.Find(b => b["_id"] == ObjectId.Parse(id)).FirstOrDefaultAsync();
+        public async Task<BsonDocument?> GetByIdAsync(string id)
+        {
+            if (!ObjectId.TryParse(id, out var objectId))
+            {
+                return null; // Если id невалидный, просто возвращаем null
+            }
 
-        public async Task CreateAsync(BsonDocument place) =>
-            await _placeCollection.InsertOneAsync(place);
+            var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+            return await _placeCollection.Find(filter).FirstOrDefaultAsync();
+        }
+        // Получить документ по имени
+        public async Task<BsonDocument> GetPlaceByWebAsync(string web)
+        {
+            if (string.IsNullOrEmpty(web))
+            {
+                return null; // Избегаем ненужного запроса, если параметр пустой
+            }
+
+            var filter = Builders<BsonDocument>.Filter.Eq("web", web);
+            return await _placeCollection.Find(filter).FirstOrDefaultAsync();
+        }
+
+        public async Task<BsonDocument?> GetPlaceByIdFromHeaderAsync(string id)
+        {
+            if (!ObjectId.TryParse(id, out var objectId))
+            {
+                return null; // Защита от невалидного ObjectId
+            }
+
+            var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+            return await _placeCollection.Find(filter).FirstOrDefaultAsync();
+        }
+
+
+        //public async Task CreateAsync(BsonDocument place) =>
+        //    await _placeCollection.InsertOneAsync(place);
 
         //public async Task UpdateAsync(string id, BsonDocument updatedPlace)
         //{
@@ -38,7 +71,7 @@
         //    var filter = Builders<BsonDocument>.Filter.Eq("_id", ObjectId.Parse(id));
         //    return await _placeCollection.DeleteOneAsync(filter);
         //}
-        
+
 
         // Гео с выводом отсортированного списка с id, distance, name, img_link
         public async Task<string> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters)
@@ -140,7 +173,7 @@
             { "category", 1 },
             { "tags", 1 }
         });
-
+            // Фильтрация по категории
             var pipeline = new[] { geoNearStage, projectStage };
 
             var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
@@ -160,6 +193,57 @@
 
             return results.ToJson();
         }
+
+        public async Task<string> GetPlacesNearbyWithTextSearchAsync(decimal lat, decimal lng, int maxDistanceMeters, int limit, string searchText)
+        {
+            var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
+    {
+        { "near", new BsonDocument
+            {
+                { "type", "Point" },
+                { "coordinates", new BsonArray { lng, lat } }
+            }
+        },
+        { "distanceField", "distance" },
+        { "maxDistance", maxDistanceMeters },
+        { "spherical", true }
+    });
+
+            var matchStage = new BsonDocument("$match", new BsonDocument
+    {
+        { "$or", new BsonArray
+            {
+                new BsonDocument("name", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                new BsonDocument("description", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                new BsonDocument("address.city", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                new BsonDocument("address.country", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                new BsonDocument("address.province", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                new BsonDocument("address.street", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                new BsonDocument("category", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                new BsonDocument("keywords", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                new BsonDocument("tags", new BsonDocument("$regex", searchText).Add("$options", "i"))
+            }
+        }
+    });
+
+            var projectStage = new BsonDocument("$project", new BsonDocument
+    {
+        { "_id", 1 },
+        { "distance", 1 },
+        { "name", 1 },
+        { "address.city", 1 },
+        { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
+        { "web", 1 }
+    });
+
+            var limitStage = new BsonDocument("$limit", limit);
+
+            var pipeline = new[] { geoNearStage, matchStage, projectStage, limitStage };
+
+            var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+            return results.ToJson();
+        }
+
     }
 }
 

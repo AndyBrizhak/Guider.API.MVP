@@ -495,3 +495,5 @@ $RECYCLE.BIN/
 *.swp
 
 /Guider.API.MVP/appsettings.Development.json
+/Guider.API.MVP/gitignore
+/Guider.API.MVP/gitattributes
