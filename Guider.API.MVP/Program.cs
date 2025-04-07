@@ -12,8 +12,9 @@ using Microsoft.AspNetCore.Identity.UI.Services; // Add this using directive
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQLSettings")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL")));
 
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options => 
 options.SignIn.RequireConfirmedAccount = true)
