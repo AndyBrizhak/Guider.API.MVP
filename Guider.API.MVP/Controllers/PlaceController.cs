@@ -23,12 +23,32 @@ namespace Guider.API.MVP.Controllers
         /// Получить все документы из коллекции Places
         /// </summary>
         /// <returns>Список документов в формате JSON</returns>      
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
+        //[HttpGet]
+        //public async Task<IActionResult> GetAll()
+        //{
+        //    var places = await _placeService.GetAllAsync();
+        //    return Ok(places.ToJson());
+        //}
+
+
+        /// <summary>
+        /// Получить по странично все документы коллекции,
+        /// с размером не более 20 документов
+        /// </summary>
+        /// <param name="pageNumber">Номер страницы</param>
+        /// <param name="pageSize">Размер страницы, не более 20</param>
+        /// <returns></returns>
+        [HttpGet("paged")]
+        public async Task<IActionResult> GetAllPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
         {
-            var places = await _placeService.GetAllAsync();
+            // Ограничиваем максимальный размер страницы до 20
+            pageSize = Math.Min(pageSize, 20);
+
+            var places = await _placeService.GetAllPagedAsync(pageNumber, pageSize);
             return Ok(places.ToJson());
         }
+
+
 
         /// <summary>
         /// Получить документ по ID

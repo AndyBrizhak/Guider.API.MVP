@@ -17,12 +17,37 @@
             var database = client.GetDatabase(mongoSettings.Value.DatabaseName);
             _placeCollection = database.GetCollection<BsonDocument>(mongoSettings.Value.CollectionName);
         }
-        // Получить все документы из коллекции Places
+
+        /// <summary>
+        /// Получить все документы из коллекции Places
+        /// </summary>
+        /// <returns></returns>
         public async Task<List<BsonDocument>> GetAllAsync() =>
             await _placeCollection.Find(_ => true).ToListAsync();
 
+        /// <summary>
+        /// Получить документы из коллекции с пагинацией
+        /// </summary>
+        /// <param name="pageNumber">Номер страницы</param>
+        /// <param name="pageSize">Размер страницы</param>
+        /// <returns></returns>
+        public async Task<List<BsonDocument>> GetAllPagedAsync(int pageNumber, int pageSize)
+        {
+            return await _placeCollection.Find(_ => true)
+                .Skip((pageNumber - 1) * pageSize)
+                .Limit(pageSize)
+                .ToListAsync();
+        }
+
+
+
         //public async Task<BsonDocument?> GetByIdAsync(string id) =>
         //await _placeCollection.Find(b => b["_id"] == ObjectId.Parse(id)).FirstOrDefaultAsync();
+        /// <summary>
+        /// Получить объект по идентификатору
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
         public async Task<BsonDocument?> GetByIdAsync(string id)
         {
             if (!ObjectId.TryParse(id, out var objectId))
@@ -33,7 +58,12 @@
             var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
             return await _placeCollection.Find(filter).FirstOrDefaultAsync();
         }
-        // Получить документ по имени
+
+        /// <summary>
+        /// Получить документ по локальнуому url
+        /// </summary>
+        /// <param name="web"></param>
+        /// <returns></returns>
         public async Task<BsonDocument> GetPlaceByWebAsync(string web)
         {
             if (string.IsNullOrEmpty(web))
@@ -45,6 +75,11 @@
             return await _placeCollection.Find(filter).FirstOrDefaultAsync();
         }
 
+        /// <summary>
+        /// Получить объект по идентификатору из параметров запроса
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
         public async Task<BsonDocument?> GetPlaceByIdFromHeaderAsync(string id)
         {
             if (!ObjectId.TryParse(id, out var objectId))
@@ -73,7 +108,13 @@
         //}
 
 
-        // Гео с выводом отсортированного списка с id, distance, name, img_link
+        /// <summary>
+        /// Гео с выводом отсортированного списка с id, distance, name, img_link
+        /// </summary>
+        /// <param name="lat"></param>
+        /// <param name="lng"></param>
+        /// <param name="maxDistanceMeters"></param>
+        /// <returns></returns>
         public async Task<string> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters)
         {
             var pipeline = new[]
@@ -110,6 +151,14 @@
             return result.ToJson();
         }
 
+        /// <summary>
+        /// Получить отсортированный по дистанции список данных об объектах 
+        /// </summary>
+        /// <param name="latitude"></param>
+        /// <param name="longitude"></param>
+        /// <param name="radiusMeters"></param>
+        /// <param name="limit"></param>
+        /// <returns></returns>
         public async Task<string> GetNearbyPlacesAsyncCenter(decimal latitude, decimal longitude, int radiusMeters, int limit)
         {
             var pipeline = new[]
@@ -147,7 +196,16 @@
         }
 
 
-        // Гео поиск по категории и тегам
+        /// <summary>
+        /// Гео поиск по категории и тегам c выводом отсортироанного по дистанции категории и тегам
+        /// списка данных об объектах
+        /// </summary>
+        /// <param name="lat"></param>
+        /// <param name="lng"></param>
+        /// <param name="maxDistanceMeters"></param>
+        /// <param name="category"></param>
+        /// <param name="filterTags"></param>
+        /// <returns></returns>
         public async Task<string> GetPlacesNearbyByCategoryByTagsAsyncAsync(decimal lat, decimal lng, int maxDistanceMeters, string? category = null, List<string>? filterTags = null)
         {
             var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
@@ -194,47 +252,56 @@
             return results.ToJson();
         }
 
+        /// <summary>
+        /// Получить отсоритрованный список по дистанции с текстовым поиском
+        /// </summary>
+        /// <param name="lat"></param>
+        /// <param name="lng"></param>
+        /// <param name="maxDistanceMeters"></param>
+        /// <param name="limit"></param>
+        /// <param name="searchText"></param>
+        /// <returns></returns>
         public async Task<string> GetPlacesNearbyWithTextSearchAsync(decimal lat, decimal lng, int maxDistanceMeters, int limit, string searchText)
         {
             var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
-    {
-        { "near", new BsonDocument
             {
-                { "type", "Point" },
-                { "coordinates", new BsonArray { lng, lat } }
-            }
-        },
-        { "distanceField", "distance" },
-        { "maxDistance", maxDistanceMeters },
-        { "spherical", true }
-    });
+                { "near", new BsonDocument
+                    {
+                        { "type", "Point" },
+                        { "coordinates", new BsonArray { lng, lat } }
+                    }
+                },
+                { "distanceField", "distance" },
+                { "maxDistance", maxDistanceMeters },
+                { "spherical", true }
+            });
 
             var matchStage = new BsonDocument("$match", new BsonDocument
-    {
-        { "$or", new BsonArray
-            {
-                new BsonDocument("name", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                new BsonDocument("description", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                new BsonDocument("address.city", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                new BsonDocument("address.country", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                new BsonDocument("address.province", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                new BsonDocument("address.street", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                new BsonDocument("category", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                new BsonDocument("keywords", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                new BsonDocument("tags", new BsonDocument("$regex", searchText).Add("$options", "i"))
-            }
-        }
-    });
+                {
+                    { "$or", new BsonArray
+                        {
+                            new BsonDocument("name", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                            new BsonDocument("description", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                            new BsonDocument("address.city", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                            new BsonDocument("address.country", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                            new BsonDocument("address.province", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                            new BsonDocument("address.street", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                            new BsonDocument("category", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                            new BsonDocument("keywords", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                            new BsonDocument("tags", new BsonDocument("$regex", searchText).Add("$options", "i"))
+                         }
+                    }
+                });
 
             var projectStage = new BsonDocument("$project", new BsonDocument
-    {
-        { "_id", 1 },
-        { "distance", 1 },
-        { "name", 1 },
-        { "address.city", 1 },
-        { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
-        { "web", 1 }
-    });
+                {
+                    { "_id", 1 },
+                    { "distance", 1 },
+                    { "name", 1 },
+                    { "address.city", 1 },
+                    { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
+                    { "web", 1 }
+                });
 
             var limitStage = new BsonDocument("$limit", limit);
 
