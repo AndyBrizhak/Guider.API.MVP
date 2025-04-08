@@ -311,7 +311,76 @@
             return results;
         }
 
+        public async Task<List<BsonDocument>> GetPlacesWithKeywordsListAsync(
+      decimal lat,
+      decimal lng,
+      int maxDistanceMeters,
+      int limit,
+      List<string>? filterKeywords)
+        {
+            var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
+    {
+        { "near", new BsonDocument
+            {
+                { "type", "Point" },
+                { "coordinates", new BsonArray { lng, lat } }
+            }
+        },
+        { "distanceField", "distance" },
+        { "maxDistance", maxDistanceMeters },
+        { "spherical", true }
+    });
 
+            // Если список ключевых слов не пуст, создаем стадию $match
+            BsonDocument? matchStage = null;
+            if (filterKeywords != null && filterKeywords.Any())
+            {
+                var orConditions = new BsonArray();
+                foreach (var keyword in filterKeywords)
+                {
+                    if (!string.IsNullOrWhiteSpace(keyword))
+                    {
+                        orConditions.Add(new BsonDocument("name", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        orConditions.Add(new BsonDocument("description", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        orConditions.Add(new BsonDocument("address.city", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        orConditions.Add(new BsonDocument("address.country", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        orConditions.Add(new BsonDocument("address.province", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        orConditions.Add(new BsonDocument("address.street", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        orConditions.Add(new BsonDocument("category", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        orConditions.Add(new BsonDocument("keywords", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        orConditions.Add(new BsonDocument("tags", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                    }
+                }
+
+                if (orConditions.Count > 0)
+                {
+                    matchStage = new BsonDocument("$match", new BsonDocument
+            {
+                { "$or", orConditions }
+            });
+                }
+            }
+
+            var projectStage = new BsonDocument("$project", new BsonDocument
+    {
+        { "_id", 1 },
+        { "distance", 1 },
+        { "name", 1 },
+        { "address.city", 1 },
+        { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
+        { "web", 1 }
+    });
+
+            var limitStage = new BsonDocument("$limit", limit);
+
+            // Формируем пайплайн в зависимости от наличия matchStage
+            var pipeline = matchStage != null
+                ? new[] { geoNearStage, matchStage, projectStage, limitStage }
+                : new[] { geoNearStage, projectStage, limitStage };
+
+            var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+            return results;
+        }
 
     }
 }

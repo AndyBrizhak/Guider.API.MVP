@@ -45,6 +45,11 @@ namespace Guider.API.MVP.Controllers
         [HttpGet("paged")]
         public async Task<ActionResult<string>> GetAllPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
         {
+            // Проверяем, что pageNumber больше 0
+            if (pageNumber < 1)
+            {
+                pageNumber = 1; // Устанавливаем значение по умолчанию
+            }
             // Ограничиваем максимальный размер страницы до 20
             pageSize = Math.Min(pageSize, 20);
 
@@ -295,6 +300,24 @@ namespace Guider.API.MVP.Controllers
                 limit = 100; 
             }
 
+            if (string.IsNullOrWhiteSpace(searchText))
+            {
+                _response.StatusCode = HttpStatusCode.BadRequest;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add("Search text cannot be empty.");
+                return BadRequest(_response);
+            }
+
+            // Проверка на наличие пробелов в строке    
+            if (searchText.Contains(" "))
+            {
+                _response.StatusCode = HttpStatusCode.BadRequest;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add("Search text cannot contain spaces.");
+                return BadRequest(_response);
+            }
+            
+
             var places = await _placeService.GetPlacesNearbyWithTextSearchAsync(lat, lng, maxDistanceMeters, limit, searchText);
             if (places == null || places.Count == 0)
             {
@@ -307,5 +330,51 @@ namespace Guider.API.MVP.Controllers
             return Content(places.ToJson(), "application/json");
         }
 
+        /// <summary>
+        /// Получить ближайшие места с любым из ключевых слов
+        /// </summary>
+        /// <param name="lat"></param>
+        /// <param name="lng"></param>
+        /// <param name="maxDistanceMeters"></param>
+        /// <param name="limit"></param>
+        /// <param name="filterKeywords"></param>
+        /// <returns></returns>
+        [HttpGet("nearby-with-keywords")]
+        public async Task<ActionResult<string>> GetPlacesWithKeywordsList(
+            [FromQuery] decimal lat,
+            [FromQuery] decimal lng,
+            [FromQuery] int maxDistanceMeters,
+            [FromQuery] int limit,
+            [FromQuery] List<string>? filterKeywords)
+        {
+            // Проверка и корректировка значения limit
+            if (limit < 1)
+            {
+                limit = 1;
+            }
+            else if (limit > 100)
+            {
+                limit = 100;
+            }
+
+            // Проверка filterKeywords на null и пустой список
+            if (filterKeywords == null || !filterKeywords.Any())
+            {
+                _response.StatusCode = HttpStatusCode.NotFound;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add("Filter keywords list is empty or not provided.");
+                return NotFound(_response);
+            }
+
+            var places = await _placeService.GetPlacesWithKeywordsListAsync(lat, lng, maxDistanceMeters, limit, filterKeywords);
+            if (places == null || places.Count == 0)
+            {
+                _response.StatusCode = HttpStatusCode.NotFound;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add($"No places found with the provided filters.");
+                return NotFound(_response);
+            }
+            return Content(places.ToJson(), "application/json");
+        }
     }
 }
