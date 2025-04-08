@@ -85,9 +85,9 @@ namespace Guider.API.MVP.Controllers
                 _response.ErrorMessages.Add($"Place with id {id} not found.");
                 return NotFound(_response);
             }
-            _response.Result = place.ToJson();
-            _response.StatusCode = HttpStatusCode.OK;
-            return Ok(_response);
+            //_response.Result = place.ToJson();
+            //_response.StatusCode = HttpStatusCode.OK;
+            return Ok(place.ToJson());
         }
 
         //[HttpGet("search/{web}")]
@@ -110,7 +110,7 @@ namespace Guider.API.MVP.Controllers
         //}
 
         /// <summary>
-        /// Получить документ по ID из заголовка
+        /// Получить документ по web и ID из заголовка
         /// </summary>
         /// <param name="web">Веб параметр</param>
         /// <param name="id">Идентификатор документа</param>
@@ -129,9 +129,8 @@ namespace Guider.API.MVP.Controllers
                 _response.ErrorMessages.Add($"Place with id {id} not found.");
                 return NotFound(_response);
             }
-            _response.Result = place.ToJson();
-            _response.StatusCode = HttpStatusCode.OK;
-            return Ok(_response);
+            
+            return Ok(place.ToJson());
         }
 
         // 3️⃣ Добавить новый документ

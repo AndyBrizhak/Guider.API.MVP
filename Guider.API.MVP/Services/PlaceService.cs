@@ -312,24 +312,24 @@
         }
 
         public async Task<List<BsonDocument>> GetPlacesWithKeywordsListAsync(
-      decimal lat,
-      decimal lng,
-      int maxDistanceMeters,
-      int limit,
-      List<string>? filterKeywords)
+          decimal lat,
+          decimal lng,
+          int maxDistanceMeters,
+          int limit,
+          List<string>? filterKeywords)
         {
             var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
-    {
-        { "near", new BsonDocument
             {
-                { "type", "Point" },
-                { "coordinates", new BsonArray { lng, lat } }
-            }
-        },
-        { "distanceField", "distance" },
-        { "maxDistance", maxDistanceMeters },
-        { "spherical", true }
-    });
+                { "near", new BsonDocument
+                    {
+                        { "type", "Point" },
+                        { "coordinates", new BsonArray { lng, lat } }
+                    }
+                },
+                { "distanceField", "distance" },
+                { "maxDistance", maxDistanceMeters },
+                { "spherical", true }
+            });
 
             // Если список ключевых слов не пуст, создаем стадию $match
             BsonDocument? matchStage = null;
