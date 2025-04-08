@@ -375,5 +375,53 @@ namespace Guider.API.MVP.Controllers
             }
             return Content(places.ToJson(), "application/json");
         }
+
+        /// <summary>
+        /// Получить ближайшие места, содержащие все указанные ключевые слова
+        /// </summary>
+        /// <param name="lat">Широта</param>
+        /// <param name="lng">Долгота</param>
+        /// <param name="maxDistanceMeters">Максимальное расстояние в метрах</param>
+        /// <param name="limit">Максимальное количество результатов</param>
+        /// <param name="filterKeywords">Список ключевых слов (обязательны все слова)</param>
+        /// <returns>Список найденных мест</returns>
+        [HttpGet("nearby-with-all-keywords")]
+        public async Task<ActionResult<string>> GetPlacesWithAllKeywords(
+            [FromQuery] decimal lat,
+            [FromQuery] decimal lng,
+            [FromQuery] int maxDistanceMeters,
+            [FromQuery] int limit,
+            [FromQuery] List<string>? filterKeywords)
+        {
+            // Проверка и корректировка значения limit
+            if (limit < 1)
+            {
+                limit = 1;
+            }
+            else if (limit > 100)
+            {
+                limit = 100;
+            }
+
+            // Проверка filterKeywords на null и пустой список
+            if (filterKeywords == null || !filterKeywords.Any())
+            {
+                _response.StatusCode = HttpStatusCode.NotFound;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add("Filter keywords list is empty or not provided.");
+                return NotFound(_response);
+            }
+
+            var places = await _placeService.GetPlacesWithAllKeywordsAsync(lat, lng, maxDistanceMeters, limit, filterKeywords);
+            if (places == null || places.Count == 0)
+            {
+                _response.StatusCode = HttpStatusCode.NotFound;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add($"No places found with all the provided keywords.");
+                return NotFound(_response);
+            }
+
+            return Content(places.ToJson(), "application/json");
+        }
     }
 }

@@ -382,6 +382,84 @@
             return results;
         }
 
+        public async Task<List<BsonDocument>> GetPlacesWithAllKeywordsAsync(
+            decimal lat,
+            decimal lng,
+            int maxDistanceMeters,
+            int limit,
+            List<string>? filterKeywords)
+        {
+            var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
+                {
+                    { "near", new BsonDocument
+                        {
+                            { "type", "Point" },
+                            { "coordinates", new BsonArray { lng, lat } }
+                        }
+                    },
+                    { "distanceField", "distance" },
+                    { "maxDistance", maxDistanceMeters },
+                    { "spherical", true }
+                });
+
+            // Если список ключевых слов не пуст, создаем стадию $match
+            BsonDocument? matchStage = null;
+            if (filterKeywords != null && filterKeywords.Any())
+            {
+                // Создаем массив для условий AND
+                var andConditions = new BsonArray();
+
+                foreach (var keyword in filterKeywords)
+                {
+                    if (!string.IsNullOrWhiteSpace(keyword))
+                    {
+                        // Для каждого ключевого слова создаем OR-условие для всех полей
+                        var fieldsOrCondition = new BsonArray();
+                        fieldsOrCondition.Add(new BsonDocument("name", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        fieldsOrCondition.Add(new BsonDocument("description", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        fieldsOrCondition.Add(new BsonDocument("address.city", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        fieldsOrCondition.Add(new BsonDocument("address.country", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        fieldsOrCondition.Add(new BsonDocument("address.province", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        fieldsOrCondition.Add(new BsonDocument("address.street", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        fieldsOrCondition.Add(new BsonDocument("category", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        fieldsOrCondition.Add(new BsonDocument("keywords", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        fieldsOrCondition.Add(new BsonDocument("tags", new BsonDocument("$regex", keyword).Add("$options", "i")));
+
+                        // Добавляем это OR-условие как один из элементов в массив AND-условий
+                        andConditions.Add(new BsonDocument("$or", fieldsOrCondition));
+                    }
+                }
+
+                if (andConditions.Count > 0)
+                {
+                    matchStage = new BsonDocument("$match", new BsonDocument
+                    {
+                        { "$and", andConditions }
+                    });
+                }
+            }
+
+            var projectStage = new BsonDocument("$project", new BsonDocument
+                {
+                    { "_id", 1 },
+                    { "distance", 1 },
+                    { "name", 1 },
+                    { "address.city", 1 },
+                    { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
+                    { "web", 1 }
+                });
+
+            var limitStage = new BsonDocument("$limit", limit);
+
+            // Формируем пайплайн в зависимости от наличия matchStage
+            var pipeline = matchStage != null
+                ? new[] { geoNearStage, matchStage, projectStage, limitStage }
+                : new[] { geoNearStage, projectStage, limitStage };
+
+            var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+            return results;
+        }
+
     }
 }
 
