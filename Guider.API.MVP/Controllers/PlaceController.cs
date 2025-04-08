@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using System.Collections.Generic;
+using System.Net;
+using System.Numerics;
 using System.Threading.Tasks;
 
 namespace Guider.API.MVP.Controllers
@@ -13,10 +15,12 @@ namespace Guider.API.MVP.Controllers
     public class PlaceController : ControllerBase
     {
         private readonly PlaceService _placeService;
+        private ApiResponse _response;
 
         public PlaceController(PlaceService placeService)
         {
             _placeService = placeService;
+            _response = new ApiResponse();
         }
 
         /// <summary>
@@ -39,12 +43,19 @@ namespace Guider.API.MVP.Controllers
         /// <param name="pageSize">Размер страницы, не более 20</param>
         /// <returns></returns>
         [HttpGet("paged")]
-        public async Task<IActionResult> GetAllPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+        public async Task<ActionResult<string>> GetAllPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
         {
             // Ограничиваем максимальный размер страницы до 20
             pageSize = Math.Min(pageSize, 20);
 
             var places = await _placeService.GetAllPagedAsync(pageNumber, pageSize);
+            if (places == null || places.Count == 0)
+            {
+                _response.StatusCode = HttpStatusCode.NotFound;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add("No places found.");
+                return NotFound(_response);
+            }
             return Ok(places.ToJson());
         }
 
@@ -59,9 +70,19 @@ namespace Guider.API.MVP.Controllers
         public async Task<ActionResult<string>> GetById(string id)
         {
             var place = await _placeService.GetByIdAsync(id);
-            if (place == null) return NotFound();
-            var placeJson = place.ToJson();
-            return Ok(placeJson);
+            //if (place == null) return NotFound();
+            //var placeJson = place.ToJson();
+            //return Ok(placeJson);
+            if (place == null)
+            {
+                _response.StatusCode = HttpStatusCode.NotFound;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add($"Place with id {id} not found.");
+                return NotFound(_response);
+            }
+            _response.Result = place.ToJson();
+            _response.StatusCode = HttpStatusCode.OK;
+            return Ok(_response);
         }
 
         //[HttpGet("search/{web}")]
@@ -94,14 +115,18 @@ namespace Guider.API.MVP.Controllers
             [FromQuery] string web,
              [FromQuery] string id)
         {
-            var result = await _placeService.GetPlaceByIdFromHeaderAsync(id);
+            var place = await _placeService.GetPlaceByIdFromHeaderAsync(id);
 
-            if (result == null)
+            if (place == null)
             {
-                return NotFound(new { message = "Place not found" });
+                _response.StatusCode = HttpStatusCode.NotFound;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add($"Place with id {id} not found.");
+                return NotFound(_response);
             }
-
-            return Ok(result.ToJson());
+            _response.Result = place.ToJson();
+            _response.StatusCode = HttpStatusCode.OK;
+            return Ok(_response);
         }
 
         // 3️⃣ Добавить новый документ
@@ -166,8 +191,18 @@ namespace Guider.API.MVP.Controllers
         [FromHeader(Name = "X-Longitude")] decimal lng,
         [FromHeader(Name = "X-Max-Distance")] int maxDistance)
         {
-            var jsonResult = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance);
-            return Content(jsonResult, "application/json");
+            //var jsonResult = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance);
+            //return Content(jsonResult, "application/json");
+            var places = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance);
+            if (places == null || places.Count ==0)
+            {
+                _response.StatusCode = HttpStatusCode.NotFound;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add($"No places found within {maxDistance} meters.");
+                return NotFound(_response);
+            }
+            return Content(places.ToJson(), "application/json");
+            
         }
 
 
@@ -183,16 +218,26 @@ namespace Guider.API.MVP.Controllers
         /// <param name="radiusMeters">Радиус в метрах</param>
         /// <param name="limit">Лимит выводимых объектов на карте в integer</param>
         /// <returns>Список ближайших мест в формате JSON</returns>
-        [HttpGet("geonearlimit")]
-        public async Task<ActionResult<string>> GetNearbyPlacesCenter(
-        [FromHeader] decimal lat,
-        [FromHeader] decimal lng,
-        [FromHeader] int radiusMeters = 500000,
-        [FromHeader] int limit = 200)
-        {
-            var jsonResult = await _placeService.GetNearbyPlacesAsyncCenter(lat, lng, radiusMeters, limit);
-            return Content(jsonResult, "application/json");
-        }
+        //[HttpGet("geonearlimit")]
+        //public async Task<ActionResult<string>> GetNearbyPlacesCenter(
+        //[FromHeader] decimal lat,
+        //[FromHeader] decimal lng,
+        //[FromHeader] int radiusMeters = 500000,
+        //[FromHeader] int limit = 200)
+        //{
+        //    //var jsonResult = await _placeService.GetNearbyPlacesAsyncCenter(lat, lng, radiusMeters, limit);
+        //    //return Content(jsonResult, "application/json");
+        //    var places = await _placeService.GetNearbyPlacesAsyncCenter(lat, lng, radiusMeters, limit);
+        //    if (places == null)
+        //    {
+        //        _response.StatusCode = HttpStatusCode.NotFound;
+        //        _response.IsSuccess = false;
+        //        _response.ErrorMessages.Add($"No places found within {radiusMeters} meters.");
+        //        return NotFound(_response);
+        //    }
+        //    return Content(places, "application/json");
+
+        //}
 
         /// <summary>
         /// Получить места по категории и тегам
@@ -208,20 +253,27 @@ namespace Guider.API.MVP.Controllers
             [FromQuery] decimal lat,
             [FromQuery] decimal lng,
             [FromQuery] int maxDistanceMeters,
-        [FromQuery] string category,
-        [FromQuery] List<string>? filterTags = null)
+            [FromQuery] string category,
+            [FromQuery] List<string>? filterTags = null)
         {
             var places = await _placeService.GetPlacesNearbyByCategoryByTagsAsyncAsync(lat, lng, maxDistanceMeters, category, filterTags);
-            return Ok(places);
+            if (places == null || places.Count == 0)
+            {
+                _response.StatusCode = HttpStatusCode.NotFound;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add($"No places found within filters.");
+                return NotFound(_response);
+            }
+            return Content(places.ToJson(), "application/json");
         }
 
         /// <summary>
-        /// Получить ближайшие места с текстовым поиском
+        /// Получить ближайшие места со строгим вхождением подстроки
         /// </summary>
         /// <param name="lat">Широта</param>
         /// <param name="lng">Долгота</param>
         /// <param name="maxDistanceMeters">Максимальное расстояние в метрах</param>
-        /// <param name="limit">Лимит результатов</param>
+        /// <param name="limit">Лимит результатов (не менее 10 и не более 100)</param>
         /// <param name="searchText">Текст для поиска</param>
         /// <returns>Список ближайших мест в формате JSON</returns>
         [HttpGet("geonear/search")]
@@ -232,8 +284,27 @@ namespace Guider.API.MVP.Controllers
             [FromQuery] int limit,
             [FromQuery] string searchText)
         {
-            var jsonResult = await _placeService.GetPlacesNearbyWithTextSearchAsync(lat, lng, maxDistanceMeters, limit, searchText);
-            return Content(jsonResult, "application/json");
+
+            // Проверка и корректировка значения limit
+            if (limit <= 0)
+            {
+                limit = 10; 
+            }
+            else if (limit > 100)
+            {
+                limit = 100; 
+            }
+
+            var places = await _placeService.GetPlacesNearbyWithTextSearchAsync(lat, lng, maxDistanceMeters, limit, searchText);
+            if (places == null || places.Count == 0)
+            {
+                _response.StatusCode = HttpStatusCode.NotFound;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add($"No places found within filters.");
+                return NotFound(_response);
+            }
+
+            return Content(places.ToJson(), "application/json");
         }
 
     }

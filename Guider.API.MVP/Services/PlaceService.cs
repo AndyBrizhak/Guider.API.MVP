@@ -115,7 +115,7 @@
         /// <param name="lng"></param>
         /// <param name="maxDistanceMeters"></param>
         /// <returns></returns>
-        public async Task<string> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters)
+        public async Task<List<BsonDocument>> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters)
         {
             var pipeline = new[]
             {
@@ -148,7 +148,7 @@
         };
 
             var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
-            return result.ToJson();
+            return result;
         }
 
         /// <summary>
@@ -206,7 +206,7 @@
         /// <param name="category"></param>
         /// <param name="filterTags"></param>
         /// <returns></returns>
-        public async Task<string> GetPlacesNearbyByCategoryByTagsAsyncAsync(decimal lat, decimal lng, int maxDistanceMeters, string? category = null, List<string>? filterTags = null)
+        public async Task<List<BsonDocument>> GetPlacesNearbyByCategoryByTagsAsyncAsync(decimal lat, decimal lng, int maxDistanceMeters, string? category = null, List<string>? filterTags = null)
         {
             var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
         {
@@ -249,7 +249,7 @@
                         System.Text.RegularExpressions.Regex.IsMatch(tag.AsString, filterTag, System.Text.RegularExpressions.RegexOptions.IgnoreCase)))).ToList();
             }
 
-            return results.ToJson();
+            return results;
         }
 
         /// <summary>
@@ -261,7 +261,7 @@
         /// <param name="limit"></param>
         /// <param name="searchText"></param>
         /// <returns></returns>
-        public async Task<string> GetPlacesNearbyWithTextSearchAsync(decimal lat, decimal lng, int maxDistanceMeters, int limit, string searchText)
+        public async Task<List<BsonDocument>> GetPlacesNearbyWithTextSearchAsync(decimal lat, decimal lng, int maxDistanceMeters, int limit, string searchText)
         {
             var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
             {
@@ -308,8 +308,10 @@
             var pipeline = new[] { geoNearStage, matchStage, projectStage, limitStage };
 
             var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
-            return results.ToJson();
+            return results;
         }
+
+
 
     }
 }
