@@ -252,24 +252,24 @@ namespace Guider.API.MVP.Controllers
         /// <param name="category">Категория</param>
         /// <param name="filterTags">Теги для фильтрации</param>
         /// <returns>Список мест в формате JSON</returns>
-        [HttpGet("geo/category/tags")]
-        public async Task<IActionResult> GetPlacesNearbyByCategoryByTagsAsync(
-            [FromQuery] decimal lat,
-            [FromQuery] decimal lng,
-            [FromQuery] int maxDistanceMeters,
-            [FromQuery] string category,
-            [FromQuery] List<string>? filterTags = null)
-        {
-            var places = await _placeService.GetPlacesNearbyByCategoryByTagsAsyncAsync(lat, lng, maxDistanceMeters, category, filterTags);
-            if (places == null || places.Count == 0)
-            {
-                _response.StatusCode = HttpStatusCode.NotFound;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add($"No places found within filters.");
-                return NotFound(_response);
-            }
-            return Content(places.ToJson(), "application/json");
-        }
+        //[HttpGet("geo/category/tags")]
+        //public async Task<IActionResult> GetPlacesNearbyByCategoryByTagsAsync(
+        //    [FromQuery] decimal lat,
+        //    [FromQuery] decimal lng,
+        //    [FromQuery] int maxDistanceMeters,
+        //    [FromQuery] string category,
+        //    [FromQuery] List<string>? filterTags = null)
+        //{
+        //    var places = await _placeService.GetPlacesNearbyByCategoryByTagsAsyncAsync(lat, lng, maxDistanceMeters, category, filterTags);
+        //    if (places == null || places.Count == 0)
+        //    {
+        //        _response.StatusCode = HttpStatusCode.NotFound;
+        //        _response.IsSuccess = false;
+        //        _response.ErrorMessages.Add($"No places found within filters.");
+        //        return NotFound(_response);
+        //    }
+        //    return Content(places.ToJson(), "application/json");
+        //}
 
         /// <summary>
         /// Получить ближайшие места со строгим вхождением подстроки
