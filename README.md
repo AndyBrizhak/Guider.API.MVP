@@ -72,7 +72,7 @@ Guider API MVP - это API для работы с коллекцией мест
 
 
 ```
-GET /api/place
+.....
 
 
 ```
@@ -92,12 +92,12 @@ GET /api/place/{id}
 
 
 ```
-GET /api/place/search/{web}
+......
 
 
 ```
 
-### Получение документа по ID из заголовка
+### Получение документа по web и ID из заголовка
 
 
 
@@ -121,37 +121,32 @@ Headers:
 
 ```
 
-### Гео-поиск ближайших мест с центром и лимитом
+### ......
 
 
 
 ```
-GET /api/place/geonearlimit
-Headers:
-  X-Latitude: {lat}
-  X-Longitude: {lng}
-  X-Max-Distance: {radiusMeters}
-  X-Limit: {limit}
+.......
 
 
 ```
 
-### Гео-поиск по категории и тегам
+### ......
 
 
 
 ```
-GET /api/place/geo/category/tags?lat={lat}&lng={lng}&maxDistanceMeters={maxDistanceMeters}&category={category}&filterTags={filterTags}
+........
 
 
 ```
 
-### Гео-поиск с текстовым поиском
+### ......
 
 
 
 ```
-GET /api/place/geonear/search?lat={lat}&lng={lng}&maxDistanceMeters={maxDistanceMeters}&limit={limit}&searchText={searchText}
+......
 
 
 ```
