@@ -1,6 +1,7 @@
 ﻿using Guider.API.MVP.Data;
 using Guider.API.MVP.Models;
 using Guider.API.MVP.Models.Dto;
+using Guider.API.MVP.Utility;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -13,15 +14,17 @@ namespace Guider.API.MVP.Controllers
     {
         private readonly ApplicationDbContext _db;
         private readonly ApiResponse _response;
-        private readonly string secretKey;
+        private string secretKey;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
+        //private readonly IConfiguration _configuration;
 
         public AuthController(ApplicationDbContext db,
                                 IConfiguration configuration,
                                 RoleManager<IdentityRole> roleManager,
                                 UserManager<ApplicationUser> userManager)
         {
+            //_configuration = configuration;
             _db = db;
             secretKey = configuration.GetValue<string>("ApiSettings:Secret") ?? 
                 throw new ArgumentNullException(nameof(configuration), "Secret key cannot be null");
@@ -30,43 +33,61 @@ namespace Guider.API.MVP.Controllers
             _userManager = userManager;
         }
 
-        //[HttpPost("register")]
-        //[ValidateAntiForgeryToken]
-        //public async Task<ActionResult<ApiResponse>> Register([FromBody] RegisterRequestDTO model)
-        //{
-        //    try
-        //    {
-        //        if (ModelState.IsValid)
-        //        {
-        //            var user = new ApplicationUser()
-        //            {
-        //                UserName = model.UserName,
-        //                Email = model.Email,
-        //                PhoneNumber = model.PhoneNumber,
-        //                Id = Guid.NewGuid().ToString(),
-        //            };
-        //            var result = await _userManager.CreateAsync(user, model.Password);
-        //            if (result.Succeeded)
-        //            {
-        //                _response.Result = user;
-        //                return Ok(_response);
-        //            }
-        //            else
-        //            {
-        //                foreach (var error in result.Errors)
-        //                {
-        //                    ModelState.AddModelError("Error", error.Description);
-        //                }
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _response.StatusCode = HttpStatusCode.InternalServerError;
-        //        _response.IsSuccess = false;
-        //        _response.ErrorMessages.Add(ex.ToString());
-        //    }
-        //    return BadRequest(ModelState);
-        //}
+        [HttpPost("register")]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult<ApiResponse>> Register([FromBody] RegisterRequestDTO model)
+        {
+            ApplicationUser userFromDb = _db.Users
+                .FirstOrDefault(u => u.UserName.ToLowerInvariant() == model.UserName.ToLower());
+            if (userFromDb != null)
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
+                _response.IsSuccess = false;
+                _response.ErrorMessages = new List<string> { "User already exists!" };
+                return BadRequest(_response);
+            }
+
+            ApplicationUser newUser = new()
+            {
+                
+                UserName = model.UserName
+                
+            };
+            try
+            {
+                var result = await _userManager.CreateAsync(newUser, model.Password);
+                if (result.Succeeded)
+                {
+                    if (!_roleManager.RoleExistsAsync(SD.Role_Super_Admin).GetAwaiter().GetResult())
+                    {
+                        // create the all roles if it doesn't exist in the database
+                        await _roleManager.CreateAsync(new IdentityRole(SD.Role_Super_Admin));
+                        await _roleManager.CreateAsync(new IdentityRole(SD.Role_Admin));
+                        await _roleManager.CreateAsync(new IdentityRole(SD.Role_User));
+                    }
+
+                    // assign the role to the user only
+                    await _userManager.AddToRoleAsync(newUser, SD.Role_User);
+
+                    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status201Created;
+
+                    _response.IsSuccess = true;
+                    _response.Result = newUser;
+                    return CreatedAtAction(nameof(Register), new { id = newUser.Id }, _response);
+                }
+            }
+            catch (Exception ex)
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status500InternalServerError;
+                _response.IsSuccess = false;
+                _response.ErrorMessages = new List<string> { ex.Message };
+                return StatusCode(StatusCodes.Status500InternalServerError, _response);
+            }
+            
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add("Error while registration");
+                return BadRequest(_response);
+        }
     }
 }

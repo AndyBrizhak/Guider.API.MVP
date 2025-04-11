@@ -5,14 +5,14 @@ namespace Guider.API.MVP.Models
 {
     public class ApplicationUser : IdentityUser
     {
-        [Required]
-        public override required string Id { get; set; }
+        //[Required]
+        public override string Id { get; set; }
 
         [Required]
         public override required string UserName { get; set; }
 
-        [Required]
-        public override required string PasswordHash { get; set; }
+        //[Required]
+        public override string? PasswordHash { get; set; }
     }
 }
 
