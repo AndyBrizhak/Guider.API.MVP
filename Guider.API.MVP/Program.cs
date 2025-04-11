@@ -24,6 +24,9 @@ options.SignIn.RequireConfirmedAccount = true)
 
 builder.Services.Configure<IdentityOptions>(options =>
 {
+    // Убираем ограничения на UserName
+    options.User.AllowedUserNameCharacters = null; // Разрешить любые символы
+    options.User.RequireUniqueEmail = false; // Отключить требование уникальности Email (если нужно)
     // Password settings
     options.Password.RequireDigit = false;
     options.Password.RequiredLength = 1;
@@ -35,7 +38,7 @@ builder.Services.Configure<IdentityOptions>(options =>
     options.Lockout.MaxFailedAccessAttempts = 20;
     options.Lockout.AllowedForNewUsers = true;
     // User settings
-    options.User.RequireUniqueEmail = false;
+    options.User.RequireUniqueEmail = true;
 });
 
 // Настройка MongoDB через appsettings.json

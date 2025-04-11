@@ -34,12 +34,13 @@ namespace Guider.API.MVP.Controllers
         }
 
         [HttpPost("register")]
-        [ValidateAntiForgeryToken]
+        
         public async Task<ActionResult<ApiResponse>> Register([FromBody] RegisterRequestDTO model)
         {
-            ApplicationUser userFromDb = _db.Users
-                .FirstOrDefault(u => u.UserName.ToLowerInvariant() == model.UserName.ToLower());
-            if (userFromDb != null)
+            ApplicationUser userFromDb = _db.ApplicationUsers
+                .FirstOrDefault(u => u.UserName.ToLower() == model.UserName.ToLower());
+            
+           if (userFromDb != null)
             {
                 _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
                 _response.IsSuccess = false;
@@ -49,40 +50,53 @@ namespace Guider.API.MVP.Controllers
 
             ApplicationUser newUser = new()
             {
-                
-                UserName = model.UserName
-                
+
+                UserName = model.UserName,
+                Email = model.Email,
+                NormalizedUserName = model.UserName.ToUpper(),
+                NormalizedEmail = model.Email.ToUpper(),
+                EmailConfirmed = false, // Значение по умолчанию
+                PhoneNumberConfirmed = false, // Значение по умолчанию
+                TwoFactorEnabled = false, // Значение по умолчанию
+                LockoutEnabled = true, // Значение по умолчанию
+                SecurityStamp = Guid.NewGuid().ToString() // Уникальный идентификатор
+
+
             };
+
+
             try
-            {
-                var result = await _userManager.CreateAsync(newUser, model.Password);
-                if (result.Succeeded)
                 {
-                    if (!_roleManager.RoleExistsAsync(SD.Role_Super_Admin).GetAwaiter().GetResult())
+                    var result = await _userManager.CreateAsync(newUser, model.Password);
+                    if (result.Succeeded)
                     {
-                        // create the all roles if it doesn't exist in the database
-                        await _roleManager.CreateAsync(new IdentityRole(SD.Role_Super_Admin));
-                        await _roleManager.CreateAsync(new IdentityRole(SD.Role_Admin));
-                        await _roleManager.CreateAsync(new IdentityRole(SD.Role_User));
+                        if (!_roleManager.RoleExistsAsync(SD.Role_Super_Admin).GetAwaiter().GetResult())
+                        {
+                            // create the all roles if it doesn't exist in the database
+                            await _roleManager.CreateAsync(new IdentityRole(SD.Role_Super_Admin));
+                            await _roleManager.CreateAsync(new IdentityRole(SD.Role_Admin));
+                            await _roleManager.CreateAsync(new IdentityRole(SD.Role_Manager));
+                            await _roleManager.CreateAsync(new IdentityRole(SD.Role_User));
+                        }
+
+                        // assign the role to the user only
+                        await _userManager.AddToRoleAsync(newUser, SD.Role_User);
+
+                        _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status201Created;
+
+                        _response.IsSuccess = true;
+                        _response.Result = newUser;
+                        return CreatedAtAction(nameof(Register), new { id = newUser.Id }, _response);
                     }
-
-                    // assign the role to the user only
-                    await _userManager.AddToRoleAsync(newUser, SD.Role_User);
-
-                    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status201Created;
-
-                    _response.IsSuccess = true;
-                    _response.Result = newUser;
-                    return CreatedAtAction(nameof(Register), new { id = newUser.Id }, _response);
                 }
-            }
-            catch (Exception ex)
-            {
-                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status500InternalServerError;
-                _response.IsSuccess = false;
-                _response.ErrorMessages = new List<string> { ex.Message };
-                return StatusCode(StatusCodes.Status500InternalServerError, _response);
-            }
+
+                    catch (Exception ex)
+                    {
+                        _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status500InternalServerError;
+                        _response.IsSuccess = false;
+                        _response.ErrorMessages = new List<string> { ex.Message };
+                        return StatusCode(StatusCodes.Status500InternalServerError, _response);
+                    }
             
                 _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
                 _response.IsSuccess = false;
