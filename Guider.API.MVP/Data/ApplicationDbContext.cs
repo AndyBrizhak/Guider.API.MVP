@@ -10,6 +10,8 @@ namespace Guider.API.MVP.Data
         : base(options)
         {
         }
+
+        public DbSet<ApplicationUser> ApplicationUsers { get; set; }
     }
    
 }
