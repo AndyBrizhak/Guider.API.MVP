@@ -57,7 +57,6 @@ namespace Guider.API.MVP.Controllers
             }
 
             // Generate JWT token
-
             //var tokenHandler = new JwtSecurityTokenHandler();
             //var key = Encoding.ASCII.GetBytes(secretKey);
             //var tokenDescriptor = new SecurityTokenDescriptor
@@ -108,13 +107,20 @@ namespace Guider.API.MVP.Controllers
         /// <returns></returns>
         /// 
         [HttpPost("register")]
-        
         public async Task<ActionResult<ApiResponse>> Register([FromBody] RegisterRequestDTO model)
         {
+            if (model.Password.Length < 6)
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
+                _response.IsSuccess = false;
+                _response.ErrorMessages = new List<string> { "Password must be at least 6 characters long!" };
+                return BadRequest(_response);
+            }
+
             ApplicationUser userFromDb = _db.ApplicationUsers
                 .FirstOrDefault(u => u.UserName.ToLower() == model.UserName.ToLower());
-            
-           if (userFromDb != null)
+
+            if (userFromDb != null)
             {
                 _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
                 _response.IsSuccess = false;
@@ -124,58 +130,50 @@ namespace Guider.API.MVP.Controllers
 
             ApplicationUser newUser = new()
             {
-
                 UserName = model.UserName,
                 Email = model.Email,
                 NormalizedUserName = model.UserName.ToUpper(),
                 NormalizedEmail = model.Email.ToUpper(),
-                EmailConfirmed = false, // Значение по умолчанию
-                PhoneNumberConfirmed = false, // Значение по умолчанию
-                TwoFactorEnabled = false, // Значение по умолчанию
-                LockoutEnabled = true, // Значение по умолчанию
-                SecurityStamp = Guid.NewGuid().ToString() // Уникальный идентификатор
-
-
+                EmailConfirmed = false,
+                PhoneNumberConfirmed = false,
+                TwoFactorEnabled = false,
+                LockoutEnabled = true,
+                SecurityStamp = Guid.NewGuid().ToString()
             };
 
-
             try
+            {
+                var result = await _userManager.CreateAsync(newUser, model.Password);
+                if (result.Succeeded)
                 {
-                    var result = await _userManager.CreateAsync(newUser, model.Password);
-                    if (result.Succeeded)
+                    if (!_roleManager.RoleExistsAsync(SD.Role_Super_Admin).GetAwaiter().GetResult())
                     {
-                        if (!_roleManager.RoleExistsAsync(SD.Role_Super_Admin).GetAwaiter().GetResult())
-                        {
-                            // create the all roles if it doesn't exist in the database
-                            await _roleManager.CreateAsync(new IdentityRole(SD.Role_Super_Admin));
-                            await _roleManager.CreateAsync(new IdentityRole(SD.Role_Admin));
-                            await _roleManager.CreateAsync(new IdentityRole(SD.Role_Manager));
-                            await _roleManager.CreateAsync(new IdentityRole(SD.Role_User));
-                        }
-
-                        // assign the role to the user only
-                        await _userManager.AddToRoleAsync(newUser, SD.Role_User);
-
-                        _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status201Created;
-
-                        _response.IsSuccess = true;
-                        _response.Result = newUser;
-                        return CreatedAtAction(nameof(Register), new { id = newUser.Id }, _response);
+                        await _roleManager.CreateAsync(new IdentityRole(SD.Role_Super_Admin));
+                        await _roleManager.CreateAsync(new IdentityRole(SD.Role_Admin));
+                        await _roleManager.CreateAsync(new IdentityRole(SD.Role_Manager));
+                        await _roleManager.CreateAsync(new IdentityRole(SD.Role_User));
                     }
+
+                    await _userManager.AddToRoleAsync(newUser, SD.Role_User);
+
+                    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status201Created;
+                    _response.IsSuccess = true;
+                    _response.Result = newUser;
+                    return CreatedAtAction(nameof(Register), new { id = newUser.Id }, _response);
                 }
-
-                    catch (Exception ex)
-                    {
-                        _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status500InternalServerError;
-                        _response.IsSuccess = false;
-                        _response.ErrorMessages = new List<string> { ex.Message };
-                        return StatusCode(StatusCodes.Status500InternalServerError, _response);
-                    }
-            
-                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
+            }
+            catch (Exception ex)
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status500InternalServerError;
                 _response.IsSuccess = false;
-                _response.ErrorMessages.Add("Error while registration");
-                return BadRequest(_response);
+                _response.ErrorMessages = new List<string> { ex.Message };
+                return StatusCode(StatusCodes.Status500InternalServerError, _response);
+            }
+
+            _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
+            _response.IsSuccess = false;
+            _response.ErrorMessages.Add("Error while registration");
+            return BadRequest(_response);
         }
     }
 }
