@@ -5,6 +5,9 @@ using Guider.API.MVP.Utility;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Text;
 
 namespace Guider.API.MVP.Controllers
 {
@@ -33,6 +36,77 @@ namespace Guider.API.MVP.Controllers
             _userManager = userManager;
         }
 
+
+
+
+        [HttpPost("login")]
+        
+        public async Task<ActionResult<ApiResponse>> Login([FromBody] LoginRequestDTO model)
+        {
+            ApplicationUser userFromDb = _db.ApplicationUsers
+                .FirstOrDefault(u => u.UserName.ToLower() == model.UserName.ToLower());
+
+            bool isValid = await _userManager.CheckPasswordAsync(userFromDb, model.Password);
+
+            if (userFromDb == null || !isValid)
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status401Unauthorized;
+                _response.IsSuccess = false;
+                _response.ErrorMessages = new List<string> { "Username or password is incorrect!" };
+                return BadRequest(_response);
+            }
+
+            // Generate JWT token
+
+            //var tokenHandler = new JwtSecurityTokenHandler();
+            //var key = Encoding.ASCII.GetBytes(secretKey);
+            //var tokenDescriptor = new SecurityTokenDescriptor
+            //{
+            //    Subject = new System.Security.Claims.ClaimsIdentity(new[]
+            //    {
+            //        new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userFromDb.Id.ToString()),
+            //        new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, userFromDb.UserName),
+            //    }),
+            //    Expires = DateTime.UtcNow.AddDays(7),
+            //    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            //};
+            //var token = tokenHandler.CreateToken(tokenDescriptor);
+            //var tokenString = tokenHandler.WriteToken(token);
+            
+
+            LoginResponseDTO loginResponse = new()
+            {
+                UserId = userFromDb.Id,
+                UserName = userFromDb.UserName,
+                Email = userFromDb.Email,
+                Token = "test"
+                //Token = tokenString,
+                //Roles = userRoles
+            };
+
+            if (loginResponse == null)
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status404NotFound;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add("Error while login");
+                return NotFound(_response);
+            }
+
+            _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status200OK;
+            _response.IsSuccess = true;
+            _response.Result = loginResponse;
+            return Ok(_response);
+
+        }
+
+        /// <summary>
+        /// 
+        //// </summary>
+        ///             
+        /// <param name="model"></param>
+        ///     
+        /// <returns></returns>
+        /// 
         [HttpPost("register")]
         
         public async Task<ActionResult<ApiResponse>> Register([FromBody] RegisterRequestDTO model)
