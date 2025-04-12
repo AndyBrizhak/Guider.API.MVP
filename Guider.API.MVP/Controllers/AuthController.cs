@@ -57,29 +57,31 @@ namespace Guider.API.MVP.Controllers
             }
 
             // Generate JWT token
-            //var tokenHandler = new JwtSecurityTokenHandler();
-            //var key = Encoding.ASCII.GetBytes(secretKey);
-            //var tokenDescriptor = new SecurityTokenDescriptor
-            //{
-            //    Subject = new System.Security.Claims.ClaimsIdentity(new[]
-            //    {
-            //        new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userFromDb.Id.ToString()),
-            //        new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, userFromDb.UserName),
-            //    }),
-            //    Expires = DateTime.UtcNow.AddDays(7),
-            //    SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-            //};
-            //var token = tokenHandler.CreateToken(tokenDescriptor);
-            //var tokenString = tokenHandler.WriteToken(token);
-            
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.ASCII.GetBytes(secretKey);
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new System.Security.Claims.ClaimsIdentity(new[]
+                {
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userFromDb.Id.ToString()),
+                   new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, userFromDb.UserName),
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, userFromDb.Email),
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, SD.Role_User)
+                }),
+                Expires = DateTime.UtcNow.AddDays(7),
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+            };
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            var tokenString = tokenHandler.WriteToken(token);
+
 
             LoginResponseDTO loginResponse = new()
             {
                 UserId = userFromDb.Id,
                 UserName = userFromDb.UserName,
                 Email = userFromDb.Email,
-                Token = "test"
-                //Token = tokenString,
+                //Token = "test"
+                Token = tokenString
                 //Roles = userRoles
             };
 
@@ -99,13 +101,16 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// 
-        //// </summary>
-        ///             
+        /// </summary>
         /// <param name="model"></param>
+        /// <summary>
+        /// Registers a new user.
+        /// </summary>
+        /// <param name="model">The registration request model containing user details.</param>
+        /// <returns>An ApiResponse indicating the result of the registration process.</returns>
         ///     
         /// <returns></returns>
-        /// 
+        
         [HttpPost("register")]
         public async Task<ActionResult<ApiResponse>> Register([FromBody] RegisterRequestDTO model)
         {
