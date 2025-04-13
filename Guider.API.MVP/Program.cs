@@ -8,7 +8,10 @@ using Microsoft.OpenApi.Models;
 using MongoDB.Driver;
 using System.Reflection;
 using Microsoft.AspNetCore.Identity.UI.Services;
-using Guider.API.MVP.Models; 
+using Guider.API.MVP.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,6 +43,28 @@ builder.Services.Configure<IdentityOptions>(options =>
     // User settings
     options.User.RequireUniqueEmail = true;
 });
+
+var key = builder.Configuration.GetValue<string>("ApiSettings:Secret");
+builder.Services.AddAuthentication(u =>
+{
+    u.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    u.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(u =>
+        {
+        u.RequireHttpsMetadata = false;
+        u.SaveToken = true;
+            u.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
+                ValidateIssuer = false,
+                ValidateAudience = false
+                //ValidIssuer = builder.Configuration["ApiSettings:Issuer"],
+                //ValidAudience = builder.Configuration["ApiSettings:Audience"]
+            }; 
+        });
+
+builder.Services.AddCors();    
 
 // Настройка MongoDB через appsettings.json
 builder.Services.Configure<MongoDbSettings>(
@@ -74,6 +99,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors(builder =>
+{
+    builder.AllowAnyOrigin()
+           .AllowAnyMethod()
+           .AllowAnyHeader();
+});
 app.UseStaticFiles();
 
 app.UseAuthentication();
