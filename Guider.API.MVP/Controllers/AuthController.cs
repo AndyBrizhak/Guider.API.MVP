@@ -198,6 +198,7 @@ namespace Guider.API.MVP.Controllers
         
         [HttpGet("users")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        //[Authorize]
         public async Task<ActionResult<ApiResponse>> GetUsersPaged(int pageNumber = 1, int pageSize = 10)
         {
             //var currentUser = await _userManager.GetUserAsync(User);
