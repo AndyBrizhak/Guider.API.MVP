@@ -2,6 +2,7 @@
 using Guider.API.MVP.Models;
 using Guider.API.MVP.Models.Dto;
 using Guider.API.MVP.Utility;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -194,7 +195,9 @@ namespace Guider.API.MVP.Controllers
         /// <param name="pageSize"></param>
         /// 
         /// <returns></returns>
+        
         [HttpGet("users")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult<ApiResponse>> GetUsersPaged(int pageNumber = 1, int pageSize = 10)
         {
             //var currentUser = await _userManager.GetUserAsync(User);
@@ -251,6 +254,7 @@ namespace Guider.API.MVP.Controllers
         }
 
         [HttpPut("user/{id}")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult<ApiResponse>> UpdateUser(string id, [FromBody] UpdateUserDTO model)
         {
             //var currentUser = await _userManager.GetUserAsync(User);
