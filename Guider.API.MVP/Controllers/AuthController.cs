@@ -56,6 +56,10 @@ namespace Guider.API.MVP.Controllers
                 return BadRequest(_response);
             }
 
+            // Получить роли пользователя
+            var userRoles = await _userManager.GetRolesAsync(userFromDb);
+            var userRole = userRoles.FirstOrDefault() ?? "User"; // Если ро
+
             // Generate JWT token
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(secretKey);
@@ -66,7 +70,7 @@ namespace Guider.API.MVP.Controllers
                     new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userFromDb.Id.ToString()),
                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, userFromDb.UserName),
                     new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, userFromDb.Email),
-                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, SD.Role_User)
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, userRole)
                 }),
                 Expires = DateTime.UtcNow.AddDays(7),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
