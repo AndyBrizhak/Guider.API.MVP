@@ -246,7 +246,7 @@ namespace Guider.API.MVP.Controllers
             
         }
 
-        [HttpPut("users/{id}")]
+        [HttpPut("user/{id}")]
         public async Task<ActionResult<ApiResponse>> UpdateUser(string id, [FromBody] UpdateUserDTO model)
         {
             //var currentUser = await _userManager.GetUserAsync(User);
