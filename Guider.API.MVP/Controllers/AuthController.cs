@@ -354,5 +354,66 @@ namespace Guider.API.MVP.Controllers
             };
             return Ok(_response);
         }
+        [HttpDelete("user/{id}")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        public async Task<ActionResult<ApiResponse>> DeleteUser(string id)
+        {
+            var currentUser = await _userManager.GetUserAsync(User);
+            var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
+
+            var userToDelete = await _userManager.FindByIdAsync(id);
+            if (userToDelete == null)
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status404NotFound;
+                _response.IsSuccess = false;
+                _response.ErrorMessages = new List<string> { "User not found!" };
+                return NotFound(_response);
+            }
+
+            var userRoles = await _userManager.GetRolesAsync(userToDelete);
+
+            // Super Admin cannot be deleted by anyone
+            if (userRoles.Contains(SD.Role_Super_Admin))
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status403Forbidden;
+                _response.IsSuccess = false;
+                _response.ErrorMessages = new List<string> { "Access denied! Super Admin cannot be deleted." };
+                return StatusCode(StatusCodes.Status403Forbidden, _response);
+            }
+
+            // Admins can only delete Managers and Users
+            if (currentUserRoles.Contains(SD.Role_Admin) &&
+                (userRoles.Contains(SD.Role_Admin) || userRoles.Contains(SD.Role_Super_Admin)))
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status403Forbidden;
+                _response.IsSuccess = false;
+                _response.ErrorMessages = new List<string> { "Access denied! Admins can only delete Managers and Users." };
+                return StatusCode(StatusCodes.Status403Forbidden, _response);
+            }
+
+            try
+            {
+                var result = await _userManager.DeleteAsync(userToDelete);
+                if (!result.Succeeded)
+                {
+                    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status500InternalServerError;
+                    _response.IsSuccess = false;
+                    _response.ErrorMessages = result.Errors.Select(e => e.Description).ToList();
+                    return StatusCode(StatusCodes.Status500InternalServerError, _response);
+                }
+
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status200OK;
+                _response.IsSuccess = true;
+                _response.Result = new { Message = "User deleted successfully!" };
+                return Ok(_response);
+            }
+            catch (Exception ex)
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status500InternalServerError;
+                _response.IsSuccess = false;
+                _response.ErrorMessages = new List<string> { ex.Message };
+                return StatusCode(StatusCodes.Status500InternalServerError, _response);
+            }
+        }
     }
 }
