@@ -39,9 +39,17 @@ namespace Guider.API.MVP.Controllers
 
 
 
-
+        /// <summary>
+        /// 
+        /// </summary>
+        /// 
+        /// <param name="model"></param>
         [HttpPost("login")]
-        
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ApiResponse>> Login([FromBody] LoginRequestDTO model)
         {
             ApplicationUser userFromDb = _db.ApplicationUsers
@@ -115,8 +123,12 @@ namespace Guider.API.MVP.Controllers
         /// <returns>An ApiResponse indicating the result of the registration process.</returns>
         ///     
         /// <returns></returns>
-        
         [HttpPost("register")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ApiResponse>> Register([FromBody] RegisterRequestDTO model)
         {
             if (model.Password.Length < 6)
@@ -191,9 +203,13 @@ namespace Guider.API.MVP.Controllers
         /// <param name="pageNumber"></param>
         /// <param name="pageSize"></param>
         /// <returns></returns>
-        
         [HttpGet("users")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ApiResponse>> GetUsersPaged(int pageNumber = 1, int pageSize = 10)
         {
             var currentUser = await _userManager.GetUserAsync(User);
@@ -255,8 +271,28 @@ namespace Guider.API.MVP.Controllers
             return Ok(_response);
         }
 
+
+        /// <summary>
+        ///
+        /// </summary>
+        /// 
+        /// <param name="id"></param>
+        /// 
+        /// <param name="model"></param>
         [HttpPut("user/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        /// <summary>
+        /// 
+        /// </summary>
+        /// 
+        /// <param name="id"></param>
+        ///
+        /// <param name="model"></param>
         public async Task<ActionResult<ApiResponse>> UpdateUser(string id, [FromBody] UpdateUserDTO model)
         {
             if (string.IsNullOrEmpty(model.UserName) && string.IsNullOrEmpty(model.Email) && string.IsNullOrEmpty(model.Role))
@@ -354,8 +390,20 @@ namespace Guider.API.MVP.Controllers
             };
             return Ok(_response);
         }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// 
+        /// <param name="id"></param>
+        /// 
         [HttpDelete("user/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ApiResponse>> DeleteUser(string id)
         {
             var currentUser = await _userManager.GetUserAsync(User);
