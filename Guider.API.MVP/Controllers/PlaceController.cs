@@ -1,6 +1,9 @@
 ﻿using Guider.API.MVP.Models;
 using Guider.API.MVP.Services;
+using Guider.API.MVP.Utility;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using System.Collections.Generic;
@@ -43,6 +46,17 @@ namespace Guider.API.MVP.Controllers
         /// <param name="pageSize">Размер страницы, не более 20</param>
         /// <returns></returns>
         [HttpGet("paged")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Conflict)]
         public async Task<ActionResult<string>> GetAllPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
         {
             // Проверяем, что pageNumber больше 0
@@ -64,14 +78,22 @@ namespace Guider.API.MVP.Controllers
             return Ok(places.ToJson());
         }
 
-
-
         /// <summary>
         /// Получить документ по ID
         /// </summary>
         /// <param name="id">Идентификатор документа</param>
         /// <returns>Документ в формате JSON</returns>
         [HttpGet("{id}")]
+        [ProducesResponseType(typeof(ApiResponse), (int) HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Conflict)]
         public async Task<ActionResult<string>> GetById(string id)
         {
             var place = await _placeService.GetByIdAsync(id);
@@ -116,6 +138,15 @@ namespace Guider.API.MVP.Controllers
         /// <param name="id">Идентификатор документа</param>
         /// <returns>Документ в формате JSON</returns>
         [HttpGet("place/id")]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
         public async Task<ActionResult<string>> GetPlaceByIdFromHeader(
             [FromQuery] string web,
              [FromQuery] string id)
@@ -190,6 +221,15 @@ namespace Guider.API.MVP.Controllers
         /// <param name="maxDistance">Максимальное расстояние</param>
         /// <returns>Список ближайших мест в формате JSON</returns>
         [HttpGet("geonear")]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
         public async Task<ActionResult<string>> GetNearbyPlaces(
         [FromHeader(Name = "X-Latitude")] decimal lat,
         [FromHeader(Name = "X-Longitude")] decimal lng,
@@ -208,7 +248,6 @@ namespace Guider.API.MVP.Controllers
             return Content(places.ToJson(), "application/json");
             
         }
-
 
         /// <summary>
         /// Получение списка Places для карты на главной странице, с выводом идентификатора,  
@@ -281,6 +320,15 @@ namespace Guider.API.MVP.Controllers
         /// <param name="searchText">Текст для поиска</param>
         /// <returns>Список ближайших мест в формате JSON</returns>
         [HttpGet("geonear/search")]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
         public async Task<ActionResult<string>> GetPlacesNearbyWithTextSearch(
             [FromQuery] decimal lat,
             [FromQuery] decimal lng,
@@ -328,7 +376,6 @@ namespace Guider.API.MVP.Controllers
 
             return Content(places.ToJson(), "application/json");
         }
-
         /// <summary>
         /// Получить ближайшие места с любым из ключевых слов
         /// </summary>
@@ -339,6 +386,15 @@ namespace Guider.API.MVP.Controllers
         /// <param name="filterKeywords"></param>
         /// <returns></returns>
         [HttpGet("nearby-with-keywords")]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
         public async Task<ActionResult<string>> GetPlacesWithKeywordsList(
             [FromQuery] decimal lat,
             [FromQuery] decimal lng,
@@ -386,6 +442,15 @@ namespace Guider.API.MVP.Controllers
         /// <param name="filterKeywords">Список ключевых слов (обязательны все слова)</param>
         /// <returns>Список найденных мест</returns>
         [HttpGet("nearby-with-all-keywords")]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
+        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
         public async Task<ActionResult<string>> GetPlacesWithAllKeywords(
             [FromQuery] decimal lat,
             [FromQuery] decimal lng,
