@@ -187,55 +187,44 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// 
         /// </summary>
-        /// 
         /// <param name="pageNumber"></param>
-        /// 
         /// <param name="pageSize"></param>
-        /// 
         /// <returns></returns>
         
         [HttpGet("users")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        //[Authorize]
         public async Task<ActionResult<ApiResponse>> GetUsersPaged(int pageNumber = 1, int pageSize = 10)
         {
-            //var currentUser = await _userManager.GetUserAsync(User);
-            //if (currentUser == null)
-            //{
-            //    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status401Unauthorized;
-            //    _response.IsSuccess = false;
-            //    _response.ErrorMessages = new List<string> { "Unable to retrieve current user!" };
-            //    return StatusCode(StatusCodes.Status401Unauthorized, _response);
-            //}
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status401Unauthorized;
+                _response.IsSuccess = false;
+                _response.ErrorMessages = new List<string> { "Unable to retrieve current user!" };
+                return StatusCode(StatusCodes.Status401Unauthorized, _response);
+            }
 
-            //var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
-            //if (currentUserRoles == null || !currentUserRoles.Any())
-            //{
-            //    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status403Forbidden;
-            //    _response.IsSuccess = false;
-            //    _response.ErrorMessages = new List<string> { "Current user has no roles assigned!" };
-            //    return StatusCode(StatusCodes.Status403Forbidden, _response);
-            //}
+            var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
+            if (currentUserRoles == null || !currentUserRoles.Any())
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status403Forbidden;
+                _response.IsSuccess = false;
+                _response.ErrorMessages = new List<string> { "Current user has no roles assigned!" };
+                return StatusCode(StatusCodes.Status403Forbidden, _response);
+            }
 
-            //if (!currentUserRoles.Contains(SD.Role_Super_Admin) && !currentUserRoles.Contains(SD.Role_Admin))
-            //{
-            //    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status403Forbidden;
-            //    _response.IsSuccess = false;
-            //    _response.ErrorMessages = new List<string> { "Access denied, with current user role!" };
-            //    return StatusCode(StatusCodes.Status403Forbidden, _response);
-            //}
+            if (!currentUserRoles.Contains(SD.Role_Super_Admin) && !currentUserRoles.Contains(SD.Role_Admin))
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status403Forbidden;
+                _response.IsSuccess = false;
+                _response.ErrorMessages = new List<string> { "Access denied, with current user role!" };
+                return StatusCode(StatusCodes.Status403Forbidden, _response);
+            }
 
             var users = _db.ApplicationUsers
                .Skip((pageNumber - 1) * pageSize)
                .Take(pageSize)
-               .Select(u => new
-               {
-                   u.Id,
-                   u.UserName,
-                   u.Email
-               })
                .ToList();
 
             if (users == null || !users.Any())
@@ -246,22 +235,41 @@ namespace Guider.API.MVP.Controllers
                 return NotFound(_response);
             }
 
+            var userList = new List<object>();
+            foreach (var user in users)
+            {
+                var roles = await _userManager.GetRolesAsync(user);
+                var firstRole = roles.FirstOrDefault() ?? "No Role Assigned";
+                userList.Add(new
+                {
+                    user.Id,
+                    user.UserName,
+                    user.Email,
+                    FirstRole = firstRole
+                });
+            }
+
             _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status200OK;
             _response.IsSuccess = true;
-            _response.Result = users;
+            _response.Result = userList;
             return Ok(_response);
-
-            
         }
 
         [HttpPut("user/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult<ApiResponse>> UpdateUser(string id, [FromBody] UpdateUserDTO model)
         {
-            //var currentUser = await _userManager.GetUserAsync(User);
-            //var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
+            if (string.IsNullOrEmpty(model.UserName) && string.IsNullOrEmpty(model.Email) && string.IsNullOrEmpty(model.Role))
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
+                _response.IsSuccess = false;
+                _response.ErrorMessages = new List<string> { "At least one field (UserName, Email, or Role) must be provided for update!" };
+                return BadRequest(_response);
+            }
 
-            // Ensure only Super Admin can update Super Admin data
+            var currentUser = await _userManager.GetUserAsync(User);
+            var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
+
             var userToUpdate = await _userManager.FindByIdAsync(id);
             if (userToUpdate == null)
             {
@@ -272,28 +280,32 @@ namespace Guider.API.MVP.Controllers
             }
 
             var userRoles = await _userManager.GetRolesAsync(userToUpdate);
-            //if (userRoles.Contains(SD.Role_Super_Admin) && !currentUserRoles.Contains(SD.Role_Super_Admin))
-            //{
-            //    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status403Forbidden;
-            //    _response.IsSuccess = false;
-            //    _response.ErrorMessages = new List<string> { "Access denied! Only Super Admin can update Super Admin data." };
-            //    return StatusCode(StatusCodes.Status403Forbidden, _response);
-            //}
+            if (userRoles.Contains(SD.Role_Super_Admin) && !currentUserRoles.Contains(SD.Role_Super_Admin))
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status403Forbidden;
+                _response.IsSuccess = false;
+                _response.ErrorMessages = new List<string> { "Access denied! Only Super Admin can update Super Admin data." };
+                return StatusCode(StatusCodes.Status403Forbidden, _response);
+            }
 
-            // Ensure only Admins can update Managers and Users
-            //if ((userRoles.Contains(SD.Role_Manager) || userRoles.Contains(SD.Role_User)) &&
-            //    !currentUserRoles.Contains(SD.Role_Admin) && !currentUserRoles.Contains(SD.Role_Super_Admin))
-            //{
-            //    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status403Forbidden;
-            //    _response.IsSuccess = false;
-            //    _response.ErrorMessages = new List<string> { "Access denied! Only Admins can update Managers and Users." };
-            //    return StatusCode(StatusCodes.Status403Forbidden, _response);
-            //}
+            if ((userRoles.Contains(SD.Role_Manager) || userRoles.Contains(SD.Role_User)) &&
+                !currentUserRoles.Contains(SD.Role_Admin) && !currentUserRoles.Contains(SD.Role_Super_Admin))
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status403Forbidden;
+                _response.IsSuccess = false;
+                _response.ErrorMessages = new List<string> { "Access denied! Only Admins can update Managers and Users." };
+                return StatusCode(StatusCodes.Status403Forbidden, _response);
+            }
 
-            
-            // Update user details
-            userToUpdate.UserName = model.UserName ?? userToUpdate.UserName;
-            userToUpdate.Email = model.Email ?? userToUpdate.Email;
+            if (!string.IsNullOrEmpty(model.UserName))
+            {
+                userToUpdate.UserName = model.UserName;
+            }
+
+            if (!string.IsNullOrEmpty(model.Email))
+            {
+                userToUpdate.Email = model.Email;
+            }
 
             var updateResult = await _userManager.UpdateAsync(userToUpdate);
             if (!updateResult.Succeeded)
@@ -304,37 +316,42 @@ namespace Guider.API.MVP.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
 
-            // Update roles if provided
+            string? newRole = null;
             if (!string.IsNullOrEmpty(model.Role))
             {
                 var currentRoles = await _userManager.GetRolesAsync(userToUpdate);
 
-                // Ensure only Super Admin can change roles of another Super Admin
-                //if (currentRoles.Contains(SD.Role_Super_Admin) && !currentUserRoles.Contains(SD.Role_Super_Admin))
-                //{
-                //    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status403Forbidden;
-                //    _response.IsSuccess = false;
-                //    _response.ErrorMessages = new List<string> { "Access denied! Only Super Admin can change roles of another Super Admin." };
-                //    return StatusCode(StatusCodes.Status403Forbidden, _response);
-                //}
+                if (currentRoles.Contains(SD.Role_Super_Admin) && !currentUserRoles.Contains(SD.Role_Super_Admin))
+                {
+                    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status403Forbidden;
+                    _response.IsSuccess = false;
+                    _response.ErrorMessages = new List<string> { "Access denied! Only Super Admin can change roles of another Super Admin." };
+                    return StatusCode(StatusCodes.Status403Forbidden, _response);
+                }
 
-                // Ensure Admins can only change roles of Managers and Users
-                //if ((currentRoles.Contains(SD.Role_Manager) || currentRoles.Contains(SD.Role_User)) &&
-                //    !currentUserRoles.Contains(SD.Role_Admin) && !currentUserRoles.Contains(SD.Role_Super_Admin))
-                //{
-                //    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status403Forbidden;
-                //    _response.IsSuccess = false;
-                //    _response.ErrorMessages = new List<string> { "Access denied! Only Admins or Super Admins can change roles of Managers and Users." };
-                //    return StatusCode(StatusCodes.Status403Forbidden, _response);
-                //}
+                if ((currentRoles.Contains(SD.Role_Manager) || currentRoles.Contains(SD.Role_User)) &&
+                    !currentUserRoles.Contains(SD.Role_Admin) && !currentUserRoles.Contains(SD.Role_Super_Admin))
+                {
+                    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status403Forbidden;
+                    _response.IsSuccess = false;
+                    _response.ErrorMessages = new List<string> { "Access denied! Only Admins or Super Admins can change roles of Managers and Users." };
+                    return StatusCode(StatusCodes.Status403Forbidden, _response);
+                }
 
                 await _userManager.RemoveFromRolesAsync(userToUpdate, currentRoles);
                 await _userManager.AddToRoleAsync(userToUpdate, model.Role);
+                newRole = model.Role;
             }
 
             _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status200OK;
             _response.IsSuccess = true;
-            _response.Result = userToUpdate;
+            _response.Result = new
+            {
+                userToUpdate.Id,
+                userToUpdate.UserName,
+                userToUpdate.Email,
+                NewRole = newRole ?? "No Role Change"
+            };
             return Ok(_response);
         }
     }
