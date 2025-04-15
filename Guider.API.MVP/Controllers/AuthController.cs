@@ -99,11 +99,16 @@ namespace Guider.API.MVP.Controllers
 
                 Subject = new System.Security.Claims.ClaimsIdentity(new[]
 
-                {
-                            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userFromDb.Id.ToString()),
-                           new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, userFromDb.UserName),
-                            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, userFromDb.Email),
-                            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, userRole)
+                {
+
+                            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userFromDb.Id.ToString()),
+
+                           new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, userFromDb.UserName),
+
+                            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, userFromDb.Email),
+
+                            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, userRole)
+
                         }),
 
                 Expires = DateTime.UtcNow.AddDays(7),
@@ -166,7 +171,8 @@ namespace Guider.API.MVP.Controllers
 
 
 
-        }
+        }
+
         /// <summary>
         /// Registers a new user.  
         /// Note: The email must be a valid email address to pass validation in Identity.  
@@ -383,7 +389,8 @@ namespace Guider.API.MVP.Controllers
 
             return Ok(_response);
 
-        }
+        }
+
         /// <summary>
         /// Updates user information such as username, email, or role.
         /// This method is accessible only to administrators.
