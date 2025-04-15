@@ -40,10 +40,10 @@ namespace Guider.API.MVP.Controllers
 
 
         /// <summary>
-        /// 
+        /// Logs in a registered user.
         /// </summary>
-        /// 
-        /// <param name="model"></param>
+        /// <param name="model">The login request model containing username and password.</param>
+        /// <returns>An ApiResponse containing user details and access token.</returns>
         [HttpPost("login")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -52,83 +52,134 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ApiResponse>> Login([FromBody] LoginRequestDTO model)
         {
+
             ApplicationUser userFromDb = _db.ApplicationUsers
+
                 .FirstOrDefault(u => u.UserName.ToLower() == model.UserName.ToLower());
+
+
 
             bool isValid = await _userManager.CheckPasswordAsync(userFromDb, model.Password);
 
+
+
             if (userFromDb == null || !isValid)
+
             {
+
                 _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status401Unauthorized;
+
                 _response.IsSuccess = false;
+
                 _response.ErrorMessages = new List<string> { "Username or password is incorrect!" };
+
                 return BadRequest(_response);
+
             }
 
+
+
             // Получить роли пользователя
+
             var userRoles = await _userManager.GetRolesAsync(userFromDb);
+
             var userRole = userRoles.FirstOrDefault() ?? "User"; // Если ро
 
+
+
             // Generate JWT token
+
             var tokenHandler = new JwtSecurityTokenHandler();
+
             var key = Encoding.ASCII.GetBytes(secretKey);
+
             var tokenDescriptor = new SecurityTokenDescriptor
+
             {
+
                 Subject = new System.Security.Claims.ClaimsIdentity(new[]
-                {
-                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userFromDb.Id.ToString()),
-                   new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, userFromDb.UserName),
-                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, userFromDb.Email),
-                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, userRole)
-                }),
+
+                {
+                            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userFromDb.Id.ToString()),
+                           new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, userFromDb.UserName),
+                            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, userFromDb.Email),
+                            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, userRole)
+                        }),
+
                 Expires = DateTime.UtcNow.AddDays(7),
+
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+
             };
+
             var token = tokenHandler.CreateToken(tokenDescriptor);
+
             var tokenString = tokenHandler.WriteToken(token);
 
 
+
+
+
             LoginResponseDTO loginResponse = new()
+
             {
+
                 UserId = userFromDb.Id,
+
                 UserName = userFromDb.UserName,
+
                 Email = userFromDb.Email,
+
                 //Token = "test"
+
                 Token = tokenString
+
                 //Roles = userRoles
+
             };
 
+
+
             if (loginResponse == null)
+
             {
+
                 _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status404NotFound;
+
                 _response.IsSuccess = false;
+
                 _response.ErrorMessages.Add("Error while login");
+
                 return NotFound(_response);
+
             }
 
+
+
             _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status200OK;
+
             _response.IsSuccess = true;
+
             _response.Result = loginResponse;
+
             return Ok(_response);
 
-        }
 
+
+        }
         /// <summary>
-        /// </summary>
-        /// <param name="model"></param>
-        /// <summary>
-        /// Registers a new user.
-        /// </summary>
-        /// <param name="model">The registration request model containing user details.</param>
-        /// <returns>An ApiResponse indicating the result of the registration process.</returns>
-        ///     
-        /// <returns></returns>
+        /// Registers a new user.  
+        /// Note: The email must be a valid email address to pass validation in Identity.  
+        /// </summary>  
+        /// <param name="model">The registration request model containing user details.</param>  
+        /// <returns>An ApiResponse indicating the result of the registration process.</returns>  
+        /// 
         [HttpPost("register")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(ApiResponse))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ApiResponse))]
+        [ProducesResponseType(StatusCodes.Status403Forbidden, Type = typeof(ApiResponse))]
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ApiResponse))]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ApiResponse))]
         public async Task<ActionResult<ApiResponse>> Register([FromBody] RegisterRequestDTO model)
         {
             if (model.Password.Length < 6)

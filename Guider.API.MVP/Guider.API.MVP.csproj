@@ -8,13 +8,13 @@
 
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <DocumentationFile>bin\Debug\net8.0\Guider.API.MVP.xml</DocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
     <UserSecretsId>8adf82fc-04e9-4bd1-a9ab-cdd6c8d6c41d</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
   </PropertyGroup>
 
-
-
+  
   <ItemGroup>
     <Content Remove="appsettings.Development.json" />
   </ItemGroup>
