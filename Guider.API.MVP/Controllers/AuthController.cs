@@ -249,11 +249,16 @@ namespace Guider.API.MVP.Controllers
             return BadRequest(_response);
         }
 
-        /// <summary>
-        /// </summary>
-        /// <param name="pageNumber"></param>
-        /// <param name="pageSize"></param>
-        /// <returns></returns>
+        /// <summary>  
+        /// Provides paginated information about all users and their roles.  
+        /// This method is accessible only to administrators.  
+        /// </summary>  
+        /// 
+        /// <param name="pageNumber">The page number for pagination.</param>
+        /// 
+        /// <param name="pageSize">The number of users per page.</param>
+        /// 
+        /// <returns>An ApiResponse containing a list of users and their roles.</returns>
         [HttpGet("users")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -263,73 +268,131 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<ApiResponse>> GetUsersPaged(int pageNumber = 1, int pageSize = 10)
         {
+
             var currentUser = await _userManager.GetUserAsync(User);
+
             if (currentUser == null)
+
             {
+
                 _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status401Unauthorized;
+
                 _response.IsSuccess = false;
+
                 _response.ErrorMessages = new List<string> { "Unable to retrieve current user!" };
+
                 return StatusCode(StatusCodes.Status401Unauthorized, _response);
+
             }
+
+
 
             var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
+
             if (currentUserRoles == null || !currentUserRoles.Any())
+
             {
+
                 _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status403Forbidden;
+
                 _response.IsSuccess = false;
+
                 _response.ErrorMessages = new List<string> { "Current user has no roles assigned!" };
+
                 return StatusCode(StatusCodes.Status403Forbidden, _response);
+
             }
+
+
 
             if (!currentUserRoles.Contains(SD.Role_Super_Admin) && !currentUserRoles.Contains(SD.Role_Admin))
+
             {
+
                 _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status403Forbidden;
+
                 _response.IsSuccess = false;
+
                 _response.ErrorMessages = new List<string> { "Access denied, with current user role!" };
+
                 return StatusCode(StatusCodes.Status403Forbidden, _response);
+
             }
+
+
 
             var users = _db.ApplicationUsers
+
                .Skip((pageNumber - 1) * pageSize)
+
                .Take(pageSize)
+
                .ToList();
 
+
+
             if (users == null || !users.Any())
+
             {
+
                 _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status404NotFound;
+
                 _response.IsSuccess = false;
+
                 _response.ErrorMessages = new List<string> { "No users found!" };
+
                 return NotFound(_response);
+
             }
+
+
 
             var userList = new List<object>();
+
             foreach (var user in users)
+
             {
+
                 var roles = await _userManager.GetRolesAsync(user);
+
                 var firstRole = roles.FirstOrDefault() ?? "No Role Assigned";
+
                 userList.Add(new
+
                 {
+
                     user.Id,
+
                     user.UserName,
+
                     user.Email,
+
                     FirstRole = firstRole
+
                 });
+
             }
 
+
+
             _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status200OK;
+
             _response.IsSuccess = true;
+
             _response.Result = userList;
+
             return Ok(_response);
-        }
 
-
+        }
         /// <summary>
-        ///
+        /// Updates user information such as username, email, or role.
+        /// This method is accessible only to administrators.
+        /// Admins can assign the roles of Manager or User only to Managers or Users.
+        /// Super Admins can update any user, including other Super Admins.
         /// </summary>
-        /// 
-        /// <param name="id"></param>
-        /// 
-        /// <param name="model"></param>
+        /// <param name="id">The ID of the user to update.</param>
+        /// <param name="model">The update request model containing new user details.</param>
+        /// <returns>An ApiResponse indicating the result of the update operation.</returns>
         [HttpPut("user/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -337,14 +400,7 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        /// <summary>
-        /// 
-        /// </summary>
-        /// 
-        /// <param name="id"></param>
-        ///
-        /// <param name="model"></param>
-        public async Task<ActionResult<ApiResponse>> UpdateUser(string id, [FromBody] UpdateUserDTO model)
+         public async Task<ActionResult<ApiResponse>> UpdateUser(string id, [FromBody] UpdateUserDTO model)
         {
             if (string.IsNullOrEmpty(model.UserName) && string.IsNullOrEmpty(model.Email) && string.IsNullOrEmpty(model.Role))
             {
@@ -443,11 +499,13 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// 
+        /// Deletes a user by their identifier.
+        /// This method is accessible only to administrators.
+        /// Admins can delete Managers and Users, but not other Admins or Super Admins.
+        /// Super Admins cannot be deleted by anyone.
         /// </summary>
-        /// 
-        /// <param name="id"></param>
-        /// 
+        /// <param name="id">The ID of the user to delete.</param>
+        /// <returns>An ApiResponse indicating the result of the deletion process.</returns>
         [HttpDelete("user/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         [ProducesResponseType(StatusCodes.Status200OK)]
