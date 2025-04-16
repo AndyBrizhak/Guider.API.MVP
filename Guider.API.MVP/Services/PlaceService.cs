@@ -439,6 +439,117 @@
             return results;
         }
 
+
+        /// <summary>
+        /// Получить отсортированный список по дистанции с текстовым поиском и фильтрацией по времени работы
+        /// </summary>
+        /// <param name="lat">Широта</param>
+        /// <param name="lng">Долгота</param>
+        /// <param name="maxDistanceMeters">Максимальное расстояние в метрах</param>
+        /// <param name="limit">Лимит результатов</param>
+        /// <param name="searchText">Текст для поиска</param>
+        /// <param name="isOpen">Учитывать ли расписание работы</param>
+        /// <returns>Список найденных объектов</returns>
+        public async Task<List<BsonDocument>> GetPlacesNearbyWithTextSearchAsync(decimal lat, decimal lng, int maxDistanceMeters, int limit, string searchText, bool isOpen)
+        {
+            if (!isOpen)
+            {
+                // Если не нужно учитывать расписание, используем существующий метод
+                return await GetPlacesNearbyWithTextSearchAsync(lat, lng, maxDistanceMeters, limit, searchText);
+            }
+
+            // Получаем текущее время в Коста-Рике (GMT-6)
+            var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
+            var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
+
+            // Получаем текущий день недели и время
+            var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
+            var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt"); // Например, "8:30 AM"
+
+            // Определяем этапы агрегационного пайплайна
+            var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
+    {
+        { "near", new BsonDocument
+            {
+                { "type", "Point" },
+                { "coordinates", new BsonArray { lng, lat } }
+            }
+        },
+        { "distanceField", "distance" },
+        { "maxDistance", maxDistanceMeters },
+        { "spherical", true }
+    });
+
+            var textSearchStage = new BsonDocument("$match", new BsonDocument
+        {
+            { "$or", new BsonArray
+                {
+                    new BsonDocument("name", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                    new BsonDocument("description", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                    new BsonDocument("address.city", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                    new BsonDocument("address.country", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                    new BsonDocument("address.province", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                    new BsonDocument("address.street", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                    new BsonDocument("category", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                    new BsonDocument("keywords", new BsonDocument("$regex", searchText).Add("$options", "i")),
+                    new BsonDocument("tags", new BsonDocument("$regex", searchText).Add("$options", "i"))
+                 }
+            }
+        });
+
+            // Добавляем этап фильтрации по расписанию работы
+            var scheduleMatchStage = new BsonDocument("$match", new BsonDocument
+    {
+        { "schedule", new BsonDocument
+            {
+                { "$elemMatch", new BsonDocument
+                    {
+                        { "days", new BsonDocument("$in", new BsonArray { dayOfWeek }) },
+                        { "hours", new BsonDocument
+                            {
+                                { "$elemMatch", new BsonDocument
+                                    {
+                                        { "start", new BsonDocument("$lte", currentTimeString) },
+                                        { "end", new BsonDocument("$gte", currentTimeString) }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+            var projectStage = new BsonDocument("$project", new BsonDocument
+        {
+            { "_id", 1 },
+            { "distance", 1 },
+            { "name", 1 },
+            { "address.city", 1 },
+            { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
+            { "web", 1 }
+        });
+
+            var limitStage = new BsonDocument("$limit", limit);
+
+            // Составляем полный пайплайн с учетом расписания работы
+            var pipeline = new[] { geoNearStage, textSearchStage, scheduleMatchStage, projectStage, limitStage };
+
+            var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+            return results;
+        }
+
+        /// <summary>
+        /// Получить отсортированный список по дистанции с текстовым поиском и фильтрацией по ключевым словам 
+        /// c использованием $or
+        /// </summary>
+        /// <param name="lat"></param>
+        /// <param name="lng"></param>
+        /// <param name="maxDistanceMeters"></param>
+        /// <param name="limit"></param>
+        /// <param name="filterKeywords"></param>
+        /// <returns></returns>
         public async Task<List<BsonDocument>> GetPlacesWithKeywordsListAsync(
           decimal lat,
           decimal lng,
@@ -510,6 +621,24 @@
             return results;
         }
 
+        /// <summary>
+        /// 
+        /// Получить отсортированный список по дистанции с текстовым поиском и фильтрацией по времени работы
+        /// 
+        /// </summary>
+        /// 
+        /// <param name="lat"></param>
+        /// 
+        /// <param name="lng"></param>
+        /// 
+        /// <param name="maxDistanceMeters"></param>
+        /// 
+        /// <param name="limit"></param>
+        /// 
+        /// <param name="filterKeywords"></param>
+        /// 
+        /// <returns></returns>
+        /// 
         public async Task<List<BsonDocument>> GetPlacesWithAllKeywordsAsync(
             decimal lat,
             decimal lng,
