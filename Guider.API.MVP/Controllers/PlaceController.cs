@@ -376,6 +376,8 @@ namespace Guider.API.MVP.Controllers
 
             return Content(places.ToJson(), "application/json");
         }
+
+
         /// <summary>
         /// Получить ближайшие места с любым из ключевых слов
         /// </summary>
@@ -431,6 +433,7 @@ namespace Guider.API.MVP.Controllers
             }
             return Content(places.ToJson(), "application/json");
         }
+
 
         /// <summary>
         /// Получить ближайшие места, содержащие все указанные ключевые слова
