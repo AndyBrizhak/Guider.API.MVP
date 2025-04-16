@@ -213,12 +213,50 @@ namespace Guider.API.MVP.Controllers
         //    return NoContent();
         //}
 
+        ///// <summary>
+        ///// Получить ближайшие места
+        ///// </summary>
+        ///// <param name="lat">Широта</param>
+        ///// <param name="lng">Долгота</param>
+        ///// <param name="maxDistance">Максимальное расстояние</param>
+        ///// <returns>Список ближайших мест в формате JSON</returns>
+        //[HttpGet("geonear")]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
+        //public async Task<ActionResult<string>> GetNearbyPlaces(
+        //[FromHeader(Name = "X-Latitude")] decimal lat,
+        //[FromHeader(Name = "X-Longitude")] decimal lng,
+        //[FromHeader(Name = "X-Max-Distance")] int maxDistance)
+        //{
+        //    //var jsonResult = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance);
+        //    //return Content(jsonResult, "application/json");
+        //    var places = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance);
+        //    if (places == null || places.Count ==0)
+        //    {
+        //        _response.StatusCode = HttpStatusCode.NotFound;
+        //        _response.IsSuccess = false;
+        //        _response.ErrorMessages.Add($"No places found within {maxDistance} meters.");
+        //        return NotFound(_response);
+        //    }
+        //    return Content(places.ToJson(), "application/json");
+
+        //}
+
+
         /// <summary>
         /// Получить ближайшие места
         /// </summary>
         /// <param name="lat">Широта</param>
         /// <param name="lng">Долгота</param>
         /// <param name="maxDistance">Максимальное расстояние</param>
+        /// <param name="isOpen">Фильтр по открытым заведениям (по времени Коста-Рики)</param>
         /// <returns>Список ближайших мест в формате JSON</returns>
         [HttpGet("geonear")]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
@@ -231,23 +269,35 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
         public async Task<ActionResult<string>> GetNearbyPlaces(
-        [FromHeader(Name = "X-Latitude")] decimal lat,
-        [FromHeader(Name = "X-Longitude")] decimal lng,
-        [FromHeader(Name = "X-Max-Distance")] int maxDistance)
+            [FromHeader(Name = "X-Latitude")] decimal lat,
+            [FromHeader(Name = "X-Longitude")] decimal lng,
+            [FromHeader(Name = "X-Max-Distance")] int maxDistance,
+            [FromHeader(Name = "X-Is-Open")] bool isOpen = false)
         {
-            //var jsonResult = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance);
-            //return Content(jsonResult, "application/json");
-            var places = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance);
-            if (places == null || places.Count ==0)
+            try
             {
-                _response.StatusCode = HttpStatusCode.NotFound;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add($"No places found within {maxDistance} meters.");
-                return NotFound(_response);
+                var places = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance, isOpen);
+
+                if (places == null || places.Count == 0)
+                {
+                    _response.StatusCode = HttpStatusCode.NotFound;
+                    _response.IsSuccess = false;
+                    _response.ErrorMessages.Add($"No places found within {maxDistance} meters{(isOpen ? " that are currently open" : "")}.");
+                    return NotFound(_response);
+                }
+
+                return Content(places.ToJson(), "application/json");
             }
-            return Content(places.ToJson(), "application/json");
-            
+            catch (Exception ex)
+            {
+                _response.StatusCode = HttpStatusCode.InternalServerError;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add(ex.Message);
+                return StatusCode((int)HttpStatusCode.InternalServerError, _response);
+            }
         }
+
+
 
         /// <summary>
         /// Получение списка Places для карты на главной странице, с выводом идентификатора,  
