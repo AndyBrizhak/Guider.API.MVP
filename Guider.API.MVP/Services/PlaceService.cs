@@ -741,6 +741,11 @@
         }
 
 
+        /// <summary>
+        ///
+        /// Получить отсортированный список по дистанции с текстовым поиском, фильтрацией по ключевым словам
+        /// 
+        /// c использованием $and
         public async Task<List<BsonDocument>> GetPlacesWithAllKeywordsAsync(
             decimal lat,
             decimal lng,
@@ -818,6 +823,132 @@
             var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
             return results;
         }
+
+
+        /// <summary>
+        /// Получить отсортированный список по дистанции с текстовым поиском, фильтрацией по ключевым словам
+        /// и фильтрацией по открытым заведениям
+        /// с использованием $and
+        /// </summary>
+        /// <param name="lat"></param>
+        /// <param name="lng"></param>
+        /// <param name="maxDistanceMeters"></param>
+        /// <param name="limit"></param>
+        /// <param name="filterKeywords"></param>
+        /// <param name="isOpen"></param>
+        /// <returns></returns>
+        public async Task<List<BsonDocument>> GetPlacesWithAllKeywordsAsync(
+           decimal lat,
+           decimal lng,
+           int maxDistanceMeters,
+           int limit,
+           List<string>? filterKeywords,
+           bool isOpen)
+        {
+            var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
+           {
+               { "near", new BsonDocument
+                   {
+                       { "type", "Point" },
+                       { "coordinates", new BsonArray { lng, lat } }
+                   }
+               },
+               { "distanceField", "distance" },
+               { "maxDistance", maxDistanceMeters },
+               { "spherical", true }
+           });
+
+            // Если список ключевых слов не пуст, создаем стадию $match
+            BsonDocument? matchStage = null;
+            if (filterKeywords != null && filterKeywords.Any())
+            {
+                var andConditions = new BsonArray();
+
+                foreach (var keyword in filterKeywords)
+                {
+                    if (!string.IsNullOrWhiteSpace(keyword))
+                    {
+                        var fieldsOrCondition = new BsonArray();
+                        fieldsOrCondition.Add(new BsonDocument("name", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        fieldsOrCondition.Add(new BsonDocument("description", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        fieldsOrCondition.Add(new BsonDocument("address.city", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        fieldsOrCondition.Add(new BsonDocument("address.country", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        fieldsOrCondition.Add(new BsonDocument("address.province", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        fieldsOrCondition.Add(new BsonDocument("address.street", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        fieldsOrCondition.Add(new BsonDocument("category", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        fieldsOrCondition.Add(new BsonDocument("keywords", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        fieldsOrCondition.Add(new BsonDocument("tags", new BsonDocument("$regex", keyword).Add("$options", "i")));
+
+                        andConditions.Add(new BsonDocument("$or", fieldsOrCondition));
+                    }
+                }
+
+                if (andConditions.Count > 0)
+                {
+                    matchStage = new BsonDocument("$match", new BsonDocument
+                   {
+                       { "$and", andConditions }
+                   });
+                }
+            }
+
+            // Добавляем фильтрацию по открытым заведениям, если isOpen = true
+            BsonDocument? scheduleMatchStage = null;
+            if (isOpen)
+            {
+                var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
+                var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
+
+                var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
+                var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt");
+
+                scheduleMatchStage = new BsonDocument("$match", new BsonDocument
+               {
+                   { "schedule", new BsonDocument
+                       {
+                           { "$elemMatch", new BsonDocument
+                               {
+                                   { "days", new BsonDocument("$in", new BsonArray { dayOfWeek }) },
+                                   { "hours", new BsonDocument
+                                       {
+                                           { "$elemMatch", new BsonDocument
+                                               {
+                                                   { "start", new BsonDocument("$lte", currentTimeString) },
+                                                   { "end", new BsonDocument("$gte", currentTimeString) }
+                                               }
+                                           }
+                                       }
+                                   }
+                               }
+                           }
+                       }
+                   }
+               });
+            }
+
+            var projectStage = new BsonDocument("$project", new BsonDocument
+           {
+               { "_id", 1 },
+               { "distance", 1 },
+               { "name", 1 },
+               { "address.city", 1 },
+               { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
+               { "web", 1 }
+           });
+
+            var limitStage = new BsonDocument("$limit", limit);
+
+            // Формируем пайплайн в зависимости от наличия matchStage и scheduleMatchStage
+            var pipeline = new List<BsonDocument> { geoNearStage };
+            if (matchStage != null) pipeline.Add(matchStage);
+            if (scheduleMatchStage != null) pipeline.Add(scheduleMatchStage);
+            pipeline.Add(projectStage);
+            pipeline.Add(limitStage);
+
+            var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+            return results;
+        }
+
 
     }
 }

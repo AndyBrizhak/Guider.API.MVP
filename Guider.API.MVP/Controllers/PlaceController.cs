@@ -573,17 +573,18 @@ namespace Guider.API.MVP.Controllers
             return Content(places.ToJson(), "application/json");
         }
 
-       
 
 
         /// <summary>
         /// Получить ближайшие места, содержащие все указанные ключевые слова
+        /// с учетом фильтра по времени работы
         /// </summary>
         /// <param name="lat">Широта</param>
         /// <param name="lng">Долгота</param>
         /// <param name="maxDistanceMeters">Максимальное расстояние в метрах</param>
         /// <param name="limit">Максимальное количество результатов</param>
         /// <param name="filterKeywords">Список ключевых слов (обязательны все слова)</param>
+        /// <param name="isOpen">Учитывать ли расписание работы</param>
         /// <returns>Список найденных мест</returns>
         [HttpGet("nearby-with-all-keywords")]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
@@ -600,7 +601,8 @@ namespace Guider.API.MVP.Controllers
             [FromQuery] decimal lng,
             [FromQuery] int maxDistanceMeters,
             [FromQuery] int limit,
-            [FromQuery] List<string>? filterKeywords)
+            [FromQuery] List<string>? filterKeywords,
+            [FromQuery] bool isOpen = false)
         {
             // Проверка и корректировка значения limit
             if (limit < 1)
@@ -615,18 +617,29 @@ namespace Guider.API.MVP.Controllers
             // Проверка filterKeywords на null и пустой список
             if (filterKeywords == null || !filterKeywords.Any())
             {
-                _response.StatusCode = HttpStatusCode.NotFound;
+                _response.StatusCode = HttpStatusCode.BadRequest;
                 _response.IsSuccess = false;
                 _response.ErrorMessages.Add("Filter keywords list is empty or not provided.");
-                return NotFound(_response);
+                return BadRequest(_response);
             }
 
-            var places = await _placeService.GetPlacesWithAllKeywordsAsync(lat, lng, maxDistanceMeters, limit, filterKeywords);
+            List<BsonDocument> places;
+
+            // Используем соответствующую перегрузку метода в зависимости от значения isOpen
+            if (isOpen)
+            {
+                places = await _placeService.GetPlacesWithAllKeywordsAsync(lat, lng, maxDistanceMeters, limit, filterKeywords, isOpen);
+            }
+            else
+            {
+                places = await _placeService.GetPlacesWithAllKeywordsAsync(lat, lng, maxDistanceMeters, limit, filterKeywords);
+            }
+
             if (places == null || places.Count == 0)
             {
                 _response.StatusCode = HttpStatusCode.NotFound;
                 _response.IsSuccess = false;
-                _response.ErrorMessages.Add($"No places found with all the provided keywords.");
+                _response.ErrorMessages.Add($"No places found with all the provided keywords{(isOpen ? " that are currently open" : "")}.");
                 return NotFound(_response);
             }
 
