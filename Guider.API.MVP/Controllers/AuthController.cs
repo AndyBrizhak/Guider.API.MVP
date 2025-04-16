@@ -392,6 +392,56 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
+        /// Retrieves user details by their identifier, excluding the password hash.
+        /// This method is accessible only to administrators.
+        /// </summary>
+        /// <param name="id">The ID of the user to retrieve.</param>
+        /// <returns>An ApiResponse containing user details.</returns>
+        [HttpGet("user/{id}")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ApiResponse>> GetUserById(string id)
+        {
+            var currentUser = await _userManager.GetUserAsync(User);
+            var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
+
+            if (currentUser == null || currentUserRoles == null || !currentUserRoles.Any())
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status401Unauthorized;
+                _response.IsSuccess = false;
+                _response.ErrorMessages = new List<string> { "Unauthorized access!" };
+                return StatusCode(StatusCodes.Status401Unauthorized, _response);
+            }
+
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null)
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status404NotFound;
+                _response.IsSuccess = false;
+                _response.ErrorMessages = new List<string> { "User not found!" };
+                return NotFound(_response);
+            }
+
+            var roles = await _userManager.GetRolesAsync(user);
+            var userDetails = new
+            {
+                user.Id,
+                user.UserName,
+                user.Email,
+                Roles = roles
+            };
+
+            _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status200OK;
+            _response.IsSuccess = true;
+            _response.Result = userDetails;
+            return Ok(_response);
+        }
+
+        /// <summary>
         /// Updates user information such as username, email, or role.
         /// This method is accessible only to administrators.
         /// Admins can assign the roles of Manager or User only to Managers or Users.
@@ -579,5 +629,6 @@ namespace Guider.API.MVP.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, _response);
             }
         }
+
     }
 }
