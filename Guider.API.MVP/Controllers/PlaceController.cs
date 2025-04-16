@@ -528,7 +528,8 @@ namespace Guider.API.MVP.Controllers
             [FromQuery] decimal lng,
             [FromQuery] int maxDistanceMeters,
             [FromQuery] int limit,
-            [FromQuery] List<string>? filterKeywords)
+            [FromQuery] List<string>? filterKeywords,
+            [FromQuery] bool isOpen = false)
         {
             // Проверка и корректировка значения limit
             if (limit < 1)
@@ -549,14 +550,26 @@ namespace Guider.API.MVP.Controllers
                 return NotFound(_response);
             }
 
-            var places = await _placeService.GetPlacesWithKeywordsListAsync(lat, lng, maxDistanceMeters, limit, filterKeywords);
+            List<BsonDocument> places;
+
+            // Используем соответствующую перегрузку метода в зависимости от значения isOpen
+            if (isOpen)
+            {
+                places = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistanceMeters, isOpen);
+            }
+            else
+            {
+                places = await _placeService.GetPlacesWithKeywordsListAsync(lat, lng, maxDistanceMeters, limit, filterKeywords);
+            }
+
             if (places == null || places.Count == 0)
             {
                 _response.StatusCode = HttpStatusCode.NotFound;
                 _response.IsSuccess = false;
-                _response.ErrorMessages.Add($"No places found with the provided filters.");
+                _response.ErrorMessages.Add($"No places found with the provided filters{(isOpen ? " that are currently open" : "")}.");
                 return NotFound(_response);
             }
+
             return Content(places.ToJson(), "application/json");
         }
 
