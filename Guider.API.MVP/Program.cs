@@ -68,7 +68,7 @@ builder.Services.AddAuthentication(u =>
 builder.Services.AddCors();    
 
 // Настройка MongoDB через appsettings.json
-builder.Services.Configure<MongoDbSettings>(
+builder.Services.Configure<Guider.API.MVP.Data.MongoDbSettings>(
     builder.Configuration.GetSection("MongoDbSettings"));
 
 // Регистрация MongoClient в DI-контейнере

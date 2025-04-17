@@ -1,5 +1,6 @@
 ﻿namespace Guider.API.MVP.Services
 {
+    using Guider.API.MVP.Data;
     using Guider.API.MVP.Models;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Options;
@@ -15,7 +16,14 @@
         {
             var client = new MongoClient(mongoSettings.Value.ConnectionString);
             var database = client.GetDatabase(mongoSettings.Value.DatabaseName);
-            _placeCollection = database.GetCollection<BsonDocument>(mongoSettings.Value.CollectionName);
+
+            // Old configuration
+            //_placeCollection = database.GetCollection<BsonDocument>(mongoSettings.Value.CollectionName);
+
+            // New configuration
+
+            _placeCollection = database.GetCollection<BsonDocument>(
+                mongoSettings.Value.Collections["Places"]);
         }
 
         /// <summary>
