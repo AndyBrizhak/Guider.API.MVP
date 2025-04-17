@@ -9,6 +9,8 @@ using MongoDB.Bson;
 using System.Collections.Generic;
 using System.Net;
 using System.Numerics;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace Guider.API.MVP.Controllers
@@ -164,22 +166,54 @@ namespace Guider.API.MVP.Controllers
             return Ok(place.ToJson());
         }
 
-        // 3️⃣ Добавить новый документ
-        //[HttpPost]
-        //public async Task<IActionResult> Create(BsonDocument place)
-        //{
-        //    await _placeService.CreateAsync(place);
 
-        //    // Получаем сгенерированный _id из BsonDocument
-        //    var id = place.Contains("_id") ? place["_id"].ToString() : null;
+        [HttpPost]
+        public async Task<IActionResult> Create([FromBody] JsonDocument jsonDocument)
+        {
+            try
+            {
+                // Валидация входящих данных
+                if (jsonDocument == null || jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
+                {
+                    var validationResponse = new ApiResponse // Renamed to avoid conflict
+                    {
+                        StatusCode = HttpStatusCode.BadRequest,
+                        IsSuccess = false,
+                        ErrorMessages = new List<string> { "Invalid input. Expected a JSON object." }
+                    };
+                    return BadRequest(validationResponse);
+                }
 
-        //    if (id == null)
-        //    {
-        //        return BadRequest("Не удалось получить _id нового документа.");
-        //    }
+                // Отправляем в сервис и получаем полный документ
+                var createdDocument = await _placeService.CreateAsync(jsonDocument);
 
-        //    return CreatedAtAction(nameof(GetById), new { id }, place);
-        //}
+                // Формируем успешный ответ
+                var successResponse = new ApiResponse // Renamed to avoid conflict
+                {
+                    StatusCode = HttpStatusCode.Created,
+                    IsSuccess = true,
+                    Result = createdDocument.ToJson()
+                };
+
+                // Возвращаем созданный документ внутри ApiResponse
+                return CreatedAtAction(nameof(GetById),
+                                     new { id = createdDocument["_id"].ToString() },
+                                     successResponse);
+            }
+            catch (Exception ex)
+            {
+                // Формируем ошибочный ответ
+                var errorResponse = new ApiResponse // Renamed to avoid conflict
+                {
+                    StatusCode = HttpStatusCode.BadRequest,
+                    IsSuccess = false,
+                    ErrorMessages = new List<string> { ex.Message }
+                };
+                return BadRequest(errorResponse);
+            }
+        }
+
+
 
         // 4️⃣ Обновить документ по ID
         //[HttpPut("{id}")]

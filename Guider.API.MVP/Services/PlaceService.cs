@@ -7,6 +7,7 @@
     using MongoDB.Bson;
     using MongoDB.Driver;
     using System.Collections.Generic;
+    using System.Text.Json;
     using System.Threading.Tasks;
     public class PlaceService
     {
@@ -102,6 +103,45 @@
 
         //public async Task CreateAsync(BsonDocument place) =>
         //    await _placeCollection.InsertOneAsync(place);
+
+        /// <summary>
+        /// 
+        /// Создать новый документ в коллекции Places
+        /// 
+        /// </summary>
+        /// 
+        /// <param name="jsonDocument">JSON-строка документа</param>
+        /// 
+        /// <returns>Созданный документ</returns>
+        public async Task<BsonDocument> CreateAsync(JsonDocument jsonDocument)
+        {
+            try
+            {
+                // Convert JsonDocument to a JSON string
+                var jsonString = jsonDocument.RootElement.GetRawText();
+
+                // Deserialize the JSON string into a BsonDocument
+                var document = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<BsonDocument>(jsonString);
+
+                // Add additional fields if necessary
+                if (!document.Contains("createdAt"))
+                {
+                    document.Add("createdAt", DateTime.UtcNow);
+                }
+
+                // Insert the document into the collection
+                await _placeCollection.InsertOneAsync(document);
+
+                // Return the created document
+                return document;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error creating document: {ex.Message}");
+            }
+        }
+
+
 
         //public async Task UpdateAsync(string id, BsonDocument updatedPlace)
         //{
