@@ -167,15 +167,24 @@ namespace Guider.API.MVP.Controllers
         }
 
 
-        [HttpPost]
+
+        /// <summary>  
+        /// Создание нового документа в коллекции Places.  
+        /// Доступно только для авторизованных пользователей с ролями Super Admin, Admin или Manager.  
+        /// Во входящем параметре должен передаваться валидный JSON-документ.  
+        /// </summary>  
+        /// <param name="jsonDocument">JSON-документ, представляющий данные для создания нового объекта.</param>  
+        /// <returns>Созданный объект в формате JSON, обернутый в ApiResponse.</returns>  
+        [HttpPost("create")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Create([FromBody] JsonDocument jsonDocument)
         {
             try
             {
-                // Валидация входящих данных
+                // Валидация входящих данных  
                 if (jsonDocument == null || jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
                 {
-                    var validationResponse = new ApiResponse // Renamed to avoid conflict
+                    var validationResponse = new ApiResponse // Renamed to avoid conflict  
                     {
                         StatusCode = HttpStatusCode.BadRequest,
                         IsSuccess = false,
@@ -184,26 +193,26 @@ namespace Guider.API.MVP.Controllers
                     return BadRequest(validationResponse);
                 }
 
-                // Отправляем в сервис и получаем полный документ
+                // Отправляем в сервис и получаем полный документ  
                 var createdDocument = await _placeService.CreateAsync(jsonDocument);
 
-                // Формируем успешный ответ
-                var successResponse = new ApiResponse // Renamed to avoid conflict
+                // Формируем успешный ответ  
+                var successResponse = new ApiResponse // Renamed to avoid conflict  
                 {
                     StatusCode = HttpStatusCode.Created,
                     IsSuccess = true,
                     Result = createdDocument.ToJson()
                 };
 
-                // Возвращаем созданный документ внутри ApiResponse
+                // Возвращаем созданный документ внутри ApiResponse  
                 return CreatedAtAction(nameof(GetById),
                                      new { id = createdDocument["_id"].ToString() },
                                      successResponse);
             }
             catch (Exception ex)
             {
-                // Формируем ошибочный ответ
-                var errorResponse = new ApiResponse // Renamed to avoid conflict
+                // Формируем ошибочный ответ  
+                var errorResponse = new ApiResponse // Renamed to avoid conflict  
                 {
                     StatusCode = HttpStatusCode.BadRequest,
                     IsSuccess = false,
