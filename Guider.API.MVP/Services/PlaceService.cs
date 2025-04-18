@@ -1097,79 +1097,153 @@
         //    return JsonDocument.Parse(jsonString);
         //}
 
+        //public async Task<JsonDocument> GetAvailableTagsAsync(
+        //                                                       string? category,
+        //                                                       List<string>? selectedTags)
+        //        {
+        //            var simplePipeline = new List<BsonDocument>();
+
+        //            // Добавляем фильтр по категории, если она указана
+        //            if (!string.IsNullOrEmpty(category))
+        //            {
+        //                simplePipeline.Add(new BsonDocument("$match",
+        //                    new BsonDocument("category", category)));
+        //            }
+
+        //            // Добавляем фильтр по выбранным тегам, если они указаны
+        //            // Этот фильтр выбирает документы, у которых есть хотя бы один из выбранных тегов
+        //            if (selectedTags != null && selectedTags.Count > 0)
+        //            {
+        //                simplePipeline.Add(new BsonDocument("$match",
+        //                    new BsonDocument("tags",
+        //                        new BsonDocument("$in", new BsonArray(selectedTags)))));
+        //            }
+
+        //            // Разворачиваем массив тегов
+        //            simplePipeline.Add(new BsonDocument("$unwind", "$tags"));
+
+        //            // Исключаем уже выбранные теги из результата
+        //            if (selectedTags != null && selectedTags.Count > 0)
+        //            {
+        //                simplePipeline.Add(new BsonDocument("$match",
+        //                    new BsonDocument("tags",
+        //                        new BsonDocument("$nin", new BsonArray(selectedTags)))));
+        //            }
+
+        //            // Группируем по тегам и подсчитываем количество
+        //            simplePipeline.Add(new BsonDocument("$group",
+        //                new BsonDocument
+        //                {
+        //            { "_id", "$tags" },
+        //            { "count", new BsonDocument("$sum", 1) }
+        //                }));
+
+        //            // Сортируем по имени тега
+        //            simplePipeline.Add(new BsonDocument("$sort",
+        //                new BsonDocument("_id", 1)));
+
+        //            // Форматируем результат в структуру tag/count
+        //            simplePipeline.Add(new BsonDocument("$project",
+        //                new BsonDocument
+        //                {
+        //            { "_id", 0 },
+        //            { "tag", "$_id" },
+        //            { "count", 1 }
+        //                }));
+
+        //            var result = await _placeCollection.Aggregate<BsonDocument>(simplePipeline).ToListAsync();
+
+        //            // Форматируем результат в нужную структуру JSON
+        //            // Получаем общее количество тегов
+        //            var totalCount = result.Count;
+
+        //            // Создаем итоговый документ с общим количеством и списком тегов
+        //            var finalResult = new BsonDocument
+        //    {
+        //        { "totalCount", totalCount },
+        //        { "tags", new BsonArray(result) }
+        //    };
+
+        //            // Преобразуем результат в JSON-строку
+        //            var jsonString = finalResult.ToJson();
+
+        //            // Возвращаем JsonDocument, созданный из JSON-строки
+        //            return JsonDocument.Parse(jsonString);
+        //        }
+
         public async Task<JsonDocument> GetAvailableTagsAsync(
                                                                string? category,
                                                                List<string>? selectedTags)
+        {
+            var simplePipeline = new List<BsonDocument>();
+
+            // Добавляем фильтр по категории, если она указана
+            if (!string.IsNullOrEmpty(category))
+            {
+                simplePipeline.Add(new BsonDocument("$match",
+                    new BsonDocument("category", category)));
+            }
+
+            // Добавляем фильтр по выбранным тегам, если они указаны
+            // Этот фильтр выбирает документы, у которых есть ВСЕ указанные теги
+            if (selectedTags != null && selectedTags.Count > 0)
+            {
+                simplePipeline.Add(new BsonDocument("$match",
+                    new BsonDocument("tags",
+                        new BsonDocument("$all", new BsonArray(selectedTags)))));
+            }
+
+            // Разворачиваем массив тегов
+            simplePipeline.Add(new BsonDocument("$unwind", "$tags"));
+
+            // Исключаем уже выбранные теги из результата
+            if (selectedTags != null && selectedTags.Count > 0)
+            {
+                simplePipeline.Add(new BsonDocument("$match",
+                    new BsonDocument("tags",
+                        new BsonDocument("$nin", new BsonArray(selectedTags)))));
+            }
+
+            // Группируем по тегам и подсчитываем количество
+            simplePipeline.Add(new BsonDocument("$group",
+                new BsonDocument
                 {
-                    var simplePipeline = new List<BsonDocument>();
+            { "_id", "$tags" },
+            { "count", new BsonDocument("$sum", 1) }
+                }));
 
-                    // Добавляем фильтр по категории, если она указана
-                    if (!string.IsNullOrEmpty(category))
-                    {
-                        simplePipeline.Add(new BsonDocument("$match",
-                            new BsonDocument("category", category)));
-                    }
+            // Сортируем по имени тега
+            simplePipeline.Add(new BsonDocument("$sort",
+                new BsonDocument("_id", 1)));
 
-                    // Добавляем фильтр по выбранным тегам, если они указаны
-                    // Этот фильтр выбирает документы, у которых есть хотя бы один из выбранных тегов
-                    if (selectedTags != null && selectedTags.Count > 0)
-                    {
-                        simplePipeline.Add(new BsonDocument("$match",
-                            new BsonDocument("tags",
-                                new BsonDocument("$in", new BsonArray(selectedTags)))));
-                    }
+            // Форматируем результат в структуру tag/count
+            simplePipeline.Add(new BsonDocument("$project",
+                new BsonDocument
+                {
+            { "_id", 0 },
+            { "tag", "$_id" },
+            { "count", 1 }
+                }));
 
-                    // Разворачиваем массив тегов
-                    simplePipeline.Add(new BsonDocument("$unwind", "$tags"));
+            var result = await _placeCollection.Aggregate<BsonDocument>(simplePipeline).ToListAsync();
 
-                    // Исключаем уже выбранные теги из результата
-                    if (selectedTags != null && selectedTags.Count > 0)
-                    {
-                        simplePipeline.Add(new BsonDocument("$match",
-                            new BsonDocument("tags",
-                                new BsonDocument("$nin", new BsonArray(selectedTags)))));
-                    }
+            // Форматируем результат в нужную структуру JSON
+            // Получаем общее количество тегов
+            var totalCount = result.Count;
 
-                    // Группируем по тегам и подсчитываем количество
-                    simplePipeline.Add(new BsonDocument("$group",
-                        new BsonDocument
-                        {
-                    { "_id", "$tags" },
-                    { "count", new BsonDocument("$sum", 1) }
-                        }));
-
-                    // Сортируем по имени тега
-                    simplePipeline.Add(new BsonDocument("$sort",
-                        new BsonDocument("_id", 1)));
-
-                    // Форматируем результат в структуру tag/count
-                    simplePipeline.Add(new BsonDocument("$project",
-                        new BsonDocument
-                        {
-                    { "_id", 0 },
-                    { "tag", "$_id" },
-                    { "count", 1 }
-                        }));
-
-                    var result = await _placeCollection.Aggregate<BsonDocument>(simplePipeline).ToListAsync();
-
-                    // Форматируем результат в нужную структуру JSON
-                    // Получаем общее количество тегов
-                    var totalCount = result.Count;
-
-                    // Создаем итоговый документ с общим количеством и списком тегов
-                    var finalResult = new BsonDocument
+            // Создаем итоговый документ с общим количеством и списком тегов
+            var finalResult = new BsonDocument
             {
                 { "totalCount", totalCount },
                 { "tags", new BsonArray(result) }
             };
 
-                    // Преобразуем результат в JSON-строку
-                    var jsonString = finalResult.ToJson();
+            // Преобразуем результат в JSON-строку
+            var jsonString = finalResult.ToJson();
 
-                    // Возвращаем JsonDocument, созданный из JSON-строки
-                    return JsonDocument.Parse(jsonString);
-                }
+            // Возвращаем JsonDocument, созданный из JSON-строки
+            return JsonDocument.Parse(jsonString);
+        }
 
     }
 }
