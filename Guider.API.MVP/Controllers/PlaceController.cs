@@ -225,25 +225,75 @@ namespace Guider.API.MVP.Controllers
 
 
         // 4️⃣ Обновить документ по ID
-        //[HttpPut("{id}")]
-        //public async Task<IActionResult> Update(string id, BsonDocument updatedPlace)
-        //{
-        //    var id = updatedPlace.Contains("_id") ? updatedPlace["_id"].ToString() : null;
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(string id, [FromBody] JsonDocument jsonDocument)
+        {
+            try
+            {
+                // Валидация входящих данных
+                if (jsonDocument == null || jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
+                {
+                    var validationResponse = new ApiResponse
+                    {
+                        StatusCode = HttpStatusCode.BadRequest,
+                        IsSuccess = false,
+                        ErrorMessages = new List<string> { "Invalid input. Expected a JSON object." }
+                    };
+                    return BadRequest(validationResponse);
+                }
 
-        //    if (id == null)
-        //    {
-        //        return BadRequest("Не удалось получить _id нового документа.");
-        //    }
+                // Проверяем, что ID из маршрута совпадает с ID в документе
+                if (!jsonDocument.RootElement.TryGetProperty("_id", out var idProperty) 
+                            || idProperty.ValueKind != JsonValueKind.Object 
+                            || !idProperty.TryGetProperty("$oid", out var oidProperty) 
+                            || oidProperty.GetString() != id)
+                {
+                    var idMismatchResponse = new ApiResponse
+                    {
+                        StatusCode = HttpStatusCode.BadRequest,
+                        IsSuccess = false,
+                        ErrorMessages = new List<string> { "ID in the route does not match the ID in the JSON document or is not a valid string." }
+                    };
+                    return BadRequest(idMismatchResponse);
+                }
+              
+              
+                // Отправляем в сервис для обновления
+                var updatedDocument = await _placeService.UpdateAsync(id, jsonDocument);
 
-        //    var result = await _placeService.UpdateAsync(id, updatedPlace);
+                if (updatedDocument == null)
+                {
+                    var notFoundResponse = new ApiResponse
+                    {
+                        StatusCode = HttpStatusCode.NotFound,
+                        IsSuccess = false,
+                        ErrorMessages = new List<string> { $"Document with ID {id} not found." }
+                    };
+                    return NotFound(notFoundResponse);
+                }
 
-        //    if (result.ModifiedCount == 0)
-        //    {
-        //        return NotFound($"Документ с id {id} не найден.");
-        //    }
+                // Формируем успешный ответ
+                var successResponse = new ApiResponse
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    IsSuccess = true,
+                    Result = updatedDocument.ToJson()
+                };
 
-        //    return Ok(updatedPlace);
-        //}
+                return Ok(successResponse);
+            }
+            catch (Exception ex)
+            {
+                // Формируем ошибочный ответ
+                var errorResponse = new ApiResponse
+                {
+                    StatusCode = HttpStatusCode.InternalServerError,
+                    IsSuccess = false,
+                    ErrorMessages = new List<string> { ex.Message }
+                };
+                return StatusCode((int)HttpStatusCode.InternalServerError, errorResponse);
+            }
+        }
 
         // 5️⃣ Удалить документ по ID
         //[HttpDelete("{id}")]

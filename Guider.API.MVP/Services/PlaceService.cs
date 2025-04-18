@@ -48,10 +48,7 @@
                 .ToListAsync();
         }
 
-
-
-        //public async Task<BsonDocument?> GetByIdAsync(string id) =>
-        //await _placeCollection.Find(b => b["_id"] == ObjectId.Parse(id)).FirstOrDefaultAsync();
+               
         /// <summary>
         /// Получить объект по идентификатору
         /// </summary>
@@ -100,9 +97,7 @@
             return await _placeCollection.Find(filter).FirstOrDefaultAsync();
         }
 
-
-        //public async Task CreateAsync(BsonDocument place) =>
-        //    await _placeCollection.InsertOneAsync(place);
+              
 
         /// <summary>
         /// 
@@ -142,12 +137,47 @@
         }
 
 
+        /// <summary>
+        /// Обновить существующий документ в коллекции Places
+        /// </summary>
+        /// <param name="id">Идентификатор документа</param>
+        /// <param name="jsonDocument">JSON-строка с обновленными данными</param>
+        /// <returns>Обновленный документ</returns>
+        public async Task<JsonDocument> UpdateAsync(string id, JsonDocument jsonDocument)
+        {
+            try
+            {
+                // Convert JsonDocument to a JSON string
+                var jsonString = jsonDocument.RootElement.GetRawText();
 
-        //public async Task UpdateAsync(string id, BsonDocument updatedPlace)
-        //{
-        //    var filter = Builders<BsonDocument>.Filter.Eq("_id", ObjectId.Parse(id));
-        //    return await _placeCollection.ReplaceOneAsync(filter, updatedPlace);
-        //}
+                // Deserialize the JSON string into a BsonDocument
+                var updatedDocument = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<BsonDocument>(jsonString);
+
+                // Ensure the "_id" field matches the provided id
+                if (!updatedDocument.Contains("_id"))
+                {
+                    updatedDocument.Add("_id", ObjectId.Parse(id));
+                }
+                else
+                {
+                    updatedDocument["_id"] = ObjectId.Parse(id);
+                }
+
+                // Define the filter to find the document by id
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", ObjectId.Parse(id));
+
+                // Replace the existing document with the updated one
+                await _placeCollection.ReplaceOneAsync(filter, updatedDocument);
+
+                // Convert the updated BsonDocument back to JsonDocument
+                var updatedJsonString = updatedDocument.ToJson();
+                return JsonDocument.Parse(updatedJsonString);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error updating document: {ex.Message}");
+            }
+        }
 
         //public async Task DeleteAsync(string id)
         //{
