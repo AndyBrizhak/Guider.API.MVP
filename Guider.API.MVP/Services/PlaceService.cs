@@ -6,6 +6,7 @@
     using Microsoft.Extensions.Options;
     using MongoDB.Bson;
     using MongoDB.Driver;
+    using MongoDB.Driver.GeoJsonObjectModel;
     using System.Collections.Generic;
     using System.Text.Json;
     using System.Threading.Tasks;
@@ -1063,6 +1064,48 @@
             return results;
         }
 
+
+
+        public async Task<JsonDocument> GetAvailableTagsAsync(
+           string? category,
+           List<string>? selectedTags)
+        {
+            //var simplePipeline = new List<BsonDocument>
+            //    {
+            //        new BsonDocument("$match",
+            //            new BsonDocument("category", category)),
+            //        new BsonDocument("$unwind", "$tags"),
+            //        new BsonDocument("$group",
+            //            new BsonDocument
+            //            {
+            //                { "_id", "$tags" },
+            //                { "count", new BsonDocument("$sum", 1) }
+            //            })
+            var simplePipeline = new List<BsonDocument>();
+
+            if (!string.IsNullOrEmpty(category))
+            {
+                simplePipeline.Add(new BsonDocument("$match",
+                    new BsonDocument("category", category)));
+            }
+
+            simplePipeline.Add(new BsonDocument("$unwind", "$tags"));
+            simplePipeline.Add(new BsonDocument("$group",
+                new BsonDocument
+                {
+                    { "_id", "$tags" },
+                    { "count", new BsonDocument("$sum", 1) }
+                }));
+                
+
+            var result = await _placeCollection.Aggregate<BsonDocument>(simplePipeline).ToListAsync();
+
+            // Преобразуем результат в JSON-строку
+            var jsonString = result.ToJson();
+
+            // Возвращаем JsonDocument, созданный из JSON-строки
+            return JsonDocument.Parse(jsonString);
+        }
 
     }
 }

@@ -770,5 +770,42 @@ namespace Guider.API.MVP.Controllers
 
             return Content(places.ToJson(), "application/json");
         }
+
+
+        [HttpGet("available-tags")]
+        public async Task<ActionResult> GetAvailableTags(
+           [FromQuery] string? category = null,
+           [FromQuery] List<string>? selectedTags = null)
+        {
+            try
+            {
+                // Получаем результат из PlaceService в виде JsonDocument
+                var result = await _placeService.GetAvailableTagsAsync(
+                    category, 
+                    selectedTags);
+
+                // Формируем успешный ответ
+                var response = new ApiResponse
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    IsSuccess = true,
+                    Result = result
+                };
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                // Формируем ошибочный ответ
+                var errorResponse = new ApiResponse
+                {
+                    StatusCode = HttpStatusCode.InternalServerError,
+                    IsSuccess = false,
+                    ErrorMessages = new List<string> { ex.Message }
+                };
+
+                return StatusCode((int)HttpStatusCode.InternalServerError, errorResponse);
+            }
+        }
     }
 }
