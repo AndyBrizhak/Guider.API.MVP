@@ -174,11 +174,52 @@
              }
         }
 
-        //public async Task DeleteAsync(string id)
-        //{
-        //    var filter = Builders<BsonDocument>.Filter.Eq("_id", ObjectId.Parse(id));
-        //    return await _placeCollection.DeleteOneAsync(filter);
-        //}
+        public async Task<JsonDocument> DeleteAsync(string id)
+        {
+            try
+            {
+                // Проверяем, существует ли объект с указанным идентификатором  
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", ObjectId.Parse(id));
+                var existingDocument = await _placeCollection.Find(filter).FirstOrDefaultAsync();
+
+                if (existingDocument == null)
+                {
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new
+                    {
+                        success = false,
+                        message = $"Document with id {id} does not exist."
+                    }));
+                }
+
+                // Удаляем объект  
+                var deleteResult = await _placeCollection.DeleteOneAsync(filter);
+
+                if (deleteResult.DeletedCount > 0)
+                {
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new
+                    {
+                        success = true,
+                        message = $"Document with id {id} was successfully deleted."
+                    }));
+                }
+                else
+                {
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new
+                    {
+                        success = false,
+                        message = $"Failed to delete document with id {id}."
+                    }));
+                }
+            }
+            catch (Exception ex)
+            {
+                return JsonDocument.Parse(JsonSerializer.Serialize(new
+                {
+                    success = false,
+                    message = $"An error occurred while deleting the document: {ex.Message}"
+                }));
+            }
+        }
 
 
         ///// <summary>

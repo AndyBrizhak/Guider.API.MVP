@@ -319,52 +319,60 @@ namespace Guider.API.MVP.Controllers
 
 
 
-        // 5️⃣ Удалить документ по ID
-        //[HttpDelete("{id}")]
-        //public async Task<IActionResult> Delete(string id)
-        //{
-        //    var business = await _placeService.GetByIdAsync(id);
-        //    if (business == null) return NotFound();
+        /// <summary>
+        /// 
+        /// Удаление документа из коллекции Places.
+        /// 
+        /// Доступно только для авторизованных пользователей с ролями Super Admin или Admin.
+        /// 
+        /// </summary>
+        /// 
+        /// <param name="id">Идентификатор документа, который нужно удалить.</param>
+        /// 
+        /// <returns>Статус операции удаления в формате JSON, обернутый в ApiResponse.</returns>
+        [HttpDelete("{id}")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        public async Task<IActionResult> Delete(string id)
+        {
+            //var business = await _placeService.GetByIdAsync(id);
+            //if (business == null)
+            //{
+            //    _response.StatusCode = HttpStatusCode.NotFound;
+            //    _response.IsSuccess = false;
+            //    _response.ErrorMessages.Add($"Document with id {id} not found.");
+            //    return NotFound(_response);
+            //}
 
-        //    await _placeService.DeleteAsync(id);
-        //    return NoContent();
-        //}
+            var deleteResult = await _placeService.DeleteAsync(id);
 
-        ///// <summary>
-        ///// Получить ближайшие места
-        ///// </summary>
-        ///// <param name="lat">Широта</param>
-        ///// <param name="lng">Долгота</param>
-        ///// <param name="maxDistance">Максимальное расстояние</param>
-        ///// <returns>Список ближайших мест в формате JSON</returns>
-        //[HttpGet("geonear")]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
-        //public async Task<ActionResult<string>> GetNearbyPlaces(
-        //[FromHeader(Name = "X-Latitude")] decimal lat,
-        //[FromHeader(Name = "X-Longitude")] decimal lng,
-        //[FromHeader(Name = "X-Max-Distance")] int maxDistance)
-        //{
-        //    //var jsonResult = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance);
-        //    //return Content(jsonResult, "application/json");
-        //    var places = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance);
-        //    if (places == null || places.Count ==0)
-        //    {
-        //        _response.StatusCode = HttpStatusCode.NotFound;
-        //        _response.IsSuccess = false;
-        //        _response.ErrorMessages.Add($"No places found within {maxDistance} meters.");
-        //        return NotFound(_response);
-        //    }
-        //    return Content(places.ToJson(), "application/json");
+            if (deleteResult == null || deleteResult.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                _response.StatusCode = HttpStatusCode.InternalServerError;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add("Unexpected error occurred while deleting the document.");
+                return StatusCode((int)HttpStatusCode.InternalServerError, _response);
+            }
 
-        //}
+            if (deleteResult.RootElement.TryGetProperty("success", out var successElement) && successElement.ValueKind == JsonValueKind.False)
+            {
+                string errorMessage = "Failed to delete the document.";
+
+                if (deleteResult.RootElement.TryGetProperty("error", out var errorElement) && errorElement.ValueKind == JsonValueKind.String)
+                {
+                    errorMessage = errorElement.GetString();
+                }
+
+                _response.StatusCode = HttpStatusCode.BadRequest;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add(errorMessage);
+                return BadRequest(_response);
+            }
+
+            _response.StatusCode = HttpStatusCode.NoContent;
+            _response.IsSuccess = true;
+            return Ok(_response);
+        }
+
 
 
         /// <summary>
