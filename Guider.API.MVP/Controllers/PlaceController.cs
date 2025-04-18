@@ -224,9 +224,24 @@ namespace Guider.API.MVP.Controllers
 
 
 
-        // 4️⃣ Обновить документ по ID
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(string id, [FromBody] JsonDocument jsonDocument)
+        /// <summary>
+        /// 
+        /// Обновление существующего документа в коллекции Places.
+        /// 
+        /// Доступно только для авторизованных пользователей с ролями Super Admin, Admin или Manager.
+        /// 
+        /// Во входящем параметре должен передаваться валидный JSON-документ.
+        /// 
+        /// </summary>
+        /// 
+        /// <param name="jsonDocument">JSON-документ, представляющий данные для обновления существующего объекта.</param>
+        /// 
+        /// <returns>Обновленный объект в формате JSON, обернутый в ApiResponse.</returns>
+        /// 
+        
+        [HttpPut("update")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        public async Task<IActionResult> Update([FromBody] JsonDocument jsonDocument)
         {
             try
             {
@@ -242,24 +257,8 @@ namespace Guider.API.MVP.Controllers
                     return BadRequest(validationResponse);
                 }
 
-                // Проверяем, что ID из маршрута совпадает с ID в документе
-                if (!jsonDocument.RootElement.TryGetProperty("_id", out var idProperty) 
-                            || idProperty.ValueKind != JsonValueKind.Object 
-                            || !idProperty.TryGetProperty("$oid", out var oidProperty) 
-                            || oidProperty.GetString() != id)
-                {
-                    var idMismatchResponse = new ApiResponse
-                    {
-                        StatusCode = HttpStatusCode.BadRequest,
-                        IsSuccess = false,
-                        ErrorMessages = new List<string> { "ID in the route does not match the ID in the JSON document or is not a valid string." }
-                    };
-                    return BadRequest(idMismatchResponse);
-                }
-              
-              
                 // Отправляем в сервис для обновления
-                var updatedDocument = await _placeService.UpdateAsync(id, jsonDocument);
+                var updatedDocument = await _placeService.UpdateAsync(jsonDocument);
 
                 if (updatedDocument == null)
                 {
@@ -267,9 +266,32 @@ namespace Guider.API.MVP.Controllers
                     {
                         StatusCode = HttpStatusCode.NotFound,
                         IsSuccess = false,
-                        ErrorMessages = new List<string> { $"Document with ID {id} not found." }
+                        ErrorMessages = new List<string> { "Document not found or could not be updated." }
                     };
                     return NotFound(notFoundResponse);
+                }
+
+                // Проверка на неудачный результат операции(success = false)
+                if (updatedDocument.RootElement.TryGetProperty("success", out var successElement) &&
+                    successElement.ValueKind == JsonValueKind.False)
+                {
+                    string errorMessage = "Failed to update document or missing id.";
+
+                    // Если есть сообщение об ошибке в поле error, используем его
+                    if (updatedDocument.RootElement.TryGetProperty("error", out var errorElement) &&
+                        errorElement.ValueKind == JsonValueKind.String)
+                    {
+                        errorMessage = errorElement.GetString();
+                    }
+
+                    var badRequestResponse = new ApiResponse
+                    {
+                        StatusCode = HttpStatusCode.BadRequest,
+                        IsSuccess = false,
+                        ErrorMessages = new List<string> { errorMessage }
+                    };
+
+                    return BadRequest(badRequestResponse);
                 }
 
                 // Формируем успешный ответ
@@ -294,6 +316,8 @@ namespace Guider.API.MVP.Controllers
                 return StatusCode((int)HttpStatusCode.InternalServerError, errorResponse);
             }
         }
+
+
 
         // 5️⃣ Удалить документ по ID
         //[HttpDelete("{id}")]
