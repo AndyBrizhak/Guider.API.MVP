@@ -59,7 +59,7 @@
         {
             if (!ObjectId.TryParse(id, out var objectId))
             {
-                return null; // Если id невалидный, просто возвращаем null
+                return null; 
             }
 
             var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
@@ -75,7 +75,7 @@
         {
             if (string.IsNullOrEmpty(web))
             {
-                return null; // Избегаем ненужного запроса, если параметр пустой
+                return null; 
             }
 
             var filter = Builders<BsonDocument>.Filter.Eq("web", web);
@@ -91,7 +91,7 @@
         {
             if (!ObjectId.TryParse(id, out var objectId))
             {
-                return null; // Защита от невалидного ObjectId
+                return null; 
             }
 
             var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
@@ -113,22 +113,22 @@
         {
             try
             {
-                // Convert JsonDocument to a JSON string
+                
                 var jsonString = jsonDocument.RootElement.GetRawText();
 
-                // Deserialize the JSON string into a BsonDocument
+                
                 var document = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<BsonDocument>(jsonString);
 
-                // Add additional fields if necessary
+                
                 if (!document.Contains("createdAt"))
                 {
                     document.Add("createdAt", DateTime.UtcNow);
                 }
 
-                // Insert the document into the collection
+                
                 await _placeCollection.InsertOneAsync(document);
 
-                // Return the created document
+                
                 return document;
             }
             catch (Exception ex)
@@ -147,25 +147,25 @@
         {
             try
             {
-                // Convert JsonDocument to a JSON string  
+                
                 var jsonString = jsonDocument.RootElement.GetRawText();
 
-                // Deserialize the JSON string into a BsonDocument  
+                
                 var updatedDocument = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<BsonDocument>(jsonString);
 
-                // Ensure the "_id" field exists and is valid  
+                
                 if (!updatedDocument.Contains("_id") || !ObjectId.TryParse(updatedDocument["_id"].ToString(), out var objectId))
                 {
                     return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "The document must contain a valid '_id' field." }));
                 }
 
-                // Define the filter to find the document by id  
+                
                 var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
 
-                // Replace the existing document with the updated one  
+                
                 await _placeCollection.ReplaceOneAsync(filter, updatedDocument);
 
-                // Convert the updated BsonDocument back to JsonDocument  
+                
                 var updatedJsonString = updatedDocument.ToJson();
                 return JsonDocument.Parse(updatedJsonString);
             }
@@ -179,7 +179,7 @@
         {
             try
             {
-                // Проверяем, существует ли объект с указанным идентификатором  
+                
                 var filter = Builders<BsonDocument>.Filter.Eq("_id", ObjectId.Parse(id));
                 var existingDocument = await _placeCollection.Find(filter).FirstOrDefaultAsync();
 
@@ -192,7 +192,7 @@
                     }));
                 }
 
-                // Удаляем объект  
+               
                 var deleteResult = await _placeCollection.DeleteOneAsync(filter);
 
                 if (deleteResult.DeletedCount > 0)
@@ -320,21 +320,21 @@
         {
             if (!isOpen)
             {
-                // Если не нужно учитывать расписание, используем существующий метод
+                
                 return await GetPlacesNearbyAsync(lat, lng, maxDistanceMeters);
             }
 
-            // Получаем текущее время в Коста-Рике (GMT-6)
+            
             var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
             var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
 
-            // Получаем текущий день недели и время
+            
             var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
             var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt"); // Например, "8:30 AM"
 
             var pipeline = new[]
             {
-        // Геопространственный поиск
+        
         new BsonDocument("$geoNear", new BsonDocument
         {
             { "near", new BsonDocument
@@ -348,7 +348,7 @@
             { "spherical", true }
         }),
         
-        // Фильтрация по расписанию
+        
         new BsonDocument("$match", new BsonDocument
         {
             { "schedule", new BsonDocument
@@ -372,7 +372,7 @@
             }
         }),
         
-        // Проекция нужных полей
+        
         new BsonDocument("$project", new BsonDocument
         {
             { "_id", 1 },
@@ -380,7 +380,7 @@
             { "name", 1 },
             { "img_link", new BsonDocument
                 {
-                    { "$arrayElemAt", new BsonArray { "$img_link", 0 } } // Первая ссылка на изображение
+                    { "$arrayElemAt", new BsonArray { "$img_link", 0 } } 
                 }
             },
             {
@@ -408,12 +408,12 @@
             {
             new BsonDocument("$geoNear", new BsonDocument
             {
-                ///*{ "near", new BsonDocument { { "type", "Point" }, { "coordinates", new BsonArray { longitude, latitude } }*/ } },
+                
                 { "near", new BsonArray { longitude, latitude } },  // Массив координат
                 { "distanceField", "distance" },
                 { "maxDistance", radiusMeters },
                 { "spherical", true },
-                //{ "limit", limit }
+                
             })
             ,
             new BsonDocument("$project", new BsonDocument
@@ -427,15 +427,15 @@
                 }
 
             }),
-            new BsonDocument("$limit", limit) // Ограничение результата
+            new BsonDocument("$limit", limit) 
             };
 
             var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
             if (results.Count == 0)
             {
-                return "[]"; // Возвращаем пустой массив
+                return "[]"; 
             }
-            return results.ToJson();  // Возвращаем JSON-строку
+            return results.ToJson();  
         }
 
 
@@ -474,7 +474,7 @@
             { "category", 1 },
             { "tags", 1 }
         });
-            // Фильтрация по категории
+            
             var pipeline = new[] { geoNearStage, projectStage };
 
             var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
@@ -569,19 +569,19 @@
         {
             if (!isOpen)
             {
-                // Если не нужно учитывать расписание, используем существующий метод
+                
                 return await GetPlacesNearbyWithTextSearchAsync(lat, lng, maxDistanceMeters, limit, searchText);
             }
 
-            // Получаем текущее время в Коста-Рике (GMT-6)
+            
             var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
             var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
 
-            // Получаем текущий день недели и время
+            
             var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
             var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt"); // Например, "8:30 AM"
 
-            // Определяем этапы агрегационного пайплайна
+            
             var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
     {
         { "near", new BsonDocument
@@ -612,7 +612,7 @@
             }
         });
 
-            // Добавляем этап фильтрации по расписанию работы
+            
             var scheduleMatchStage = new BsonDocument("$match", new BsonDocument
     {
         { "schedule", new BsonDocument
@@ -648,7 +648,7 @@
 
             var limitStage = new BsonDocument("$limit", limit);
 
-            // Составляем полный пайплайн с учетом расписания работы
+            
             var pipeline = new[] { geoNearStage, textSearchStage, scheduleMatchStage, projectStage, limitStage };
 
             var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
@@ -685,7 +685,7 @@
                 { "spherical", true }
             });
 
-            // Если список ключевых слов не пуст, создаем стадию $match
+            
             BsonDocument? matchStage = null;
             if (filterKeywords != null && filterKeywords.Any())
             {
@@ -727,7 +727,7 @@
 
             var limitStage = new BsonDocument("$limit", limit);
 
-            // Формируем пайплайн в зависимости от наличия matchStage
+            
             var pipeline = matchStage != null
                 ? new[] { geoNearStage, matchStage, projectStage, limitStage }
                 : new[] { geoNearStage, projectStage, limitStage };
@@ -768,7 +768,7 @@
                 { "spherical", true }
             });
 
-            // Если список ключевых слов не пуст, создаем стадию $match
+            
             BsonDocument? matchStage = null;
             if (filterKeywords != null && filterKeywords.Any())
             {
@@ -798,7 +798,7 @@
                 }
             }
 
-            // Добавляем фильтрацию по открытым заведениям, если isOpen = true
+            
             BsonDocument? scheduleMatchStage = null;
             if (isOpen)
             {
@@ -844,7 +844,7 @@
 
             var limitStage = new BsonDocument("$limit", limit);
 
-            // Формируем пайплайн в зависимости от наличия matchStage и scheduleMatchStage
+            
             var pipeline = new List<BsonDocument> { geoNearStage };
             if (matchStage != null) pipeline.Add(matchStage);
             if (scheduleMatchStage != null) pipeline.Add(scheduleMatchStage);
@@ -881,18 +881,18 @@
                     { "spherical", true }
                 });
 
-            // Если список ключевых слов не пуст, создаем стадию $match
+            
             BsonDocument? matchStage = null;
             if (filterKeywords != null && filterKeywords.Any())
             {
-                // Создаем массив для условий AND
+                
                 var andConditions = new BsonArray();
 
                 foreach (var keyword in filterKeywords)
                 {
                     if (!string.IsNullOrWhiteSpace(keyword))
                     {
-                        // Для каждого ключевого слова создаем OR-условие для всех полей
+                        
                         var fieldsOrCondition = new BsonArray();
                         fieldsOrCondition.Add(new BsonDocument("name", new BsonDocument("$regex", keyword).Add("$options", "i")));
                         fieldsOrCondition.Add(new BsonDocument("description", new BsonDocument("$regex", keyword).Add("$options", "i")));
@@ -904,7 +904,7 @@
                         fieldsOrCondition.Add(new BsonDocument("keywords", new BsonDocument("$regex", keyword).Add("$options", "i")));
                         fieldsOrCondition.Add(new BsonDocument("tags", new BsonDocument("$regex", keyword).Add("$options", "i")));
 
-                        // Добавляем это OR-условие как один из элементов в массив AND-условий
+                        
                         andConditions.Add(new BsonDocument("$or", fieldsOrCondition));
                     }
                 }
@@ -973,7 +973,7 @@
                { "spherical", true }
            });
 
-            // Если список ключевых слов не пуст, создаем стадию $match
+            
             BsonDocument? matchStage = null;
             if (filterKeywords != null && filterKeywords.Any())
             {
@@ -1007,7 +1007,7 @@
                 }
             }
 
-            // Добавляем фильтрацию по открытым заведениям, если isOpen = true
+            
             BsonDocument? scheduleMatchStage = null;
             if (isOpen)
             {
@@ -1053,7 +1053,7 @@
 
             var limitStage = new BsonDocument("$limit", limit);
 
-            // Формируем пайплайн в зависимости от наличия matchStage и scheduleMatchStage
+            
             var pipeline = new List<BsonDocument> { geoNearStage };
             if (matchStage != null) pipeline.Add(matchStage);
             if (scheduleMatchStage != null) pipeline.Add(scheduleMatchStage);
@@ -1064,128 +1064,21 @@
             return results;
         }
 
-
-
-        //public async Task<JsonDocument> GetAvailableTagsAsync(
-        //   string? category,
-        //   List<string>? selectedTags)
-        //{
-
-        //    var simplePipeline = new List<BsonDocument>();
-
-        //    if (!string.IsNullOrEmpty(category))
-        //    {
-        //        simplePipeline.Add(new BsonDocument("$match",
-        //            new BsonDocument("category", category)));
-        //    }
-
-        //    simplePipeline.Add(new BsonDocument("$unwind", "$tags"));
-        //    simplePipeline.Add(new BsonDocument("$group",
-        //        new BsonDocument
-        //        {
-        //            { "_id", "$tags" },
-        //            { "count", new BsonDocument("$sum", 1) }
-        //        }));
-
-
-        //    var result = await _placeCollection.Aggregate<BsonDocument>(simplePipeline).ToListAsync();
-
-        //    // Преобразуем результат в JSON-строку
-        //    var jsonString = result.ToJson();
-
-        //    // Возвращаем JsonDocument, созданный из JSON-строки
-        //    return JsonDocument.Parse(jsonString);
-        //}
-
-        //public async Task<JsonDocument> GetAvailableTagsAsync(
-        //                                                       string? category,
-        //                                                       List<string>? selectedTags)
-        //        {
-        //            var simplePipeline = new List<BsonDocument>();
-
-        //            // Добавляем фильтр по категории, если она указана
-        //            if (!string.IsNullOrEmpty(category))
-        //            {
-        //                simplePipeline.Add(new BsonDocument("$match",
-        //                    new BsonDocument("category", category)));
-        //            }
-
-        //            // Добавляем фильтр по выбранным тегам, если они указаны
-        //            // Этот фильтр выбирает документы, у которых есть хотя бы один из выбранных тегов
-        //            if (selectedTags != null && selectedTags.Count > 0)
-        //            {
-        //                simplePipeline.Add(new BsonDocument("$match",
-        //                    new BsonDocument("tags",
-        //                        new BsonDocument("$in", new BsonArray(selectedTags)))));
-        //            }
-
-        //            // Разворачиваем массив тегов
-        //            simplePipeline.Add(new BsonDocument("$unwind", "$tags"));
-
-        //            // Исключаем уже выбранные теги из результата
-        //            if (selectedTags != null && selectedTags.Count > 0)
-        //            {
-        //                simplePipeline.Add(new BsonDocument("$match",
-        //                    new BsonDocument("tags",
-        //                        new BsonDocument("$nin", new BsonArray(selectedTags)))));
-        //            }
-
-        //            // Группируем по тегам и подсчитываем количество
-        //            simplePipeline.Add(new BsonDocument("$group",
-        //                new BsonDocument
-        //                {
-        //            { "_id", "$tags" },
-        //            { "count", new BsonDocument("$sum", 1) }
-        //                }));
-
-        //            // Сортируем по имени тега
-        //            simplePipeline.Add(new BsonDocument("$sort",
-        //                new BsonDocument("_id", 1)));
-
-        //            // Форматируем результат в структуру tag/count
-        //            simplePipeline.Add(new BsonDocument("$project",
-        //                new BsonDocument
-        //                {
-        //            { "_id", 0 },
-        //            { "tag", "$_id" },
-        //            { "count", 1 }
-        //                }));
-
-        //            var result = await _placeCollection.Aggregate<BsonDocument>(simplePipeline).ToListAsync();
-
-        //            // Форматируем результат в нужную структуру JSON
-        //            // Получаем общее количество тегов
-        //            var totalCount = result.Count;
-
-        //            // Создаем итоговый документ с общим количеством и списком тегов
-        //            var finalResult = new BsonDocument
-        //    {
-        //        { "totalCount", totalCount },
-        //        { "tags", new BsonArray(result) }
-        //    };
-
-        //            // Преобразуем результат в JSON-строку
-        //            var jsonString = finalResult.ToJson();
-
-        //            // Возвращаем JsonDocument, созданный из JSON-строки
-        //            return JsonDocument.Parse(jsonString);
-        //        }
-
+                
         public async Task<JsonDocument> GetAvailableTagsAsync(
-                                                               string? category,
-                                                               List<string>? selectedTags)
+                                                                string? category,
+                                                                List<string>? selectedTags)
         {
             var simplePipeline = new List<BsonDocument>();
 
-            // Добавляем фильтр по категории, если она указана
+            
             if (!string.IsNullOrEmpty(category))
             {
                 simplePipeline.Add(new BsonDocument("$match",
                     new BsonDocument("category", category)));
             }
 
-            // Добавляем фильтр по выбранным тегам, если они указаны
-            // Этот фильтр выбирает документы, у которых есть ВСЕ указанные теги
+            
             if (selectedTags != null && selectedTags.Count > 0)
             {
                 simplePipeline.Add(new BsonDocument("$match",
@@ -1193,10 +1086,10 @@
                         new BsonDocument("$all", new BsonArray(selectedTags)))));
             }
 
-            // Разворачиваем массив тегов
+            
             simplePipeline.Add(new BsonDocument("$unwind", "$tags"));
 
-            // Исключаем уже выбранные теги из результата
+            
             if (selectedTags != null && selectedTags.Count > 0)
             {
                 simplePipeline.Add(new BsonDocument("$match",
@@ -1204,44 +1097,47 @@
                         new BsonDocument("$nin", new BsonArray(selectedTags)))));
             }
 
-            // Группируем по тегам и подсчитываем количество
+            
             simplePipeline.Add(new BsonDocument("$group",
                 new BsonDocument
                 {
-            { "_id", "$tags" },
-            { "count", new BsonDocument("$sum", 1) }
+            { "_id", "$tags" }
                 }));
 
-            // Сортируем по имени тега
+            
             simplePipeline.Add(new BsonDocument("$sort",
                 new BsonDocument("_id", 1)));
 
-            // Форматируем результат в структуру tag/count
+            
             simplePipeline.Add(new BsonDocument("$project",
                 new BsonDocument
                 {
             { "_id", 0 },
-            { "tag", "$_id" },
-            { "count", 1 }
+            { "tag", "$_id" }
                 }));
 
             var result = await _placeCollection.Aggregate<BsonDocument>(simplePipeline).ToListAsync();
 
-            // Форматируем результат в нужную структуру JSON
-            // Получаем общее количество тегов
+            
             var totalCount = result.Count;
 
-            // Создаем итоговый документ с общим количеством и списком тегов
-            var finalResult = new BsonDocument
+            
+            var tagsList = new BsonArray();
+            foreach (var doc in result)
             {
-                { "totalCount", totalCount },
-                { "tags", new BsonArray(result) }
-            };
+                tagsList.Add(doc["tag"]);
+            }
 
-            // Преобразуем результат в JSON-строку
+            var finalResult = new BsonDocument
+                {
+                    { "totalCount", totalCount },
+                    { "tags", tagsList }
+                };
+
+            
             var jsonString = finalResult.ToJson();
 
-            // Возвращаем JsonDocument, созданный из JSON-строки
+            
             return JsonDocument.Parse(jsonString);
         }
 

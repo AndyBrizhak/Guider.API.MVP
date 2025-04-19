@@ -168,211 +168,7 @@ namespace Guider.API.MVP.Controllers
 
 
 
-        /// <summary>  
-        /// Создание нового документа в коллекции Places.  
-        /// Доступно только для авторизованных пользователей с ролями Super Admin, Admin или Manager.  
-        /// Во входящем параметре должен передаваться валидный JSON-документ.  
-        /// </summary>  
-        /// <param name="jsonDocument">JSON-документ, представляющий данные для создания нового объекта.</param>  
-        /// <returns>Созданный объект в формате JSON, обернутый в ApiResponse.</returns>  
-        [HttpPost("create")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<IActionResult> Create([FromBody] JsonDocument jsonDocument)
-        {
-            try
-            {
-                // Валидация входящих данных  
-                if (jsonDocument == null || jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
-                {
-                    var validationResponse = new ApiResponse // Renamed to avoid conflict  
-                    {
-                        StatusCode = HttpStatusCode.BadRequest,
-                        IsSuccess = false,
-                        ErrorMessages = new List<string> { "Invalid input. Expected a JSON object." }
-                    };
-                    return BadRequest(validationResponse);
-                }
-
-                // Отправляем в сервис и получаем полный документ  
-                var createdDocument = await _placeService.CreateAsync(jsonDocument);
-
-                // Формируем успешный ответ  
-                var successResponse = new ApiResponse // Renamed to avoid conflict  
-                {
-                    StatusCode = HttpStatusCode.Created,
-                    IsSuccess = true,
-                    Result = createdDocument.ToJson()
-                };
-
-                // Возвращаем созданный документ внутри ApiResponse  
-                return CreatedAtAction(nameof(GetById),
-                                     new { id = createdDocument["_id"].ToString() },
-                                     successResponse);
-            }
-            catch (Exception ex)
-            {
-                // Формируем ошибочный ответ  
-                var errorResponse = new ApiResponse // Renamed to avoid conflict  
-                {
-                    StatusCode = HttpStatusCode.BadRequest,
-                    IsSuccess = false,
-                    ErrorMessages = new List<string> { ex.Message }
-                };
-                return BadRequest(errorResponse);
-            }
-        }
-
-
-
-        /// <summary>
-        /// 
-        /// Обновление существующего документа в коллекции Places.
-        /// 
-        /// Доступно только для авторизованных пользователей с ролями Super Admin, Admin или Manager.
-        /// 
-        /// Во входящем параметре должен передаваться валидный JSON-документ.
-        /// 
-        /// </summary>
-        /// 
-        /// <param name="jsonDocument">JSON-документ, представляющий данные для обновления существующего объекта.</param>
-        /// 
-        /// <returns>Обновленный объект в формате JSON, обернутый в ApiResponse.</returns>
-        /// 
-        
-        [HttpPut("update")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<IActionResult> Update([FromBody] JsonDocument jsonDocument)
-        {
-            try
-            {
-                // Валидация входящих данных
-                if (jsonDocument == null || jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
-                {
-                    var validationResponse = new ApiResponse
-                    {
-                        StatusCode = HttpStatusCode.BadRequest,
-                        IsSuccess = false,
-                        ErrorMessages = new List<string> { "Invalid input. Expected a JSON object." }
-                    };
-                    return BadRequest(validationResponse);
-                }
-
-                // Отправляем в сервис для обновления
-                var updatedDocument = await _placeService.UpdateAsync(jsonDocument);
-
-                if (updatedDocument == null)
-                {
-                    var notFoundResponse = new ApiResponse
-                    {
-                        StatusCode = HttpStatusCode.NotFound,
-                        IsSuccess = false,
-                        ErrorMessages = new List<string> { "Document not found or could not be updated." }
-                    };
-                    return NotFound(notFoundResponse);
-                }
-
-                // Проверка на неудачный результат операции(success = false)
-                if (updatedDocument.RootElement.TryGetProperty("success", out var successElement) &&
-                    successElement.ValueKind == JsonValueKind.False)
-                {
-                    string errorMessage = "Failed to update document or missing id.";
-
-                    // Если есть сообщение об ошибке в поле error, используем его
-                    if (updatedDocument.RootElement.TryGetProperty("error", out var errorElement) &&
-                        errorElement.ValueKind == JsonValueKind.String)
-                    {
-                        errorMessage = errorElement.GetString();
-                    }
-
-                    var badRequestResponse = new ApiResponse
-                    {
-                        StatusCode = HttpStatusCode.BadRequest,
-                        IsSuccess = false,
-                        ErrorMessages = new List<string> { errorMessage }
-                    };
-
-                    return BadRequest(badRequestResponse);
-                }
-
-                // Формируем успешный ответ
-                var successResponse = new ApiResponse
-                {
-                    StatusCode = HttpStatusCode.OK,
-                    IsSuccess = true,
-                    Result = updatedDocument.ToJson()
-                };
-
-                return Ok(successResponse);
-            }
-            catch (Exception ex)
-            {
-                // Формируем ошибочный ответ
-                var errorResponse = new ApiResponse
-                {
-                    StatusCode = HttpStatusCode.InternalServerError,
-                    IsSuccess = false,
-                    ErrorMessages = new List<string> { ex.Message }
-                };
-                return StatusCode((int)HttpStatusCode.InternalServerError, errorResponse);
-            }
-        }
-
-
-
-        /// <summary>
-        /// 
-        /// Удаление документа из коллекции Places.
-        /// 
-        /// Доступно только для авторизованных пользователей с ролями Super Admin или Admin.
-        /// 
-        /// </summary>
-        /// 
-        /// <param name="id">Идентификатор документа, который нужно удалить.</param>
-        /// 
-        /// <returns>Статус операции удаления в формате JSON, обернутый в ApiResponse.</returns>
-        [HttpDelete("{id}")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        public async Task<IActionResult> Delete(string id)
-        {
-            //var business = await _placeService.GetByIdAsync(id);
-            //if (business == null)
-            //{
-            //    _response.StatusCode = HttpStatusCode.NotFound;
-            //    _response.IsSuccess = false;
-            //    _response.ErrorMessages.Add($"Document with id {id} not found.");
-            //    return NotFound(_response);
-            //}
-
-            var deleteResult = await _placeService.DeleteAsync(id);
-
-            if (deleteResult == null || deleteResult.RootElement.ValueKind != JsonValueKind.Object)
-            {
-                _response.StatusCode = HttpStatusCode.InternalServerError;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add("Unexpected error occurred while deleting the document.");
-                return StatusCode((int)HttpStatusCode.InternalServerError, _response);
-            }
-
-            if (deleteResult.RootElement.TryGetProperty("success", out var successElement) && successElement.ValueKind == JsonValueKind.False)
-            {
-                string errorMessage = "Failed to delete the document.";
-
-                if (deleteResult.RootElement.TryGetProperty("error", out var errorElement) && errorElement.ValueKind == JsonValueKind.String)
-                {
-                    errorMessage = errorElement.GetString();
-                }
-
-                _response.StatusCode = HttpStatusCode.BadRequest;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add(errorMessage);
-                return BadRequest(_response);
-            }
-
-            _response.StatusCode = HttpStatusCode.NoContent;
-            _response.IsSuccess = true;
-            return Ok(_response);
-        }
-
+       
 
 
         /// <summary>
@@ -772,6 +568,11 @@ namespace Guider.API.MVP.Controllers
         }
 
 
+        /// <summary>
+        /// 
+        /// Получить доступные теги для фильтрации мест
+        /// 
+        
         [HttpGet("available-tags")]
         public async Task<ActionResult> GetAvailableTags(
            [FromQuery] string? category = null,
@@ -779,12 +580,12 @@ namespace Guider.API.MVP.Controllers
         {
             try
             {
-                // Получаем результат из PlaceService в виде JsonDocument
+                
                 var result = await _placeService.GetAvailableTagsAsync(
                     category, 
                     selectedTags);
 
-                // Формируем успешный ответ
+                
                 var response = new ApiResponse
                 {
                     StatusCode = HttpStatusCode.OK,
@@ -796,7 +597,7 @@ namespace Guider.API.MVP.Controllers
             }
             catch (Exception ex)
             {
-                // Формируем ошибочный ответ
+                
                 var errorResponse = new ApiResponse
                 {
                     StatusCode = HttpStatusCode.InternalServerError,
@@ -807,5 +608,212 @@ namespace Guider.API.MVP.Controllers
                 return StatusCode((int)HttpStatusCode.InternalServerError, errorResponse);
             }
         }
+
+
+        /// <summary>  
+        /// Создание нового документа в коллекции Places.  
+        /// Доступно только для авторизованных пользователей с ролями Super Admin, Admin или Manager.  
+        /// Во входящем параметре должен передаваться валидный JSON-документ.  
+        /// </summary>  
+        /// <param name="jsonDocument">JSON-документ, представляющий данные для создания нового объекта.</param>  
+        /// <returns>Созданный объект в формате JSON, обернутый в ApiResponse.</returns>  
+        [HttpPost("create")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        public async Task<IActionResult> Create([FromBody] JsonDocument jsonDocument)
+        {
+            try
+            {
+                // Валидация входящих данных  
+                if (jsonDocument == null || jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
+                {
+                    var validationResponse = new ApiResponse // Renamed to avoid conflict  
+                    {
+                        StatusCode = HttpStatusCode.BadRequest,
+                        IsSuccess = false,
+                        ErrorMessages = new List<string> { "Invalid input. Expected a JSON object." }
+                    };
+                    return BadRequest(validationResponse);
+                }
+
+                // Отправляем в сервис и получаем полный документ  
+                var createdDocument = await _placeService.CreateAsync(jsonDocument);
+
+                // Формируем успешный ответ  
+                var successResponse = new ApiResponse // Renamed to avoid conflict  
+                {
+                    StatusCode = HttpStatusCode.Created,
+                    IsSuccess = true,
+                    Result = createdDocument.ToJson()
+                };
+
+                // Возвращаем созданный документ внутри ApiResponse  
+                return CreatedAtAction(nameof(GetById),
+                                     new { id = createdDocument["_id"].ToString() },
+                                     successResponse);
+            }
+            catch (Exception ex)
+            {
+                // Формируем ошибочный ответ  
+                var errorResponse = new ApiResponse // Renamed to avoid conflict  
+                {
+                    StatusCode = HttpStatusCode.BadRequest,
+                    IsSuccess = false,
+                    ErrorMessages = new List<string> { ex.Message }
+                };
+                return BadRequest(errorResponse);
+            }
+        }
+
+
+
+        /// <summary>
+        /// 
+        /// Обновление существующего документа в коллекции Places.
+        /// 
+        /// Доступно только для авторизованных пользователей с ролями Super Admin, Admin или Manager.
+        /// 
+        /// Во входящем параметре должен передаваться валидный JSON-документ.
+        /// 
+        /// </summary>
+        /// 
+        /// <param name="jsonDocument">JSON-документ, представляющий данные для обновления существующего объекта.</param>
+        /// 
+        /// <returns>Обновленный объект в формате JSON, обернутый в ApiResponse.</returns>
+        /// 
+
+        [HttpPut("update")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        public async Task<IActionResult> Update([FromBody] JsonDocument jsonDocument)
+        {
+            try
+            {
+                // Валидация входящих данных
+                if (jsonDocument == null || jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
+                {
+                    var validationResponse = new ApiResponse
+                    {
+                        StatusCode = HttpStatusCode.BadRequest,
+                        IsSuccess = false,
+                        ErrorMessages = new List<string> { "Invalid input. Expected a JSON object." }
+                    };
+                    return BadRequest(validationResponse);
+                }
+
+                // Отправляем в сервис для обновления
+                var updatedDocument = await _placeService.UpdateAsync(jsonDocument);
+
+                if (updatedDocument == null)
+                {
+                    var notFoundResponse = new ApiResponse
+                    {
+                        StatusCode = HttpStatusCode.NotFound,
+                        IsSuccess = false,
+                        ErrorMessages = new List<string> { "Document not found or could not be updated." }
+                    };
+                    return NotFound(notFoundResponse);
+                }
+
+                // Проверка на неудачный результат операции(success = false)
+                if (updatedDocument.RootElement.TryGetProperty("success", out var successElement) &&
+                    successElement.ValueKind == JsonValueKind.False)
+                {
+                    string errorMessage = "Failed to update document or missing id.";
+
+                    // Если есть сообщение об ошибке в поле error, используем его
+                    if (updatedDocument.RootElement.TryGetProperty("error", out var errorElement) &&
+                        errorElement.ValueKind == JsonValueKind.String)
+                    {
+                        errorMessage = errorElement.GetString();
+                    }
+
+                    var badRequestResponse = new ApiResponse
+                    {
+                        StatusCode = HttpStatusCode.BadRequest,
+                        IsSuccess = false,
+                        ErrorMessages = new List<string> { errorMessage }
+                    };
+
+                    return BadRequest(badRequestResponse);
+                }
+
+                // Формируем успешный ответ
+                var successResponse = new ApiResponse
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    IsSuccess = true,
+                    Result = updatedDocument.ToJson()
+                };
+
+                return Ok(successResponse);
+            }
+            catch (Exception ex)
+            {
+                // Формируем ошибочный ответ
+                var errorResponse = new ApiResponse
+                {
+                    StatusCode = HttpStatusCode.InternalServerError,
+                    IsSuccess = false,
+                    ErrorMessages = new List<string> { ex.Message }
+                };
+                return StatusCode((int)HttpStatusCode.InternalServerError, errorResponse);
+            }
+        }
+
+
+
+        /// <summary>
+        /// 
+        /// Удаление документа из коллекции Places.
+        /// 
+        /// Доступно только для авторизованных пользователей с ролями Super Admin или Admin.
+        /// 
+        /// </summary>
+        /// 
+        /// <param name="id">Идентификатор документа, который нужно удалить.</param>
+        /// 
+        /// <returns>Статус операции удаления в формате JSON, обернутый в ApiResponse.</returns>
+        [HttpDelete("{id}")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        public async Task<IActionResult> Delete(string id)
+        {
+            //var business = await _placeService.GetByIdAsync(id);
+            //if (business == null)
+            //{
+            //    _response.StatusCode = HttpStatusCode.NotFound;
+            //    _response.IsSuccess = false;
+            //    _response.ErrorMessages.Add($"Document with id {id} not found.");
+            //    return NotFound(_response);
+            //}
+
+            var deleteResult = await _placeService.DeleteAsync(id);
+
+            if (deleteResult == null || deleteResult.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                _response.StatusCode = HttpStatusCode.InternalServerError;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add("Unexpected error occurred while deleting the document.");
+                return StatusCode((int)HttpStatusCode.InternalServerError, _response);
+            }
+
+            if (deleteResult.RootElement.TryGetProperty("success", out var successElement) && successElement.ValueKind == JsonValueKind.False)
+            {
+                string errorMessage = "Failed to delete the document.";
+
+                if (deleteResult.RootElement.TryGetProperty("error", out var errorElement) && errorElement.ValueKind == JsonValueKind.String)
+                {
+                    errorMessage = errorElement.GetString();
+                }
+
+                _response.StatusCode = HttpStatusCode.BadRequest;
+                _response.IsSuccess = false;
+                _response.ErrorMessages.Add(errorMessage);
+                return BadRequest(_response);
+            }
+
+            _response.StatusCode = HttpStatusCode.NoContent;
+            _response.IsSuccess = true;
+            return Ok(_response);
+        }
+
     }
 }
