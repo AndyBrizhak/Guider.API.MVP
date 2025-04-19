@@ -571,8 +571,8 @@ namespace Guider.API.MVP.Controllers
         /// <summary>
         /// 
         /// Получить доступные теги для фильтрации мест
-        /// 
-        
+        /// </summary>
+
         [HttpGet("available-tags")]
         public async Task<ActionResult> GetAvailableTags(
            [FromQuery] string? category = null,
@@ -618,7 +618,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="jsonDocument">JSON-документ, представляющий данные для создания нового объекта.</param>  
         /// <returns>Созданный объект в формате JSON, обернутый в ApiResponse.</returns>  
         [HttpPost("create")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Create([FromBody] JsonDocument jsonDocument)
         {
             try
@@ -626,7 +626,7 @@ namespace Guider.API.MVP.Controllers
                 // Валидация входящих данных  
                 if (jsonDocument == null || jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
                 {
-                    var validationResponse = new ApiResponse // Renamed to avoid conflict  
+                    var validationResponse = new ApiResponse
                     {
                         StatusCode = HttpStatusCode.BadRequest,
                         IsSuccess = false,
@@ -635,11 +635,92 @@ namespace Guider.API.MVP.Controllers
                     return BadRequest(validationResponse);
                 }
 
+                // Проверка на наличие обязательных полей в JSON-документе
+                //if (!jsonDocument.RootElement.TryGetProperty("name", out var nameElement) ||
+                //    !jsonDocument.RootElement.TryGetProperty("city", out var cityElement) ||
+                //    !jsonDocument.RootElement.TryGetProperty("province", out var provinceElement) ||
+                //    !jsonDocument.RootElement.TryGetProperty("location", out var locationElement) ||
+                //    !jsonDocument.RootElement.TryGetProperty("web", out var webElement))
+                //{
+                //    var missingFieldsResponse = new ApiResponse
+                //    {
+                //        StatusCode = HttpStatusCode.BadRequest,
+                //        IsSuccess = false,
+                //        ErrorMessages = new List<string> { "Missing required fields: name, city, province, location, or web." }
+                //    };
+                //    return BadRequest(missingFieldsResponse);
+                //}
+
+                // Проверка на наличие поля "location" с вложенными полями "lat" и "lng"
+                //if (!locationElement.TryGetProperty("lat", out var latElement) ||
+                //    !locationElement.TryGetProperty("lng", out var lngElement))
+                //{
+                //    var missingLocationFieldsResponse = new ApiResponse
+                //    {
+                //        StatusCode = HttpStatusCode.BadRequest,
+                //        IsSuccess = false,
+                //        ErrorMessages = new List<string> { "Missing required fields in location: lat or lng." }
+                //    };
+                //    return BadRequest(missingLocationFieldsResponse);
+                //}
+
+                // Проверка на наличие поля "name" в документе  
+                if (jsonDocument.RootElement.TryGetProperty("name", out var nameElement) && nameElement.ValueKind == JsonValueKind.String)
+                {
+                    // Извлечение значений "city" и "province" из вложенного объекта "address"  
+                    if (jsonDocument.RootElement.TryGetProperty("address", out var addressElement) && addressElement.ValueKind == JsonValueKind.Object)
+                    {
+                        var city = addressElement.TryGetProperty("city", out var cityElement) && cityElement.ValueKind == JsonValueKind.String
+                            ? cityElement.GetString()
+                            : null;
+                        var province = addressElement.TryGetProperty("province", out var provinceElement) && provinceElement.ValueKind == JsonValueKind.String
+                            ? provinceElement.GetString()
+                            : null;
+
+                        if (!string.IsNullOrEmpty(city) && !string.IsNullOrEmpty(province))
+                        {
+                            // Проверка на уникальность названия с учетом города и провинции  
+                            var existingPlace = await _placeService.GetPlaceByNameCityProvinceAsync(
+                                nameElement.GetString(),
+                                city,
+                                province);
+
+                            if (existingPlace != null)
+                            {
+                                var duplicateResponse = new ApiResponse
+                                {
+                                    StatusCode = HttpStatusCode.Conflict,
+                                    IsSuccess = false,
+                                    ErrorMessages = new List<string> { "A place with the same name, city, and province already exists." }
+                                };
+                                return Conflict(duplicateResponse);
+                            }
+                        }
+                    }
+                }
+
+                // Проверка на наличие поля "web" в документе  
+                if (jsonDocument.RootElement.TryGetProperty("web", out var webElement) && webElement.ValueKind == JsonValueKind.String)
+                {
+                    // Проверка на уникальность значения в поле "web"  
+                    var existingWeb = await _placeService.GetPlaceByWebAsync(webElement.GetString());
+                    if (existingWeb != null)
+                    {
+                        var duplicateWebResponse = new ApiResponse
+                        {
+                            StatusCode = HttpStatusCode.Conflict,
+                            IsSuccess = false,
+                            ErrorMessages = new List<string> { "A place with the same web value already exists." }
+                        };
+                        return Conflict(duplicateWebResponse);
+                    }
+                }
+
                 // Отправляем в сервис и получаем полный документ  
                 var createdDocument = await _placeService.CreateAsync(jsonDocument);
 
                 // Формируем успешный ответ  
-                var successResponse = new ApiResponse // Renamed to avoid conflict  
+                var successResponse = new ApiResponse
                 {
                     StatusCode = HttpStatusCode.Created,
                     IsSuccess = true,
@@ -654,7 +735,7 @@ namespace Guider.API.MVP.Controllers
             catch (Exception ex)
             {
                 // Формируем ошибочный ответ  
-                var errorResponse = new ApiResponse // Renamed to avoid conflict  
+                var errorResponse = new ApiResponse
                 {
                     StatusCode = HttpStatusCode.BadRequest,
                     IsSuccess = false,

@@ -1141,6 +1141,24 @@
             return JsonDocument.Parse(jsonString);
         }
 
+        /// <summary>  
+        /// Найти документ по имени, городу и провинции в адресе.  
+        /// </summary>  
+        /// <param name="name">Имя объекта</param>  
+        /// <param name="city">Город</param>  
+        /// <param name="province">Провинция</param>  
+        /// <returns>Документ, соответствующий критериям, или null</returns>  
+        public async Task<BsonDocument?> GetPlaceByNameCityProvinceAsync(string name, string city, string province)
+        {
+            var filter = Builders<BsonDocument>.Filter.And(
+                Builders<BsonDocument>.Filter.Eq("name", name),
+                Builders<BsonDocument>.Filter.Eq("address.city", city),
+                Builders<BsonDocument>.Filter.Eq("address.province", province)
+            );
+
+            return await _placeCollection.Find(filter).FirstOrDefaultAsync();
+        }
+
     }
 }
 
