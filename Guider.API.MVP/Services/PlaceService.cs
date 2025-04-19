@@ -100,40 +100,61 @@
 
               
 
-        /// <summary>
-        /// 
-        /// Создать новый документ в коллекции Places
-        /// 
-        /// </summary>
-        /// 
-        /// <param name="jsonDocument">JSON-строка документа</param>
-        /// 
-        /// <returns>Созданный документ</returns>
-        public async Task<BsonDocument> CreateAsync(JsonDocument jsonDocument)
+     /// Создать новый документ в коллекции Places  
+        /// </summary>  
+        /// <param name="jsonDocument">JSON-строка документа</param>  
+        /// <returns>Созданный документ в формате JSON</returns>  
+        public async Task<JsonDocument> CreateAsync(JsonDocument jsonDocument)
         {
             try
             {
-                
                 var jsonString = jsonDocument.RootElement.GetRawText();
 
-                
                 var document = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<BsonDocument>(jsonString);
 
-                
+                // Check for unique name  
+                if (document.Contains("name"))
+                {
+                    var nameFilter = Builders<BsonDocument>.Filter.Eq("name", document["name"].AsString);
+                    if (document.Contains("address.city") && document.Contains("address.province"))
+                    {
+                        nameFilter = Builders<BsonDocument>.Filter.And(
+                            nameFilter,
+                            Builders<BsonDocument>.Filter.Eq("address.city", document["address.city"].AsString),
+                            Builders<BsonDocument>.Filter.Eq("address.province", document["address.province"].AsString)
+                        );
+                    }
+                    var existingNameDocument = await _placeCollection.Find(nameFilter).FirstOrDefaultAsync();
+                    if (existingNameDocument != null)
+                    {
+                        return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "The 'name' field must be unique within the same city and province." }));
+                    }
+                }
+
+                // Check for unique web  
+                if (document.Contains("web"))
+                {
+                    var webFilter = Builders<BsonDocument>.Filter.Eq("web", document["web"].AsString);
+                    var existingWebDocument = await _placeCollection.Find(webFilter).FirstOrDefaultAsync();
+                    if (existingWebDocument != null)
+                    {
+                        return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "The 'web' field must be unique." }));
+                    }
+                }
+
                 if (!document.Contains("createdAt"))
                 {
                     document.Add("createdAt", DateTime.UtcNow);
                 }
 
-                
                 await _placeCollection.InsertOneAsync(document);
 
-                
-                return document;
+                var createdJsonString = document.ToJson();
+                return JsonDocument.Parse(createdJsonString);
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error creating document: {ex.Message}");
+                return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, error = ex.Message }));
             }
         }
 
@@ -1177,14 +1198,14 @@
             return JsonDocument.Parse(jsonString);
         }
 
-        /// <summary>  
-        /// Найти документ по имени, городу и провинции в адресе.  
-        /// </summary>  
-        /// <param name="name">Имя объекта</param>  
-        /// <param name="city">Город</param>  
-        /// <param name="province">Провинция</param>  
-        /// <returns>Документ, соответствующий критериям, или null</returns>  
-        public async Task<BsonDocument?> GetPlaceByNameCityProvinceAsync(string name, string city, string province)
+        /// <summary>
+        /// Найти документ по имени, городу и провинции в адресе.
+        /// </summary>
+        /// <param name="name">Имя объекта</param>
+        /// <param name="city">Город</param>
+        /// <param name="province">Провинция</param>
+        /// <returns>JSON-документ, соответствующий критериям, или null</returns>
+        public async Task<JsonDocument?> GetPlaceByNameCityProvinceAsync(string name, string city, string province)
         {
             var filter = Builders<BsonDocument>.Filter.And(
                 Builders<BsonDocument>.Filter.Eq("name", name),
@@ -1192,7 +1213,15 @@
                 Builders<BsonDocument>.Filter.Eq("address.province", province)
             );
 
-            return await _placeCollection.Find(filter).FirstOrDefaultAsync();
+            var bsonDocument = await _placeCollection.Find(filter).FirstOrDefaultAsync();
+
+            if (bsonDocument == null)
+            {
+                return null;
+            }
+
+            var jsonString = bsonDocument.ToJson();
+            return JsonDocument.Parse(jsonString);
         }
 
     }

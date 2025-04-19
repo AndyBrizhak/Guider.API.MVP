@@ -618,7 +618,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="jsonDocument">JSON-документ, представляющий данные для создания нового объекта.</param>  
         /// <returns>Созданный объект в формате JSON, обернутый в ApiResponse.</returns>  
         [HttpPost("create")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Create([FromBody] JsonDocument jsonDocument)
         {
             try
@@ -635,102 +635,56 @@ namespace Guider.API.MVP.Controllers
                     return BadRequest(validationResponse);
                 }
 
-                // Проверка на наличие обязательных полей в JSON-документе
-                //if (!jsonDocument.RootElement.TryGetProperty("name", out var nameElement) ||
-                //    !jsonDocument.RootElement.TryGetProperty("city", out var cityElement) ||
-                //    !jsonDocument.RootElement.TryGetProperty("province", out var provinceElement) ||
-                //    !jsonDocument.RootElement.TryGetProperty("location", out var locationElement) ||
-                //    !jsonDocument.RootElement.TryGetProperty("web", out var webElement))
-                //{
-                //    var missingFieldsResponse = new ApiResponse
-                //    {
-                //        StatusCode = HttpStatusCode.BadRequest,
-                //        IsSuccess = false,
-                //        ErrorMessages = new List<string> { "Missing required fields: name, city, province, location, or web." }
-                //    };
-                //    return BadRequest(missingFieldsResponse);
-                //}
-
-                // Проверка на наличие поля "location" с вложенными полями "lat" и "lng"
-                //if (!locationElement.TryGetProperty("lat", out var latElement) ||
-                //    !locationElement.TryGetProperty("lng", out var lngElement))
-                //{
-                //    var missingLocationFieldsResponse = new ApiResponse
-                //    {
-                //        StatusCode = HttpStatusCode.BadRequest,
-                //        IsSuccess = false,
-                //        ErrorMessages = new List<string> { "Missing required fields in location: lat or lng." }
-                //    };
-                //    return BadRequest(missingLocationFieldsResponse);
-                //}
-
-                // Проверка на наличие поля "name" в документе  
-                if (jsonDocument.RootElement.TryGetProperty("name", out var nameElement) && nameElement.ValueKind == JsonValueKind.String)
-                {
-                    // Извлечение значений "city" и "province" из вложенного объекта "address"  
-                    if (jsonDocument.RootElement.TryGetProperty("address", out var addressElement) && addressElement.ValueKind == JsonValueKind.Object)
-                    {
-                        var city = addressElement.TryGetProperty("city", out var cityElement) && cityElement.ValueKind == JsonValueKind.String
-                            ? cityElement.GetString()
-                            : null;
-                        var province = addressElement.TryGetProperty("province", out var provinceElement) && provinceElement.ValueKind == JsonValueKind.String
-                            ? provinceElement.GetString()
-                            : null;
-
-                        if (!string.IsNullOrEmpty(city) && !string.IsNullOrEmpty(province))
-                        {
-                            // Проверка на уникальность названия с учетом города и провинции  
-                            var existingPlace = await _placeService.GetPlaceByNameCityProvinceAsync(
-                                nameElement.GetString(),
-                                city,
-                                province);
-
-                            if (existingPlace != null)
-                            {
-                                var duplicateResponse = new ApiResponse
-                                {
-                                    StatusCode = HttpStatusCode.Conflict,
-                                    IsSuccess = false,
-                                    ErrorMessages = new List<string> { "A place with the same name, city, and province already exists." }
-                                };
-                                return Conflict(duplicateResponse);
-                            }
-                        }
-                    }
-                }
-
-                // Проверка на наличие поля "web" в документе  
-                if (jsonDocument.RootElement.TryGetProperty("web", out var webElement) && webElement.ValueKind == JsonValueKind.String)
-                {
-                    // Проверка на уникальность значения в поле "web"  
-                    var existingWeb = await _placeService.GetPlaceByWebAsync(webElement.GetString());
-                    if (existingWeb != null)
-                    {
-                        var duplicateWebResponse = new ApiResponse
-                        {
-                            StatusCode = HttpStatusCode.Conflict,
-                            IsSuccess = false,
-                            ErrorMessages = new List<string> { "A place with the same web value already exists." }
-                        };
-                        return Conflict(duplicateWebResponse);
-                    }
-                }
-
                 // Отправляем в сервис и получаем полный документ  
                 var createdDocument = await _placeService.CreateAsync(jsonDocument);
 
-                // Формируем успешный ответ  
-                var successResponse = new ApiResponse
+                if (createdDocument == null)
                 {
-                    StatusCode = HttpStatusCode.Created,
-                    IsSuccess = true,
-                    Result = createdDocument.ToJson()
-                };
+                    var notFoundResponse = new ApiResponse
+                    {
+                        StatusCode = HttpStatusCode.NotFound,
+                        IsSuccess = false,
+                        ErrorMessages = new List<string> { "Document could not be created." }
+                    };
+                    return NotFound(notFoundResponse);
+                }
 
-                // Возвращаем созданный документ внутри ApiResponse  
-                return CreatedAtAction(nameof(GetById),
-                                     new { id = createdDocument["_id"].ToString() },
-                                     successResponse);
+                // Проверка на неудачный результат операции(success = false)
+                if (!(!createdDocument.RootElement.TryGetProperty("success", out var successElement) ||
+                   successElement.ValueKind != JsonValueKind.False))
+                {
+                    string errorMessage = "Failed to create document or missing id.";
+                    // Добавляем сообщение об ошибке из сервиса, если оно присутствует
+                    if (createdDocument.RootElement.TryGetProperty("message", out var serviceErrorElement) &&
+                        serviceErrorElement.ValueKind == JsonValueKind.String)
+                    {
+                        errorMessage += $" Service error: {serviceErrorElement.GetString()}";
+                    }
+                    var badRequestResponse = new ApiResponse
+                    {
+                        StatusCode = HttpStatusCode.BadRequest,
+                        IsSuccess = false,
+                        ErrorMessages = new List<string> { errorMessage }
+                    };
+                    return BadRequest(badRequestResponse);
+                }
+
+               
+                
+                    var successResponse = new ApiResponse
+                    {
+                        StatusCode = HttpStatusCode.Created,
+                        IsSuccess = true,
+                        Result = new
+                        {
+                          Data = createdDocument.ToJson() // Include the entire created object
+                        }
+                    };
+                    return Ok(successResponse);
+                
+                
+                
+
             }
             catch (Exception ex)
             {
