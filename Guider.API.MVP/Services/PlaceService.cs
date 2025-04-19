@@ -147,32 +147,68 @@
         {
             try
             {
-                
                 var jsonString = jsonDocument.RootElement.GetRawText();
-
-                
                 var updatedDocument = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<BsonDocument>(jsonString);
 
-                
                 if (!updatedDocument.Contains("_id") || !ObjectId.TryParse(updatedDocument["_id"].ToString(), out var objectId))
                 {
                     return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "The document must contain a valid '_id' field." }));
                 }
 
-                
-                var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+                // Check for unique name
+                if (updatedDocument.Contains("name"))
+                {
+                    var nameFilter = Builders<BsonDocument>.Filter.And(
+                        Builders<BsonDocument>.Filter.Eq("name", updatedDocument["name"].AsString),
+                        Builders<BsonDocument>.Filter.Ne("_id", objectId)
+                    );
 
-                
+                    if (updatedDocument.Contains("address.city") && updatedDocument.Contains("address.province"))
+                    {
+                        nameFilter = Builders<BsonDocument>.Filter.And(
+                            nameFilter,
+                            Builders<BsonDocument>.Filter.Eq("address.city", updatedDocument["address.city"].AsString),
+                            Builders<BsonDocument>.Filter.Eq("address.province", updatedDocument["address.province"].AsString)
+                        );
+                    }
+
+                    var existingNameDocument = await _placeCollection.Find(nameFilter).FirstOrDefaultAsync();
+                    if (existingNameDocument != null)
+                    {
+                        return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "The 'name' field must be unique within the same city and province." }));
+                    }
+                }
+
+                // Check for unique web
+                if (updatedDocument.Contains("web"))
+                {
+                    var webFilter = Builders<BsonDocument>.Filter.And(
+                        Builders<BsonDocument>.Filter.Eq("web", updatedDocument["web"].AsString),
+                        Builders<BsonDocument>.Filter.Ne("_id", objectId)
+                    );
+
+                    var existingWebDocument = await _placeCollection.Find(webFilter).FirstOrDefaultAsync();
+                    if (existingWebDocument != null)
+                    {
+                        return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "The 'web' field must be unique." }));
+                    }
+                }
+
+                if (!updatedDocument.Contains("updatedAt"))
+                {
+                    updatedDocument.Add("updatedAt", DateTime.UtcNow);
+                }
+
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
                 await _placeCollection.ReplaceOneAsync(filter, updatedDocument);
 
-                
                 var updatedJsonString = updatedDocument.ToJson();
                 return JsonDocument.Parse(updatedJsonString);
             }
-             catch (Exception ex)
-             {
+            catch (Exception ex)
+            {
                 return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, error = ex.Message }));
-             }
+            }
         }
 
         public async Task<JsonDocument> DeleteAsync(string id)

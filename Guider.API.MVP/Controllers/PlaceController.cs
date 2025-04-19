@@ -618,7 +618,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="jsonDocument">JSON-документ, представляющий данные для создания нового объекта.</param>  
         /// <returns>Созданный объект в формате JSON, обернутый в ApiResponse.</returns>  
         [HttpPost("create")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Create([FromBody] JsonDocument jsonDocument)
         {
             try
@@ -763,7 +763,6 @@ namespace Guider.API.MVP.Controllers
         /// 
 
         [HttpPut("update")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Update([FromBody] JsonDocument jsonDocument)
         {
             try
@@ -796,15 +795,15 @@ namespace Guider.API.MVP.Controllers
 
                 // Проверка на неудачный результат операции(success = false)
                 if (updatedDocument.RootElement.TryGetProperty("success", out var successElement) &&
-                    successElement.ValueKind == JsonValueKind.False)
+                   successElement.ValueKind == JsonValueKind.False)
                 {
                     string errorMessage = "Failed to update document or missing id.";
 
-                    // Если есть сообщение об ошибке в поле error, используем его
-                    if (updatedDocument.RootElement.TryGetProperty("error", out var errorElement) &&
-                        errorElement.ValueKind == JsonValueKind.String)
+                    // Добавляем сообщение об ошибке из сервиса, если оно присутствует
+                    if (updatedDocument.RootElement.TryGetProperty("message", out var serviceErrorElement) &&
+                        serviceErrorElement.ValueKind == JsonValueKind.String)
                     {
-                        errorMessage = errorElement.GetString();
+                        errorMessage += $" Service error: {serviceErrorElement.GetString()}";
                     }
 
                     var badRequestResponse = new ApiResponse
