@@ -221,75 +221,15 @@ namespace Guider.API.MVP.Controllers
 
 
         /// <summary>
-        /// Получение списка Places для карты на главной странице, с выводом идентификатора,  
-        /// категории, названия и координат каждого элепмента. 
-        /// Для локаллизации по гео можно использовать условный геометрический центр Коста-Рики, 
-        /// это lat 9.5 и long -84. 
-        /// Для мобильной версии может быть использованы данные по гео из API мобильного устройства.
-        /// </summary>
-        /// <param name="lat">Широта в decimal</param>
-        /// <param name="lng">Долгота в decimal</param>
-        /// <param name="radiusMeters">Радиус в метрах</param>
-        /// <param name="limit">Лимит выводимых объектов на карте в integer</param>
-        /// <returns>Список ближайших мест в формате JSON</returns>
-        //[HttpGet("geonearlimit")]
-        //public async Task<ActionResult<string>> GetNearbyPlacesCenter(
-        //[FromHeader] decimal lat,
-        //[FromHeader] decimal lng,
-        //[FromHeader] int radiusMeters = 500000,
-        //[FromHeader] int limit = 200)
-        //{
-        //    //var jsonResult = await _placeService.GetNearbyPlacesAsyncCenter(lat, lng, radiusMeters, limit);
-        //    //return Content(jsonResult, "application/json");
-        //    var places = await _placeService.GetNearbyPlacesAsyncCenter(lat, lng, radiusMeters, limit);
-        //    if (places == null)
-        //    {
-        //        _response.StatusCode = HttpStatusCode.NotFound;
-        //        _response.IsSuccess = false;
-        //        _response.ErrorMessages.Add($"No places found within {radiusMeters} meters.");
-        //        return NotFound(_response);
-        //    }
-        //    return Content(places, "application/json");
-
-        //}
-
-        /// <summary>
-        /// Получить места по категории и тегам
+        /// Получить ближайшие места со строгим вхождением подстроки
         /// </summary>
         /// <param name="lat">Широта</param>
         /// <param name="lng">Долгота</param>
         /// <param name="maxDistanceMeters">Максимальное расстояние в метрах</param>
-        /// <param name="category">Категория</param>
-        /// <param name="filterTags">Теги для фильтрации</param>
-        /// <returns>Список мест в формате JSON</returns>
-        //[HttpGet("geo/category/tags")]
-        //public async Task<IActionResult> GetPlacesNearbyByCategoryByTagsAsync(
-        //    [FromQuery] decimal lat,
-        //    [FromQuery] decimal lng,
-        //    [FromQuery] int maxDistanceMeters,
-        //    [FromQuery] string category,
-        //    [FromQuery] List<string>? filterTags = null)
-        //{
-        //    var places = await _placeService.GetPlacesNearbyByCategoryByTagsAsyncAsync(lat, lng, maxDistanceMeters, category, filterTags);
-        //    if (places == null || places.Count == 0)
-        //    {
-        //        _response.StatusCode = HttpStatusCode.NotFound;
-        //        _response.IsSuccess = false;
-        //        _response.ErrorMessages.Add($"No places found within filters.");
-        //        return NotFound(_response);
-        //    }
-        //    return Content(places.ToJson(), "application/json");
-        //}
-
-        ///// <summary>
-        ///// Получить ближайшие места со строгим вхождением подстроки
-        ///// </summary>
-        ///// <param name="lat">Широта</param>
-        ///// <param name="lng">Долгота</param>
-        ///// <param name="maxDistanceMeters">Максимальное расстояние в метрах</param>
-        ///// <param name="limit">Лимит результатов (не менее 10 и не более 100)</param>
-        ///// <param name="searchText">Текст для поиска</param>
-        ///// <returns>Список ближайших мест в формате JSON</returns>
+        /// <param name="limit">Лимит результатов (не менее 10 и не более 100)</param>
+        /// <param name="searchText">Текст для поиска</param>
+        /// <param name="isOpen">Учитывать ли расписание работы</param>
+        /// <returns>Список ближайших мест в формате JSON</returns>
         //[HttpGet("geonear/search")]
         //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
         //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
@@ -301,129 +241,56 @@ namespace Guider.API.MVP.Controllers
         //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
         //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
         //public async Task<ActionResult<string>> GetPlacesNearbyWithTextSearch(
-        //    [FromQuery] decimal lat,
-        //    [FromQuery] decimal lng,
-        //    [FromQuery] int maxDistanceMeters,
-        //    [FromQuery] int limit,
-        //    [FromQuery] string searchText)
+        //    [FromQuery] decimal lat = 10.539500881521633m,
+        //    [FromQuery] decimal lng = -85.68964788238951m,
+        //    [FromQuery] int maxDistanceMeters = 2000,
+        //    [FromQuery] int limit = 100,
+        //    [FromQuery] bool isOpen = false),
+        //    [FromQuery] string? searchText = null)
+        
         //{
+        //    try
+        //    {
+        //        // Проверка и корректировка значения limit
+        //        if (limit <= 0)
+        //        {
+        //            limit = 10;
+        //        }
+        //        else if (limit > 100)
+        //        {
+        //            limit = 100;
+        //        }
 
-        //    // Проверка и корректировка значения limit
-        //    if (limit <= 0)
-        //    {
-        //        limit = 10; 
-        //    }
-        //    else if (limit > 100)
-        //    {
-        //        limit = 100; 
-        //    }
+        //        // Проверка на пустую строку
+        //        if (string.IsNullOrWhiteSpace(searchText))
+        //        {
+        //            _response.StatusCode = HttpStatusCode.BadRequest;
+        //            _response.IsSuccess = false;
+        //            _response.ErrorMessages.Add("Search text cannot be empty.");
+        //            return BadRequest(_response);
+        //        }
 
-        //    if (string.IsNullOrWhiteSpace(searchText))
+        //        // Используем новую версию метода, которая учитывает параметр isOpen
+        //        var places = await _placeService.GetPlacesNearbyWithTextSearchAsync(lat, lng, maxDistanceMeters, limit, searchText, isOpen);
+
+        //        if (places == null || places.Count == 0)
+        //        {
+        //            _response.StatusCode = HttpStatusCode.NotFound;
+        //            _response.IsSuccess = false;
+        //            _response.ErrorMessages.Add($"No places found within filters{(isOpen ? " that are currently open" : "")}.");
+        //            return NotFound(_response);
+        //        }
+
+        //        return Content(places.ToJson(), "application/json");
+        //    }
+        //    catch (Exception ex)
         //    {
-        //        _response.StatusCode = HttpStatusCode.BadRequest;
+        //        _response.StatusCode = HttpStatusCode.InternalServerError;
         //        _response.IsSuccess = false;
-        //        _response.ErrorMessages.Add("Search text cannot be empty.");
-        //        return BadRequest(_response);
+        //        _response.ErrorMessages.Add(ex.Message);
+        //        return StatusCode((int)HttpStatusCode.InternalServerError, _response);
         //    }
-
-        //    // Проверка на наличие пробелов в строке    
-        //    if (searchText.Contains(" "))
-        //    {
-        //        _response.StatusCode = HttpStatusCode.BadRequest;
-        //        _response.IsSuccess = false;
-        //        _response.ErrorMessages.Add("Search text cannot contain spaces.");
-        //        return BadRequest(_response);
-        //    }
-
-
-        //    var places = await _placeService.GetPlacesNearbyWithTextSearchAsync(lat, lng, maxDistanceMeters, limit, searchText);
-        //    if (places == null || places.Count == 0)
-        //    {
-        //        _response.StatusCode = HttpStatusCode.NotFound;
-        //        _response.IsSuccess = false;
-        //        _response.ErrorMessages.Add($"No places found within filters.");
-        //        return NotFound(_response);
-        //    }
-
-        //    return Content(places.ToJson(), "application/json");
         //}
-
-        /// <summary>
-        /// Получить ближайшие места со строгим вхождением подстроки
-        /// </summary>
-        /// <param name="lat">Широта</param>
-        /// <param name="lng">Долгота</param>
-        /// <param name="maxDistanceMeters">Максимальное расстояние в метрах</param>
-        /// <param name="limit">Лимит результатов (не менее 10 и не более 100)</param>
-        /// <param name="searchText">Текст для поиска</param>
-        /// <param name="isOpen">Учитывать ли расписание работы</param>
-        /// <returns>Список ближайших мест в формате JSON</returns>
-        [HttpGet("geonear/search")]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
-        public async Task<ActionResult<string>> GetPlacesNearbyWithTextSearch(
-            [FromQuery] decimal lat,
-            [FromQuery] decimal lng,
-            [FromQuery] int maxDistanceMeters,
-            [FromQuery] int limit,
-            [FromQuery] string searchText,
-            [FromQuery] bool isOpen = false)
-        {
-            try
-            {
-                // Проверка и корректировка значения limit
-                if (limit <= 0)
-                {
-                    limit = 10;
-                }
-                else if (limit > 100)
-                {
-                    limit = 100;
-                }
-                if (string.IsNullOrWhiteSpace(searchText))
-                {
-                    _response.StatusCode = HttpStatusCode.BadRequest;
-                    _response.IsSuccess = false;
-                    _response.ErrorMessages.Add("Search text cannot be empty.");
-                    return BadRequest(_response);
-                }
-                // Проверка на наличие пробелов в строке    
-                if (searchText.Contains(" "))
-                {
-                    _response.StatusCode = HttpStatusCode.BadRequest;
-                    _response.IsSuccess = false;
-                    _response.ErrorMessages.Add("Search text cannot contain spaces.");
-                    return BadRequest(_response);
-                }
-
-                // Используем новую версию метода, которая учитывает параметр isOpen
-                var places = await _placeService.GetPlacesNearbyWithTextSearchAsync(lat, lng, maxDistanceMeters, limit, searchText, isOpen);
-
-                if (places == null || places.Count == 0)
-                {
-                    _response.StatusCode = HttpStatusCode.NotFound;
-                    _response.IsSuccess = false;
-                    _response.ErrorMessages.Add($"No places found within filters{(isOpen ? " that are currently open" : "")}.");
-                    return NotFound(_response);
-                }
-
-                return Content(places.ToJson(), "application/json");
-            }
-            catch (Exception ex)
-            {
-                _response.StatusCode = HttpStatusCode.InternalServerError;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add(ex.Message);
-                return StatusCode((int)HttpStatusCode.InternalServerError, _response);
-            }
-        }
 
         /// <summary>
         /// Получить ближайшие места с любым из ключевых слов
@@ -445,21 +312,21 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
         public async Task<ActionResult<string>> GetPlacesWithKeywordsList(
-            [FromQuery] decimal lat,
-            [FromQuery] decimal lng,
-            [FromQuery] int maxDistanceMeters,
-            [FromQuery] int limit,
-            [FromQuery] List<string>? filterKeywords,
-            [FromQuery] bool isOpen = false)
+           [FromQuery] decimal lat = 10.539500881521633m,
+           [FromQuery] decimal lng = -85.68964788238951m,
+           [FromQuery] int maxDistanceMeters = 10000,
+           [FromQuery] int limit = 100,
+           [FromQuery] List<string>? filterKeywords = null,
+           [FromQuery] bool isOpen = false)
         {
             // Проверка и корректировка значения limit
             if (limit < 1)
             {
-                limit = 1;
+                limit = 200;
             }
-            else if (limit > 100)
+            else if (limit > 200)
             {
-                limit = 100;
+                limit = 200;
             }
 
             // Проверка filterKeywords на null и пустой список
@@ -517,54 +384,62 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
-        public async Task<ActionResult<string>> GetPlacesWithAllKeywords(
-            [FromQuery] decimal lat,
-            [FromQuery] decimal lng,
-            [FromQuery] int maxDistanceMeters,
-            [FromQuery] int limit,
-            [FromQuery] List<string>? filterKeywords,
-            [FromQuery] bool isOpen = false)
+        public async Task<IActionResult> GetPlacesWithAllKeywords(
+          [FromQuery] decimal lat = 10.539500881521633m,
+          [FromQuery] decimal lng = -85.68964788238951m,
+          [FromQuery] int maxDistanceMeters = 10000,
+          [FromQuery] int limit = 100,
+          [FromQuery] List<string>? filterKeywords = null,
+          [FromQuery] bool isOpen = false)
         {
-            // Проверка и корректировка значения limit
-            if (limit < 1)
-            {
-                limit = 1;
-            }
-            else if (limit > 100)
-            {
-                limit = 100;
-            }
+            
+                // Проверка и корректировка значения limit
+                if (limit < 1)
+                {
+                    limit = 200;
+                }
+                else if (limit > 200)
+                {
+                    limit = 200;
+                }
 
-            // Проверка filterKeywords на null и пустой список
-            if (filterKeywords == null || !filterKeywords.Any())
-            {
-                _response.StatusCode = HttpStatusCode.BadRequest;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add("Filter keywords list is empty or not provided.");
-                return BadRequest(_response);
-            }
+                // Проверка filterKeywords на null и пустой список
+                if (filterKeywords == null || !filterKeywords.Any())
+                {
+                    var badRequestResponse = new ApiResponse
+                    {
+                        StatusCode = HttpStatusCode.BadRequest,
+                        IsSuccess = false,
+                        ErrorMessages = new List<string> { "Filter keywords list is empty or not provided." }
+                    };
+                    return BadRequest(badRequestResponse);
+                }
 
-            List<BsonDocument> places;
+                // Получение результата из сервиса
+                JsonDocument placesJson;
+                placesJson = await _placeService.GetPlacesWithAllKeywordsAsync(lat, lng, maxDistanceMeters, limit, filterKeywords, isOpen);
+                
+                if (placesJson == null)
+                {
+                    var notFoundResponse = new ApiResponse
+                    {
+                        StatusCode = HttpStatusCode.NotFound,
+                        IsSuccess = false,
+                        ErrorMessages = new List<string> { $"No places found with all the provided keywords{(isOpen ? " that are currently open" : "")}." }
+                    };
+                    return NotFound(notFoundResponse);
+                }
 
-            // Используем соответствующую перегрузку метода в зависимости от значения isOpen
-            if (isOpen)
-            {
-                places = await _placeService.GetPlacesWithAllKeywordsAsync(lat, lng, maxDistanceMeters, limit, filterKeywords, isOpen);
-            }
-            else
-            {
-                places = await _placeService.GetPlacesWithAllKeywordsAsync(lat, lng, maxDistanceMeters, limit, filterKeywords);
-            }
+                // Формирование успешного ответа
+                var successResponse = new ApiResponse
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    IsSuccess = true,
+                    Result = placesJson
+                };
 
-            if (places == null || places.Count == 0)
-            {
-                _response.StatusCode = HttpStatusCode.NotFound;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add($"No places found with all the provided keywords{(isOpen ? " that are currently open" : "")}.");
-                return NotFound(_response);
-            }
-
-            return Content(places.ToJson(), "application/json");
+                return Ok(successResponse);
+            
         }
 
 

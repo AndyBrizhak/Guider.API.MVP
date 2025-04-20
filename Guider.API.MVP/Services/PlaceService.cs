@@ -915,9 +915,9 @@
 
         /// <summary>
         ///
-        /// Получить отсортированный список по дистанции с текстовым поиском, фильтрацией по ключевым словам
+        /// Получить отсортированный список c использованием $and по дистанции с текстовым поиском, фильтрацией по ключевым словам
+        
         /// 
-        /// c использованием $and
         public async Task<List<BsonDocument>> GetPlacesWithAllKeywordsAsync(
             decimal lat,
             decimal lng,
@@ -998,9 +998,8 @@
 
 
         /// <summary>
-        /// Получить отсортированный список по дистанции с текстовым поиском, фильтрацией по ключевым словам
+        /// Получить с использованием $and отсортированный список по дистанции с текстовым поиском, фильтрацией по ключевым словам
         /// и фильтрацией по открытым заведениям
-        /// с использованием $and
         /// </summary>
         /// <param name="lat"></param>
         /// <param name="lng"></param>
@@ -1009,13 +1008,13 @@
         /// <param name="filterKeywords"></param>
         /// <param name="isOpen"></param>
         /// <returns></returns>
-        public async Task<List<BsonDocument>> GetPlacesWithAllKeywordsAsync(
-           decimal lat,
-           decimal lng,
-           int maxDistanceMeters,
-           int limit,
-           List<string>? filterKeywords,
-           bool isOpen)
+        public async Task<JsonDocument> GetPlacesWithAllKeywordsAsync(
+          decimal lat,
+          decimal lng,
+          int maxDistanceMeters,
+          int limit,
+          List<string>? filterKeywords,
+          bool isOpen)
         {
             var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
            {
@@ -1030,7 +1029,6 @@
                { "spherical", true }
            });
 
-            
             BsonDocument? matchStage = null;
             if (filterKeywords != null && filterKeywords.Any())
             {
@@ -1064,7 +1062,6 @@
                 }
             }
 
-            
             BsonDocument? scheduleMatchStage = null;
             if (isOpen)
             {
@@ -1108,20 +1105,36 @@
                { "web", 1 }
            });
 
-            var limitStage = new BsonDocument("$limit", limit);
-
-            
             var pipeline = new List<BsonDocument> { geoNearStage };
             if (matchStage != null) pipeline.Add(matchStage);
             if (scheduleMatchStage != null) pipeline.Add(scheduleMatchStage);
             pipeline.Add(projectStage);
-            pipeline.Add(limitStage);
 
             var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
-            return results;
+
+            var totalCount = results.Count;
+
+            var finalResult = new BsonDocument
+           {
+               { "totalCount", totalCount },
+               { "places", new BsonArray(results) }
+           };
+
+            var jsonString = finalResult.ToJson();
+            return JsonDocument.Parse(jsonString);
         }
 
-                
+
+        /// <summary>
+        /// 
+        /// Получить доступные теги по категории и выбранным тегам
+        /// 
+        /// </summary>
+        /// 
+        /// <param name="category">Категория</param>
+        /// 
+        /// <param name="selectedTags">Выбранные теги</param>
+        /// 
         public async Task<JsonDocument> GetAvailableTagsAsync(
                                                                 string? category,
                                                                 List<string>? selectedTags)
