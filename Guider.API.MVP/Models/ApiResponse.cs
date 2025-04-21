@@ -6,8 +6,7 @@ namespace Guider.API.MVP.Models
     {
         public ApiResponse()
         {
-            //StatusCode = HttpStatusCode.OK;
-            //IsSuccess = true;
+           
             ErrorMessages = new List<string>();
         }
         public HttpStatusCode StatusCode { get; set; }
