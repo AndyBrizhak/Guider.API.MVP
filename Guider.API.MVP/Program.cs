@@ -74,8 +74,11 @@ builder.Services.Configure<Guider.API.MVP.Data.MongoDbSettings>(
 // Регистрация MongoClient в DI-контейнере
 builder.Services.AddSingleton<PlaceService>();
 
-// Сервис для  CRUD операций
-builder.Services.AddSingleton<PlaceService>();
+builder.Services.AddSingleton<ProvinceService>();
+
+
+//// Сервис для  CRUD операций
+//builder.Services.AddSingleton<PlaceService>();
 
 builder.Services.AddControllers();
 
