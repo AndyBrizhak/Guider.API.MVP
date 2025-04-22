@@ -21,7 +21,7 @@ namespace Guider.API.MVP.Services
         {
             try
             {
-                var filter = Builders<BsonDocument>.Filter.Eq("name", typeName);
+                var filter = Builders<BsonDocument>.Filter.Eq("name_en", typeName);
                 var projection = Builders<BsonDocument>.Projection.Include("tags").Exclude("_id");
                 var result = await _tagsCollection.Find(filter).Project(projection).FirstOrDefaultAsync();
 
@@ -35,14 +35,21 @@ namespace Guider.API.MVP.Services
                     return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
                 }
 
-                var tags = result["tags"].AsBsonArray.Select(city => city.AsBsonDocument).ToList();
+                var tags = result["tags"].AsBsonArray
+                    .Select(tag => new
+                    {
+                        NameEn = tag["name_en"].AsString,
+                        NameSp = tag["name_sp"].AsString,
+                        Web = tag["web"].AsString
+                    })
+                    .ToList();
+
                 var successResponse = new
                 {
                     IsSuccess = true,
                     Tags = tags
-                }.ToJson();
-                return JsonDocument.Parse(successResponse);
-                
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
             }
             catch (Exception ex)
             {

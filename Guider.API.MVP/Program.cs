@@ -71,12 +71,13 @@ builder.Services.AddCors();
 builder.Services.Configure<Guider.API.MVP.Data.MongoDbSettings>(
     builder.Configuration.GetSection("MongoDbSettings"));
 
-// Регистрация MongoClient в DI-контейнере
+// Регистрация сервисов MongoClient в DI-контейнере
 builder.Services.AddSingleton<PlaceService>();
 
 builder.Services.AddSingleton<ProvinceService>();
 
 builder.Services.AddSingleton<CitiesService>();
+builder.Services.AddSingleton<TagsService>();
 
 
 //// Сервис для  CRUD операций
