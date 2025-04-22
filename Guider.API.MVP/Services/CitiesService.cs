@@ -40,8 +40,9 @@ namespace Guider.API.MVP.Services
                 {
                     IsSuccess = true,
                     Cities = cities
-                };
-                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+                }.ToJson();
+                return JsonDocument.Parse(successResponse);
+                //return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
             }
             catch (Exception ex)
             {
