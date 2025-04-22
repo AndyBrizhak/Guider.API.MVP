@@ -171,7 +171,58 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
+        [HttpDelete]
+        [Route("DeleteTag")]
+        public async Task<IActionResult> DeleteTag(string typeName, string tagName)
+        {
+            var apiResponse = new Models.ApiResponse();
 
+            try
+            {
+                if (string.IsNullOrWhiteSpace(typeName))
+                {
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
+                    apiResponse.ErrorMessages = new List<string> { "Type name cannot be null or empty." };
+                    return BadRequest(apiResponse);
+                }
+
+                if (string.IsNullOrWhiteSpace(tagName))
+                {
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
+                    apiResponse.ErrorMessages = new List<string> { "Tag name cannot be null or empty." };
+                    return BadRequest(apiResponse);
+                }
+
+                var result = await _tagsService.DeleteTagAsync(typeName, tagName);
+
+                // Проверяем результат выполнения метода сервиса
+                if (result.RootElement.GetProperty("IsSuccess").GetBoolean())
+                {
+                    apiResponse.IsSuccess = true;
+                    apiResponse.StatusCode = HttpStatusCode.OK;
+                    apiResponse.Result = result;
+                    return Ok(apiResponse);
+                }
+                else
+                {
+                    // Если в сервисе произошла ошибка, возвращаем сообщение об ошибке оттуда
+                    string errorMessage = result.RootElement.GetProperty("Message").GetString();
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
+                    apiResponse.ErrorMessages = new List<string> { errorMessage };
+                    return BadRequest(apiResponse);
+                }
+            }
+            catch (Exception ex)
+            {
+                apiResponse.IsSuccess = false;
+                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
+                apiResponse.ErrorMessages = new List<string> { ex.Message };
+                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+            }
+        }
 
 
 

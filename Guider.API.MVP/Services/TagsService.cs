@@ -519,5 +519,75 @@ namespace Guider.API.MVP.Services
         }
 
 
+        public async Task<JsonDocument> DeleteTagAsync(string typeName, string tagName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(typeName) || string.IsNullOrWhiteSpace(tagName))
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "Type name and tag name cannot be null or empty."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Проверка существования тега внутри своего типа
+                var existingTagFilter = Builders<BsonDocument>.Filter.And(
+                    Builders<BsonDocument>.Filter.Eq("name_en", typeName),
+                    Builders<BsonDocument>.Filter.AnyEq("tags.name_en", tagName)
+                );
+
+                var tagExists = await _tagsCollection.Find(existingTagFilter).FirstOrDefaultAsync();
+                if (tagExists == null)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = $"Tag '{tagName}' does not exist in type '{typeName}'."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Удаляем тег из массива tags
+                var filter = Builders<BsonDocument>.Filter.Eq("name_en", typeName);
+                var update = Builders<BsonDocument>.Update.PullFilter("tags",
+                    Builders<BsonDocument>.Filter.Eq("name_en", tagName));
+
+                var result = await _tagsCollection.UpdateOneAsync(filter, update);
+
+                if (result.ModifiedCount == 0)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "Failed to delete the tag. No changes were made."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                var successResponse = new
+                {
+                    IsSuccess = true,
+                    Message = $"Tag '{tagName}' was successfully deleted from type '{typeName}'.",
+                    DeletedTag = new
+                    {
+                        TypeName = typeName,
+                        TagName = tagName
+                    }
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"An error occurred: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+        }
     }
 }
