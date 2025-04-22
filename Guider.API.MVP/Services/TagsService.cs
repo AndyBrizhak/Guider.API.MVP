@@ -589,5 +589,100 @@ namespace Guider.API.MVP.Services
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
             }
         }
+
+        public async Task<JsonDocument> FindDuplicateTagsAsync()
+        {
+            try
+            {
+                // Получаем все типы тегов с их тегами
+                var allTypesTags = await _tagsCollection.Find(new BsonDocument()).ToListAsync();
+
+                // Словарь для хранения тегов с одинаковыми именами
+                Dictionary<string, List<object>> duplicateTags = new Dictionary<string, List<object>>();
+
+                // Создаем словарь, где ключ - название тега, значение - список объектов с информацией о теге и его типе
+                Dictionary<string, List<object>> tagNameMap = new Dictionary<string, List<object>>();
+
+                // Проходим по всем типам тегов
+                foreach (var typeDoc in allTypesTags)
+                {
+                    string typeName = typeDoc["name_en"].AsString;
+
+                    // Проверяем наличие тегов в типе
+                    if (!typeDoc.Contains("tags") || !typeDoc["tags"].IsBsonArray)
+                        continue;
+
+                    // Проходим по всем тегам данного типа
+                    foreach (var tag in typeDoc["tags"].AsBsonArray)
+                    {
+                        string tagNameEn = tag["name_en"].AsString;
+                        string tagNameSp = tag["name_sp"].AsString;
+                        string tagWeb = tag["web"].AsString;
+
+                        // Создаем объект с информацией о теге и его типе
+                        var tagInfo = new
+                        {
+                            TypeName = typeName,
+                            NameEn = tagNameEn,
+                            NameSp = tagNameSp,
+                            Web = tagWeb
+                        };
+
+                        // Если такого имени тега еще нет в словаре, добавляем его
+                        if (!tagNameMap.ContainsKey(tagNameEn))
+                        {
+                            tagNameMap[tagNameEn] = new List<object>();
+                        }
+
+                        // Добавляем информацию о теге в список
+                        tagNameMap[tagNameEn].Add(tagInfo);
+                    }
+                }
+
+                // Находим тэги с одинаковыми именами (более одного вхождения)
+                foreach (var entry in tagNameMap)
+                {
+                    if (entry.Value.Count > 1)
+                    {
+                        duplicateTags[entry.Key] = entry.Value;
+                    }
+                }
+
+                // Если не найдено дубликатов
+                if (duplicateTags.Count == 0)
+                {
+                    var noDataResponse = new
+                    {
+                        IsSuccess = true,
+                        Message = "No duplicate tag names found across all tag types.",
+                        DuplicateTags = new object[] { }
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(noDataResponse));
+                }
+
+                // Формируем результат
+                var successResponse = new
+                {
+                    IsSuccess = true,
+                    Message = $"Found {duplicateTags.Count} tags with duplicate names across types.",
+                    DuplicateTags = duplicateTags.Select(kv => new
+                    {
+                        TagName = kv.Key,
+                        Occurrences = kv.Value
+                    }).ToList()
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"An error occurred: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+        }
     }
 }

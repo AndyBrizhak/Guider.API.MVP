@@ -224,6 +224,43 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
+        [HttpGet]
+        [Route("FindDuplicateTags")]
+        public async Task<IActionResult> FindDuplicateTags()
+        {
+            var apiResponse = new Models.ApiResponse();
+
+            try
+            {
+                var result = await _tagsService.FindDuplicateTagsAsync();
+
+                // Проверяем результат выполнения метода сервиса
+                if (result.RootElement.GetProperty("IsSuccess").GetBoolean())
+                {
+                    apiResponse.IsSuccess = true;
+                    apiResponse.StatusCode = HttpStatusCode.OK;
+                    apiResponse.Result = result;
+                    return Ok(apiResponse);
+                }
+                else
+                {
+                    // Если в сервисе произошла ошибка, возвращаем сообщение об ошибке оттуда
+                    string errorMessage = result.RootElement.GetProperty("Message").GetString();
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
+                    apiResponse.ErrorMessages = new List<string> { errorMessage };
+                    return BadRequest(apiResponse);
+                }
+            }
+            catch (Exception ex)
+            {
+                apiResponse.IsSuccess = false;
+                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
+                apiResponse.ErrorMessages = new List<string> { ex.Message };
+                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+            }
+        }
+
 
 
     }
