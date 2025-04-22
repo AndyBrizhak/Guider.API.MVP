@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
+using System.Text.Json;
 
 namespace Guider.API.MVP.Controllers
 {
@@ -54,5 +55,66 @@ namespace Guider.API.MVP.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
             }
         }
+
+        [HttpPost]
+        [Route("CreateTag")]
+        public async Task<IActionResult> CreateTag(string typeName, [FromBody] JsonDocument newTagData)
+
+        {
+            var apiResponse = new Models.ApiResponse();
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(typeName))
+                {
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
+                    apiResponse.ErrorMessages = new List<string> { "Type name cannot be null or empty." };
+                    return BadRequest(apiResponse);
+                }
+
+                if (newTagData == null)
+                {
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
+                    apiResponse.ErrorMessages = new List<string> { "Tag data cannot be null." };
+                    return BadRequest(apiResponse);
+                }
+
+                var result = await _tagsService.CreateTagAsync(typeName, newTagData);
+
+                // Проверяем результат выполнения метода сервиса
+                if (result.RootElement.GetProperty("IsSuccess").GetBoolean())
+                {
+                    apiResponse.IsSuccess = true;
+                    apiResponse.StatusCode = HttpStatusCode.Created;
+                    apiResponse.Result = result;
+                    return StatusCode(StatusCodes.Status201Created, apiResponse);
+                }
+                else
+                {
+                    // Если в сервисе произошла ошибка, возвращаем сообщение об ошибке оттуда
+                    string errorMessage = result.RootElement.GetProperty("Message").GetString();
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
+                    apiResponse.ErrorMessages = new List<string> { errorMessage };
+                    return BadRequest(apiResponse);
+                }
+            }
+            catch (Exception ex)
+            {
+                apiResponse.IsSuccess = false;
+                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
+                apiResponse.ErrorMessages = new List<string> { ex.Message };
+                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+            }
+        }
+
+
+
+
+
+
+
     }
 }
