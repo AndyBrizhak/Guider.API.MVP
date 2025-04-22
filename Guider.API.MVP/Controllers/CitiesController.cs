@@ -54,5 +54,42 @@ namespace Guider.API.MVP.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
             }
         }
+
+        // TODO: добавить передачу в параметрах полного объекта города
+        //[HttpPost]
+        //[Route("AddCityToProvince")]
+        //public async Task<IActionResult> AddCityToProvince(string provinceName, string cityName)
+        //{
+        //    var apiResponse = new Models.ApiResponse();
+        //    try
+        //    {
+        //        if (string.IsNullOrWhiteSpace(provinceName) || string.IsNullOrWhiteSpace(cityName))
+        //        {
+        //            apiResponse.IsSuccess = false;
+        //            apiResponse.StatusCode = HttpStatusCode.BadRequest;
+        //            apiResponse.ErrorMessages = new List<string> { "Province name and city name cannot be null or empty." };
+        //            return BadRequest(apiResponse);
+        //        }
+        //        var result = await _citiesService.AddCityToProvinceAsync(provinceName, cityName);
+        //        if (result == null)
+        //        {
+        //            apiResponse.IsSuccess = false;
+        //            apiResponse.StatusCode = HttpStatusCode.NotFound;
+        //            apiResponse.ErrorMessages = new List<string> { $"Failed to add city: {cityName} to province: {provinceName}." };
+        //            return NotFound(apiResponse);
+        //        }
+        //        apiResponse.IsSuccess = true;
+        //        apiResponse.StatusCode = HttpStatusCode.OK;
+        //        apiResponse.Result = result;
+        //        return Ok(apiResponse);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        apiResponse.IsSuccess = false;
+        //        apiResponse.StatusCode = HttpStatusCode.InternalServerError;
+        //        apiResponse.ErrorMessages = new List<string> { ex.Message };
+        //        return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+        //    }
+        //}
     }
 }
