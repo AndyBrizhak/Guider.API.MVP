@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.Extensions.DependencyInjection;
+using Guider.API.MVP.Filters;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -78,10 +79,10 @@ builder.Services.AddSingleton<ProvinceService>();
 
 builder.Services.AddSingleton<CitiesService>();
 builder.Services.AddSingleton<TagsService>();
+// Регистрация сервиса для работы с изображениями
+builder.Services.AddScoped<IImageService, ImageService>();
 
 
-//// Сервис для  CRUD операций
-//builder.Services.AddSingleton<PlaceService>();
 
 builder.Services.AddControllers();
 
@@ -89,7 +90,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Places API", Version = "v1" });
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "API MVP", Version = "v1" });
     // Set the comments path for the Swagger JSON and UI.
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
@@ -122,6 +123,8 @@ builder.Services.AddSwaggerGen(c =>
             new string[] {}
         }
     });
+    // Регистрируем наш фильтр для корректной обработки загрузки файлов
+    c.OperationFilter<FileUploadOperationFilter>();
 });
 
 var app = builder.Build();
