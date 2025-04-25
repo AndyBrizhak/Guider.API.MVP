@@ -188,7 +188,7 @@ namespace Guider.API.MVP.Controllers
             }
 
             JsonDocument result = _imageService.DeleteImage(fullPath);
-            // Извлекаем информацию из JsonDocument
+            
             bool success = result.RootElement.GetProperty("Success").GetBoolean();
             string message = result.RootElement.GetProperty("Message").GetString() ?? string.Empty;
 
