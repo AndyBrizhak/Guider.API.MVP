@@ -2,6 +2,8 @@
 using Guider.API.MVP.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Net;
+using System.Text.Json;
 
 namespace Guider.API.MVP.Controllers
 {
@@ -177,19 +179,35 @@ namespace Guider.API.MVP.Controllers
         {
             if (string.IsNullOrEmpty(fullPath))
             {
-                return BadRequest("Путь к изображению не указан");
+                return BadRequest(new ApiResponse
+                {
+                    IsSuccess = false,
+                    StatusCode = HttpStatusCode.BadRequest,
+                    ErrorMessages = new List<string> { "Путь к изображению не указан" }
+                });
             }
 
-            bool deleted = _imageService.DeleteImage(fullPath);
+            JsonDocument result = _imageService.DeleteImage(fullPath);
+            // Извлекаем информацию из JsonDocument
+            bool success = result.RootElement.GetProperty("Success").GetBoolean();
+            string message = result.RootElement.GetProperty("Message").GetString() ?? string.Empty;
 
-            if (deleted)
+            ApiResponse response = new ApiResponse
             {
-                return Ok(new { Success = true, Message = "Изображение успешно удалено" });
+                IsSuccess = success,
+                StatusCode = success ? HttpStatusCode.OK : HttpStatusCode.BadRequest
+            };
+
+            if (success)
+            {
+                response.Result = new { Message = message };
             }
             else
             {
-                return NotFound("Изображение не найдено или не может быть удалено");
+                response.ErrorMessages.Add(message);
             }
+
+            return StatusCode((int)response.StatusCode, response);
         }
 
         /// <summary>  

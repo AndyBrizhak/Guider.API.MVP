@@ -140,30 +140,47 @@ namespace Guider.API.MVP.Services
                 return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = $"Ошибка при получении изображения: {ex.Message}" }));
             }
         }
-        public bool DeleteImage(string fullPath)
+        public JsonDocument DeleteImage(string fullPath)
         {
             if (string.IsNullOrEmpty(fullPath))
             {
-                return false;
+                return CreateJsonResponse(false, "Путь к файлу не указан");
             }
 
             string absolutePath = Path.Combine(_baseImagePath, fullPath);
 
             if (!File.Exists(absolutePath))
             {
-                return false;
+                return CreateJsonResponse(false, $"Файл не существует по пути: {absolutePath}");
             }
 
             try
             {
                 File.Delete(absolutePath);
-                return true;
+                return CreateJsonResponse(true, $"Файл успешно удален: {absolutePath}");
             }
             catch (Exception ex)
             {
                 //_logger.LogError(ex, "Ошибка при удалении изображения");
-                return false;
+                return CreateJsonResponse(false, $"Ошибка при удалении изображения: {ex.Message}");
             }
+
+        }
+
+        private JsonDocument CreateJsonResponse(bool success, string message)
+        {
+            var options = new JsonWriterOptions { Indented = true };
+            using var stream = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(stream, options))
+            {
+                writer.WriteStartObject();
+                writer.WriteBoolean("Success", success);
+                writer.WriteString("Message", message);
+                writer.WriteEndObject();
+            }
+
+            stream.Position = 0;
+            return JsonDocument.Parse(stream);
         }
 
         // Метод для обновления существующего изображения
@@ -248,6 +265,6 @@ namespace Guider.API.MVP.Services
             }
         }
 
-        
+      
     }
 }

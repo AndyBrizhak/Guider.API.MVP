@@ -6,7 +6,7 @@ namespace Guider.API.MVP.Services
     {
         Task<JsonDocument> SaveImageAsync(string imagePath, IFormFile imageFile);
         JsonDocument GetImage(string fullPath);
-        bool DeleteImage(string fullPath);
+        JsonDocument DeleteImage(string fullPath);
 
         // Новый метод для обновления изображения
         Task<string> UpdateImageAsync(string imagePath, IFormFile imageFile, bool createIfNotExists = true);
