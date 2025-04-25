@@ -183,87 +183,87 @@ namespace Guider.API.MVP.Services
             return JsonDocument.Parse(stream);
         }
 
-        // Метод для обновления существующего изображения
-        public async Task<string> UpdateImageAsync(string imagePath, IFormFile imageFile, bool createIfNotExists = true)
-        {
-            if (string.IsNullOrEmpty(imagePath) || imageFile == null || imageFile.Length == 0)
-            {
-                throw new ArgumentException("Недопустимые параметры для обновления изображения");
-            }
+        
+        //public async Task<string> UpdateImageAsync(string imagePath, IFormFile imageFile, bool createIfNotExists = true)
+        //{
+        //    if (string.IsNullOrEmpty(imagePath) || imageFile == null || imageFile.Length == 0)
+        //    {
+        //        throw new ArgumentException("Недопустимые параметры для обновления изображения");
+        //    }
 
-            // Нормализуем путь
-            imagePath = imagePath.Trim('/');
-            string[] pathParts = imagePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            
+        //    imagePath = imagePath.Trim('/');
+        //    string[] pathParts = imagePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
-            if (pathParts.Length < 3)
-            {
-                throw new ArgumentException("Путь должен содержать провинцию, город и название изображения");
-            }
+        //    if (pathParts.Length < 1)
+        //    {
+        //        throw new ArgumentException("Путь должен содержать провинцию и название изображения");
+        //    }
 
-            string province = pathParts[0];
-            string city = pathParts[1];
-            string imageName = pathParts[2];
+        //    string province = pathParts[0];
+        //    string city = pathParts[1];
+        //    string imageName = pathParts[2];
 
-            // Формируем путь к директории
-            string directoryPath = Path.Combine(_baseImagePath, province, city);
+            
+        //    string directoryPath = Path.Combine(_baseImagePath, province, city);
 
-            // Получаем расширение файла
-            string extension = Path.GetExtension(imageFile.FileName);
-            if (string.IsNullOrEmpty(extension))
-            {
-                extension = ".jpg"; // Расширение по умолчанию
-            }
+            
+        //    string extension = Path.GetExtension(imageFile.FileName);
+        //    if (string.IsNullOrEmpty(extension))
+        //    {
+        //        extension = ".jpg"; 
+        //    }
 
-            // Формируем полное имя файла
-            string fullImageName = string.IsNullOrEmpty(Path.GetExtension(imageName))
-                ? $"{imageName}{extension}"
-                : imageName;
+           
+        //    string fullImageName = string.IsNullOrEmpty(Path.GetExtension(imageName))
+        //        ? $"{imageName}{extension}"
+        //        : imageName;
 
-            string fullPath = Path.Combine(directoryPath, fullImageName);
-            string relativePath = Path.Combine(province, city, fullImageName).Replace("\\", "/");
+        //    string fullPath = Path.Combine(directoryPath, fullImageName);
+        //    string relativePath = Path.Combine(province, city, fullImageName).Replace("\\", "/");
 
-            // Проверяем существование файла и директории
-            bool fileExists = File.Exists(fullPath);
-            bool directoryExists = Directory.Exists(directoryPath);
+            
+        //    bool fileExists = File.Exists(fullPath);
+        //    bool directoryExists = Directory.Exists(directoryPath);
 
-            // Если файл не существует и не нужно создавать новый
-            if (!fileExists && !createIfNotExists)
-            {
-                throw new FileNotFoundException($"Изображение для обновления не найдено по пути: {relativePath}");
-            }
+        //    /
+        //    if (!fileExists && !createIfNotExists)
+        //    {
+        //        throw new FileNotFoundException($"Изображение для обновления не найдено по пути: {relativePath}");
+        //    }
 
-            try
-            {
-                // Создаем директорию, если она не существует
-                if (!directoryExists)
-                {
-                    Directory.CreateDirectory(directoryPath);
-                }
+        //    try
+        //    {
+                
+        //        if (!directoryExists)
+        //        {
+        //            Directory.CreateDirectory(directoryPath);
+        //        }
 
-                // Если файл существует, удаляем его перед сохранением нового
-                if (fileExists)
-                {
-                    File.Delete(fullPath);
-                    //_logger.LogInformation($"Существующее изображение удалено: {relativePath}");
-                }
+                
+        //        if (fileExists)
+        //        {
+        //            File.Delete(fullPath);
+        //            //_logger.LogInformation($"Существующее изображение удалено: {relativePath}");
+        //        }
 
-                // Сохраняем новый файл
-                using (var fileStream = new FileStream(fullPath, FileMode.Create))
-                {
-                    await imageFile.CopyToAsync(fileStream);
-                }
+               
+        //        using (var fileStream = new FileStream(fullPath, FileMode.Create))
+        //        {
+        //            await imageFile.CopyToAsync(fileStream);
+        //        }
 
-                //_logger.LogInformation($"Изображение {(fileExists ? "обновлено" : "создано")}: {relativePath}");
+        //        //_logger.LogInformation($"Изображение {(fileExists ? "обновлено" : "создано")}: {relativePath}");
 
-                // Возвращаем относительный путь к изображению
-                return relativePath;
-            }
-            catch (Exception ex)
-            {
-                //_logger.LogError(ex, $"Ошибка при {(fileExists ? "обновлении" : "создании")} изображения");
-                throw new Exception($"Ошибка при {(fileExists ? "обновлении" : "создании")} изображения", ex);
-            }
-        }
+                
+        //        return relativePath;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        //_logger.LogError(ex, $"Ошибка при {(fileExists ? "обновлении" : "создании")} изображения");
+        //        throw new Exception($"Ошибка при {(fileExists ? "обновлении" : "создании")} изображения", ex);
+        //    }
+        //}
 
       
     }

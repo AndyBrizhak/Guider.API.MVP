@@ -215,36 +215,36 @@ namespace Guider.API.MVP.Controllers
         /// </summary>  
         /// <param name="request">Запрос на обновление изображения</param>  
         /// <returns>Результат операции обновления</returns>  
-        [HttpPut("update")]
-        public async Task<IActionResult> UpdateImage([FromForm] ImageUpdateRequest request)
-        {
-            if (request == null || string.IsNullOrEmpty(request.ImagePath) || request.ImageFile == null)
-            {
-                return BadRequest("Отсутствуют необходимые параметры");
-            }
+        //[HttpPut("update")]
+        //public async Task<IActionResult> UpdateImage([FromForm] ImageUpdateRequest request)
+        //{
+        //    if (request == null || string.IsNullOrEmpty(request.ImagePath) || request.ImageFile == null)
+        //    {
+        //        return BadRequest("Отсутствуют необходимые параметры");
+        //    }
 
-            try
-            {
-                string updatedPath = await _imageService.UpdateImageAsync(request.ImagePath, request.ImageFile, request.CreateIfNotExists);
-                return Ok(new
-                {
-                    Path = updatedPath,
-                    IsCreated = !request.CreateIfNotExists
-                });
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            catch (FileNotFoundException ex)
-            {
-                return NotFound(ex.Message);
-            }
-            catch (Exception)
-            {
-                return StatusCode(500, "Внутренняя ошибка сервера при обновлении изображения");
-            }
-        }
+        //    try
+        //    {
+        //        string updatedPath = await _imageService.UpdateImageAsync(request.ImagePath, request.ImageFile, request.CreateIfNotExists);
+        //        return Ok(new
+        //        {
+        //            Path = updatedPath,
+        //            IsCreated = !request.CreateIfNotExists
+        //        });
+        //    }
+        //    catch (ArgumentException ex)
+        //    {
+        //        return BadRequest(ex.Message);
+        //    }
+        //    catch (FileNotFoundException ex)
+        //    {
+        //        return NotFound(ex.Message);
+        //    }
+        //    catch (Exception)
+        //    {
+        //        return StatusCode(500, "Внутренняя ошибка сервера при обновлении изображения");
+        //    }
+        //}
 
         /// <summary>  
         /// Замена существующего изображения  
