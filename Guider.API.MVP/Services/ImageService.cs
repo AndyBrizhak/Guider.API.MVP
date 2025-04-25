@@ -140,6 +140,64 @@ namespace Guider.API.MVP.Services
                 return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = $"Ошибка при получении изображения: {ex.Message}" }));
             }
         }
+
+        public JsonDocument GetImagesList(int page, int pageSize)
+        {
+            try
+            {
+                if (page < 1)
+                {
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = "Номер страницы должен быть больше или равен 1" }));
+                }
+
+                if (pageSize < 1)
+                {
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = "Размер страницы должен быть больше или равен 1" }));
+                }
+
+                if (!Directory.Exists(_baseImagePath))
+                {
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = "Директория с изображениями не найдена" }));
+                }
+
+                string[] imageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
+
+                var allImages = Directory.GetFiles(_baseImagePath, "*.*", SearchOption.AllDirectories)
+                    .Where(file => imageExtensions.Contains(Path.GetExtension(file).ToLower()))
+                    .Select(file => file.Replace(_baseImagePath, "").TrimStart('\\', '/'))
+                    .ToList();
+
+                int totalImages = allImages.Count;
+                int totalPages = (int)Math.Ceiling((double)totalImages / pageSize);
+
+                // Вычисляем индексы для текущей страницы
+                int startIndex = (page - 1) * pageSize;
+
+                // Получаем только элементы для текущей страницы
+                var pagedImages = allImages
+                    .Skip(startIndex)
+                    .Take(pageSize)
+                    .ToList();
+
+                var result = new
+                {
+                    Success = true,
+                    TotalImages = totalImages,
+                    TotalPages = totalPages,
+                    CurrentPage = page,
+                    PageSize = pageSize,
+                    Images = pagedImages
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(result));
+            }
+            catch (Exception ex)
+            {
+                //_logger.LogError(ex, "Ошибка при получении списка изображений");
+                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = $"Ошибка при получении списка изображений: {ex.Message}" }));
+            }
+        }
+
         public JsonDocument DeleteImage(string fullPath)
         {
             if (string.IsNullOrEmpty(fullPath))

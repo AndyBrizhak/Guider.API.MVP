@@ -168,6 +168,72 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
+        /// <summary>
+        /// Получение списка изображений с разбивкой на страницы
+        /// </summary>
+        /// <param name="page">Номер страницы (начиная с 1)</param>
+        /// <param name="pageSize">Размер страницы (количество изображений)</param>
+        /// <returns>Список изображений с информацией о постраничной навигации</returns>
+        [HttpGet("list")]
+        public IActionResult GetImagesList([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+        {
+            var response = new ApiResponse();
+
+            try
+            {
+                if (page < 1 || pageSize < 1)
+                {
+                    response.IsSuccess = false;
+                    response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                    response.ErrorMessages.Add("Некорректные параметры пагинации: номер страницы и размер страницы должны быть больше 0");
+                    return BadRequest(response);
+                }
+
+                var jsonResult = _imageService.GetImagesList(page, pageSize);
+
+                if (jsonResult.RootElement.TryGetProperty("Success", out var successElement) &&
+                    successElement.GetBoolean() == false)
+                {
+                    response.IsSuccess = false;
+                    response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                    if (jsonResult.RootElement.TryGetProperty("Message", out var messageElement))
+                    {
+                        response.ErrorMessages.Add(messageElement.GetString());
+                    }
+                    else
+                    {
+                        response.ErrorMessages.Add("Неизвестная ошибка при получении списка изображений");
+                    }
+                    return BadRequest(response);
+                }
+
+                // Создаем результирующий объект с данными пагинации и списком изображений
+                var result = new
+                {
+                    TotalImages = jsonResult.RootElement.GetProperty("TotalImages").GetInt32(),
+                    TotalPages = jsonResult.RootElement.GetProperty("TotalPages").GetInt32(),
+                    CurrentPage = jsonResult.RootElement.GetProperty("CurrentPage").GetInt32(),
+                    PageSize = jsonResult.RootElement.GetProperty("PageSize").GetInt32(),
+                    Images = jsonResult.RootElement.GetProperty("Images").EnumerateArray()
+                        .Select(image => image.GetString())
+                        .ToList()
+                };
+
+                response.IsSuccess = true;
+                response.StatusCode = System.Net.HttpStatusCode.OK;
+                response.Result = result;
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.StatusCode = System.Net.HttpStatusCode.InternalServerError;
+                response.ErrorMessages.Add($"Внутренняя ошибка сервера при получении списка изображений: {ex.Message}");
+                return StatusCode(500, response);
+            }
+        }
+
 
         /// <summary>  
         /// Удаление изображения по полному пути  
