@@ -1,4 +1,6 @@
-﻿namespace Guider.API.MVP.Services
+﻿using System.Text.Json;
+
+namespace Guider.API.MVP.Services
 {
     public class ImageService : IImageService
     {
@@ -9,47 +11,82 @@
             _baseImagePath = configuration["StaticFiles:ImagesPath"] ?? "wwwroot/images";
             // _logger = logger;
 
-            // Убедимся, что базовая директория существует
+            
             if (!Directory.Exists(_baseImagePath))
             {
                 Directory.CreateDirectory(_baseImagePath);
             }
         }
-        public async Task<string> SaveImageAsync(string imagePath, IFormFile imageFile)
+
+        public async Task<JsonDocument> SaveImageAsync(string imagePath, IFormFile imageFile)
         {
             if (string.IsNullOrEmpty(imagePath) || imageFile == null || imageFile.Length == 0)
             {
-                throw new ArgumentException("Недопустимые параметры для загрузки изображения");
+                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = "Недопустимые параметры для загрузки изображения" }));
             }
 
-            // Нормализуем путь и заменяем все недопустимые символы
+            
             imagePath = imagePath.Trim('/');
             string[] pathParts = imagePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
-            if (pathParts.Length < 3)
+            if (pathParts.Length < 1)
             {
-                throw new ArgumentException("Путь должен содержать провинцию, город и название изображения");
+                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = "Путь обязательно должен содержать хотя бы название провинции" }));
             }
 
             string province = pathParts[0];
-            string city = pathParts[1];
-            string imageName = pathParts[2];
+            string city = pathParts.Length > 1 ? pathParts[1] : null;
+            string imageName = pathParts.Length > 2 ? pathParts[2] : null;
 
-            // Создаем директории, если они не существуют
-            string directoryPath = Path.Combine(_baseImagePath, province, city);
+            if (string.IsNullOrEmpty(imageName))
+            {
+                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = "Путь должен содержать название изображения" }));
+            }
+
+            
+            string directoryPath = city == null
+                ? Path.Combine(_baseImagePath, province)
+                : Path.Combine(_baseImagePath, province, city);
+
             if (!Directory.Exists(directoryPath))
             {
                 Directory.CreateDirectory(directoryPath);
             }
 
-            // Получаем расширение файла
+            
+            
+            string imageNameWithoutExtension = Path.GetFileNameWithoutExtension(imageName);
+
+            
+            string[] allFiles = Directory.GetFiles(_baseImagePath, "*.*", SearchOption.AllDirectories);
+
+            
+            string duplicateFilePath = allFiles.FirstOrDefault(file =>
+                Path.GetFileNameWithoutExtension(file).Equals(imageNameWithoutExtension, StringComparison.OrdinalIgnoreCase));
+
+            if (duplicateFilePath != null)
+            {
+                
+                string relativeDuplicatePath = duplicateFilePath.Replace(_baseImagePath, "")
+                    .TrimStart('\\', '/')
+                    .Replace("\\", "/");
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(new
+                {
+                    Success = false,
+                    Message = $"Файл с таким названием уже существует в папке: {relativeDuplicatePath}"
+                }));
+            }
+
+
+            
             string extension = Path.GetExtension(imageFile.FileName);
             if (string.IsNullOrEmpty(extension))
             {
                 extension = ".jpg"; // Расширение по умолчанию
             }
 
-            // Формируем полный путь к файлу
+            
             string fullImageName = string.IsNullOrEmpty(Path.GetExtension(imageName))
                 ? $"{imageName}{extension}"
                 : imageName;
@@ -58,44 +95,49 @@
 
             try
             {
-                // Сохраняем файл
+                
                 using (var fileStream = new FileStream(fullPath, FileMode.Create))
                 {
                     await imageFile.CopyToAsync(fileStream);
                 }
 
-                // Возвращаем относительный путь к изображению
-                return Path.Combine(province, city, fullImageName).Replace("\\", "/");
+               
+                string relativePath = city == null
+                    ? Path.Combine(province, fullImageName).Replace("\\", "/")
+                    : Path.Combine(province, city, fullImageName).Replace("\\", "/");
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = true, Path = relativePath }));
             }
             catch (Exception ex)
             {
-                //_logger.LogError(ex, "Ошибка при сохранении изображения");
-                throw new Exception("Ошибка при сохранении изображения", ex);
+                
+                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = $"Ошибка при сохранении изображения: {ex.Message}" }));
             }
         }
 
-        public byte[] GetImage(string fullPath)
+        public JsonDocument GetImage(string fullPath)
         {
             if (string.IsNullOrEmpty(fullPath))
             {
-                throw new ArgumentException("Путь к изображению не может быть пустым");
+                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = "Путь к изображению не может быть пустым" }));
             }
 
             string absolutePath = Path.Combine(_baseImagePath, fullPath);
 
             if (!File.Exists(absolutePath))
             {
-                throw new FileNotFoundException($"Изображение не найдено по пути: {fullPath}");
+                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = $"Изображение не найдено по пути: {fullPath}" }));
             }
 
             try
             {
-                return File.ReadAllBytes(absolutePath);
+                byte[] imageBytes = File.ReadAllBytes(absolutePath);
+                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = true,  Image = imageBytes}));
             }
             catch (Exception ex)
             {
                 //_logger.LogError(ex, "Ошибка при получении изображения");
-                throw new Exception("Ошибка при получении изображения", ex);
+                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = $"Ошибка при получении изображения: {ex.Message}" }));
             }
         }
         public bool DeleteImage(string fullPath)

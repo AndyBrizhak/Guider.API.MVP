@@ -7,7 +7,7 @@ namespace Guider.API.MVP.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Consumes("multipart/form-data")] // Явно указываем, что контроллер работает с multipart/form-data
+    [Consumes("multipart/form-data")] 
     public class ImagesController : ControllerBase
     {
         private readonly IImageService _imageService;
@@ -17,31 +17,76 @@ namespace Guider.API.MVP.Controllers
             _imageService = imageService;
         }
 
+       
         /// <summary>  
         /// Загрузка изображения  
         /// </summary>  
         /// <param name="request">Запрос на загрузку изображения</param>  
-        /// <returns>Путь к сохраненному изображению</returns>  
+        /// <returns>Объект ApiResponse с путем к сохраненному изображению или ошибками</returns>  
         [HttpPost("upload")]
         public async Task<IActionResult> UploadImage([FromForm] ImageUploadRequest request)
         {
+            var response = new ApiResponse();
+
             if (request == null || string.IsNullOrEmpty(request.ImagePath) || request.ImageFile == null)
             {
-                return BadRequest("Отсутствуют необходимые параметры");
+                response.IsSuccess = false;
+                response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                response.ErrorMessages.Add("Отсутствуют необходимые параметры");
+                return BadRequest(response);
             }
 
             try
             {
-                string savedPath = await _imageService.SaveImageAsync(request.ImagePath, request.ImageFile);
-                return Ok(new { Path = savedPath });
+                 // Получаем JsonDocument из сервиса
+                var jsonResult = await _imageService.SaveImageAsync(request.ImagePath, request.ImageFile);
+
+                // Проверяем, успешно ли выполнена операция
+                if (jsonResult.RootElement.TryGetProperty("Success", out var successElement) &&
+                    successElement.GetBoolean() == false)
+                {
+                    // Операция не успешна, извлекаем сообщение об ошибке
+                    response.IsSuccess = false;
+                    response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+
+                    if (jsonResult.RootElement.TryGetProperty("Message", out var messageElement))
+                    {
+                        response.ErrorMessages.Add(messageElement.GetString());
+                    }
+                    else
+                    {
+                        response.ErrorMessages.Add("Неизвестная ошибка при загрузке изображения");
+                    }
+
+                    return BadRequest(response);
+                }
+
+                // Операция успешна, извлекаем путь к изображению
+                string imagePath = "";
+                if (jsonResult.RootElement.TryGetProperty("Path", out var pathElement))
+                {
+                    imagePath = pathElement.GetString();
+                }
+
+                response.StatusCode = System.Net.HttpStatusCode.OK;
+                response.Result = new { Path = imagePath };
+
+                return Ok(response);
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(ex.Message);
+                response.IsSuccess = false;
+                response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                response.ErrorMessages.Add(ex.Message);
+                return BadRequest(response);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Внутренняя ошибка сервера при загрузке изображения");
+                response.IsSuccess = false;
+                response.StatusCode = System.Net.HttpStatusCode.InternalServerError;
+                response.ErrorMessages.Add("Внутренняя ошибка сервера при загрузке изображения");
+                response.ErrorMessages.Add(ex.Message);
+                return StatusCode(500, response);
             }
         }
 
@@ -53,37 +98,74 @@ namespace Guider.API.MVP.Controllers
         [HttpGet("get")]
         public IActionResult GetImage([FromQuery] string fullPath)
         {
+            var response = new ApiResponse();
             if (string.IsNullOrEmpty(fullPath))
             {
-                return BadRequest("Путь к изображению не указан");
+                response.IsSuccess = false;
+                response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                response.ErrorMessages.Add("Отсутствуют необходимые параметры");
+                return BadRequest(response);
             }
 
             try
             {
-                byte[] imageData = _imageService.GetImage(fullPath);
+                var jsonResult = _imageService.GetImage(fullPath);
 
-                string extension = Path.GetExtension(fullPath)?.ToLowerInvariant();
-                string contentType = extension switch
+                if (jsonResult.RootElement.TryGetProperty("Success", out var successElement) &&
+                    successElement.GetBoolean() == false)
                 {
-                    ".jpg" or ".jpeg" => "image/jpeg",
-                    ".png" => "image/png",
-                    ".gif" => "image/gif",
-                    ".bmp" => "image/bmp",
-                    ".webp" => "image/webp",
-                    _ => "application/octet-stream"
-                };
+                    response.IsSuccess = false;
+                    response.StatusCode = System.Net.HttpStatusCode.BadRequest;
 
-                return File(imageData, contentType);
+                    if (jsonResult.RootElement.TryGetProperty("Message", out var messageElement))
+                    {
+                        response.ErrorMessages.Add(messageElement.GetString());
+                    }
+                    else
+                    {
+                        response.ErrorMessages.Add("Неизвестная ошибка при получении изображения");
+                    }
+
+                    return BadRequest(response);
+                }
+
+                
+                if (jsonResult.RootElement.TryGetProperty("Image", out var imageElement))
+                {
+                    
+                    byte[] imageBytes = imageElement.GetBytesFromBase64();
+
+                    string extension = Path.GetExtension(fullPath)?.ToLowerInvariant();
+                    string contentType = extension switch
+                    {
+                        ".jpg" or ".jpeg" => "image/jpeg",
+                        ".png" => "image/png",
+                        ".gif" => "image/gif",
+                        ".bmp" => "image/bmp",
+                        ".webp" => "image/webp",
+                        _ => "application/octet-stream"
+                    };
+
+                    
+                    return File(imageBytes, contentType);
+                }
+                else
+                {
+                    response.IsSuccess = false;
+                    response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                    response.ErrorMessages.Add("Данные изображения отсутствуют в ответе");
+                    return BadRequest(response);
+                }
             }
-            catch (FileNotFoundException)
+            catch (Exception ex)
             {
-                return NotFound("Изображение не найдено");
-            }
-            catch (Exception)
-            {
-                return StatusCode(500, "Внутренняя ошибка сервера при получении изображения");
+                response.IsSuccess = false;
+                response.StatusCode = System.Net.HttpStatusCode.InternalServerError;
+                response.ErrorMessages.Add($"Внутренняя ошибка сервера при получении изображения: {ex.Message}");
+                return StatusCode(500, response);
             }
         }
+
 
         /// <summary>  
         /// Удаление изображения по полному пути  

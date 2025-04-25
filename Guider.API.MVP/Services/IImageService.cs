@@ -1,9 +1,11 @@
-﻿namespace Guider.API.MVP.Services
+﻿using System.Text.Json;
+
+namespace Guider.API.MVP.Services
 {
     public interface IImageService
     {
-        Task<string> SaveImageAsync(string imagePath, IFormFile imageFile);
-        byte[] GetImage(string fullPath);
+        Task<JsonDocument> SaveImageAsync(string imagePath, IFormFile imageFile);
+        JsonDocument GetImage(string fullPath);
         bool DeleteImage(string fullPath);
 
         // Новый метод для обновления изображения
