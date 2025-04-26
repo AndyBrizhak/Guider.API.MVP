@@ -1,4 +1,6 @@
 ﻿using Guider.API.MVP.Services;
+using Guider.API.MVP.Utility;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
@@ -58,6 +60,7 @@ namespace Guider.API.MVP.Controllers
 
         [HttpPost]
         [Route("CreateTag")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> CreateTag(string typeName, [FromBody] JsonDocument newTagData)
 
         {
@@ -112,6 +115,7 @@ namespace Guider.API.MVP.Controllers
 
         [HttpPut]
         [Route("UpdateTag")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> UpdateTag(string typeName, string tagName, [FromBody] System.Text.Json.JsonDocument updateTagData)
         {
             var apiResponse = new Models.ApiResponse();
@@ -173,6 +177,7 @@ namespace Guider.API.MVP.Controllers
 
         [HttpDelete]
         [Route("DeleteTag")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<IActionResult> DeleteTag(string typeName, string tagName)
         {
             var apiResponse = new Models.ApiResponse();
@@ -226,6 +231,7 @@ namespace Guider.API.MVP.Controllers
 
         [HttpGet]
         [Route("FindDuplicateTags")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> FindDuplicateTags()
         {
             var apiResponse = new Models.ApiResponse();
