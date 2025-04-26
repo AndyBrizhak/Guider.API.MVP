@@ -86,6 +86,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="id">Идентификатор документа</param>
         /// <returns>Документ в формате JSON</returns>
         [HttpGet("{id}")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         [ProducesResponseType(typeof(ApiResponse), (int) HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
@@ -114,24 +115,7 @@ namespace Guider.API.MVP.Controllers
             return Ok(place.ToJson());
         }
 
-        //[HttpGet("search/{web}")]
-        //public async Task<ActionResult<string>> GetPlaceByWeb([FromRoute] string web)
-        //{
-        //    if (string.IsNullOrEmpty(web))
-        //    {
-        //        return BadRequest("Web parameter is required.");
-        //    }
-
-        //    var place = await _placeService.GetPlaceByWebAsync(web);
-
-        //    if (place == null)
-        //    {
-        //        return NotFound($"No place found with web: {web}");
-        //    }
-
-        //    var placeJson = place.ToJson();
-        //    return Ok(placeJson);
-        //}
+        
 
         /// <summary>
         /// Получить документ по web и ID из заголовка
@@ -140,6 +124,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="id">Идентификатор документа</param>
         /// <returns>Документ в формате JSON</returns>
         [HttpGet("place/id")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
@@ -220,77 +205,7 @@ namespace Guider.API.MVP.Controllers
 
 
 
-        /// <summary>
-        /// Получить ближайшие места со строгим вхождением подстроки
-        /// </summary>
-        /// <param name="lat">Широта</param>
-        /// <param name="lng">Долгота</param>
-        /// <param name="maxDistanceMeters">Максимальное расстояние в метрах</param>
-        /// <param name="limit">Лимит результатов (не менее 10 и не более 100)</param>
-        /// <param name="searchText">Текст для поиска</param>
-        /// <param name="isOpen">Учитывать ли расписание работы</param>
-        /// <returns>Список ближайших мест в формате JSON</returns>
-        //[HttpGet("geonear/search")]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
-        //public async Task<ActionResult<string>> GetPlacesNearbyWithTextSearch(
-        //    [FromQuery] decimal lat = 10.539500881521633m,
-        //    [FromQuery] decimal lng = -85.68964788238951m,
-        //    [FromQuery] int maxDistanceMeters = 2000,
-        //    [FromQuery] int limit = 100,
-        //    [FromQuery] bool isOpen = false),
-        //    [FromQuery] string? searchText = null)
-        
-        //{
-        //    try
-        //    {
-        //        // Проверка и корректировка значения limit
-        //        if (limit <= 0)
-        //        {
-        //            limit = 10;
-        //        }
-        //        else if (limit > 100)
-        //        {
-        //            limit = 100;
-        //        }
-
-        //        // Проверка на пустую строку
-        //        if (string.IsNullOrWhiteSpace(searchText))
-        //        {
-        //            _response.StatusCode = HttpStatusCode.BadRequest;
-        //            _response.IsSuccess = false;
-        //            _response.ErrorMessages.Add("Search text cannot be empty.");
-        //            return BadRequest(_response);
-        //        }
-
-        //        // Используем новую версию метода, которая учитывает параметр isOpen
-        //        var places = await _placeService.GetPlacesNearbyWithTextSearchAsync(lat, lng, maxDistanceMeters, limit, searchText, isOpen);
-
-        //        if (places == null || places.Count == 0)
-        //        {
-        //            _response.StatusCode = HttpStatusCode.NotFound;
-        //            _response.IsSuccess = false;
-        //            _response.ErrorMessages.Add($"No places found within filters{(isOpen ? " that are currently open" : "")}.");
-        //            return NotFound(_response);
-        //        }
-
-        //        return Content(places.ToJson(), "application/json");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _response.StatusCode = HttpStatusCode.InternalServerError;
-        //        _response.IsSuccess = false;
-        //        _response.ErrorMessages.Add(ex.Message);
-        //        return StatusCode((int)HttpStatusCode.InternalServerError, _response);
-        //    }
-        //}
+       
 
         /// <summary>
         /// Получить ближайшие места с любым из ключевых слов
@@ -493,7 +408,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="jsonDocument">JSON-документ, представляющий данные для создания нового объекта.</param>  
         /// <returns>Созданный объект в формате JSON, обернутый в ApiResponse.</returns>  
         [HttpPost("create")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Create([FromBody] JsonDocument jsonDocument)
         {
             try
@@ -592,6 +507,7 @@ namespace Guider.API.MVP.Controllers
         /// 
 
         [HttpPut("update")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Update([FromBody] JsonDocument jsonDocument)
         {
             try
