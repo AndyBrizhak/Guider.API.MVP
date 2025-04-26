@@ -1,5 +1,7 @@
 ﻿using Guider.API.MVP.Models;
 using Guider.API.MVP.Services;
+using Guider.API.MVP.Utility;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
@@ -20,6 +22,7 @@ namespace Guider.API.MVP.Controllers
         }
 
         [HttpGet]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetAll()
         {
             var provinces = await _provinceService.GetAllAsync();
@@ -27,6 +30,7 @@ namespace Guider.API.MVP.Controllers
         }
 
         [HttpGet("{id}")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetById(string id)
         {
             var province = await _provinceService.GetByIdAsync(id);
@@ -37,6 +41,7 @@ namespace Guider.API.MVP.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Create([FromBody] JsonDocument province)
         {
             if (!ModelState.IsValid)
@@ -47,6 +52,7 @@ namespace Guider.API.MVP.Controllers
         }
 
         [HttpPut()]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Update([FromBody] JsonDocument updatedProvince)
         {
             await _provinceService.UpdateAsync(updatedProvince);
@@ -54,6 +60,7 @@ namespace Guider.API.MVP.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<IActionResult> Delete(string id)
         {
             await _provinceService.DeleteAsync(id);
