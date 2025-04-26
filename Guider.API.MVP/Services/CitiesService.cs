@@ -152,8 +152,101 @@ namespace Guider.API.MVP.Services
             }
         }
 
+        public async Task<JsonDocument> GetCityByNameAndProvinceAsync(string provinceName, string cityName)
+        {
+            try
+            {
+                
+                var filter = Builders<BsonDocument>.Filter.Eq("name", provinceName);
 
+                
+                var provinceDoc = await _citiesCollection.Find(filter)
+                    .Project(Builders<BsonDocument>.Projection.Exclude("_id"))
+                    .FirstOrDefaultAsync();
 
+                
+                if (provinceDoc == null)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = $"Province '{provinceName}' not found."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                
+                if (!provinceDoc.Contains("cities") || provinceDoc["cities"].AsBsonArray.Count == 0)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = $"No cities found in province '{provinceName}'."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                
+                BsonDocument cityData = null;
+                foreach (var city in provinceDoc["cities"].AsBsonArray)
+                {
+                    var cityDoc = city.AsBsonDocument;
+                    if (cityDoc["name"].AsString.Equals(cityName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        cityData = cityDoc;
+                        break;
+                    }
+                }
+
+                
+
+                
+                if (cityData == null)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = $"City '{cityName}' not found in province '{provinceName}'."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                
+                var provinceInfo = new
+                {
+                    Name = provinceDoc["name"].AsString
+                };
+
+                
+                var cityInfo = new
+                {
+                    Name = cityData["name"].AsString,
+                    Web = cityData.Contains("web") ? cityData["web"].AsString : string.Empty,
+                    Latitude = cityData.Contains("latitude") ? cityData["latitude"].AsDouble : 0.0,
+                    Longitude = cityData.Contains("longitude") ? cityData["longitude"].AsDouble : 0.0
+                    
+                };
+
+                
+                var successResponse = new
+                {
+                    IsSuccess = true,
+                    Province = provinceInfo,
+                    City = cityInfo
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"An error occurred: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+        }
 
     }
 }

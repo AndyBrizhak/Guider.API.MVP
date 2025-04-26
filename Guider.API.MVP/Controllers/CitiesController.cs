@@ -56,7 +56,66 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-      
+     
+        [HttpGet]
+        [Route("GetCityByNameAndProvince")]
+        public async Task<IActionResult> GetCityByNameAndProvince(string provinceName, string cityName)
+        {
+            var apiResponse = new Models.ApiResponse();
+            try
+            {
+                // Проверяем входные параметры
+                if (string.IsNullOrWhiteSpace(provinceName))
+                {
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
+                    apiResponse.ErrorMessages = new List<string> { "Province name cannot be null or empty." };
+                    return BadRequest(apiResponse);
+                }
+
+                if (string.IsNullOrWhiteSpace(cityName))
+                {
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
+                    apiResponse.ErrorMessages = new List<string> { "City name cannot be null or empty." };
+                    return BadRequest(apiResponse);
+                }
+
+                // Вызываем метод сервиса с обоими параметрами
+                var result = await _citiesService.GetCityByNameAndProvinceAsync(provinceName, cityName);
+
+                // Парсим результат из JsonDocument
+                bool isSuccess = result.RootElement.GetProperty("IsSuccess").GetBoolean();
+
+                if (!isSuccess)
+                {
+                    string errorMessage = result.RootElement.GetProperty("Message").GetString();
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = HttpStatusCode.NotFound;
+                    apiResponse.ErrorMessages = new List<string> { errorMessage };
+                    return NotFound(apiResponse);
+                }
+
+                // Создаем результирующий объект
+                var cityData = new
+                {
+                    Province = JsonDocument.Parse(result.RootElement.GetProperty("Province").GetRawText()),
+                    City = JsonDocument.Parse(result.RootElement.GetProperty("City").GetRawText())
+                };
+
+                apiResponse.IsSuccess = true;
+                apiResponse.StatusCode = HttpStatusCode.OK;
+                apiResponse.Result = cityData;
+                return Ok(apiResponse);
+            }
+            catch (Exception ex)
+            {
+                apiResponse.IsSuccess = false;
+                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
+                apiResponse.ErrorMessages = new List<string> { ex.Message };
+                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+            }
+        }
 
         [HttpPost]
         [Route("AddCityToProvince")]
@@ -126,5 +185,7 @@ namespace Guider.API.MVP.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
             }
         }
+
+
     }
 }
