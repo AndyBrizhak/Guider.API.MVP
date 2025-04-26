@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
+using System.Text.Json;
 
 namespace Guider.API.MVP.Controllers
 {
@@ -55,41 +56,75 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-        // TODO: добавить передачу в параметрах полного объекта города
-        //[HttpPost]
-        //[Route("AddCityToProvince")]
-        //public async Task<IActionResult> AddCityToProvince(string provinceName, string cityName)
-        //{
-        //    var apiResponse = new Models.ApiResponse();
-        //    try
-        //    {
-        //        if (string.IsNullOrWhiteSpace(provinceName) || string.IsNullOrWhiteSpace(cityName))
-        //        {
-        //            apiResponse.IsSuccess = false;
-        //            apiResponse.StatusCode = HttpStatusCode.BadRequest;
-        //            apiResponse.ErrorMessages = new List<string> { "Province name and city name cannot be null or empty." };
-        //            return BadRequest(apiResponse);
-        //        }
-        //        var result = await _citiesService.AddCityToProvinceAsync(provinceName, cityName);
-        //        if (result == null)
-        //        {
-        //            apiResponse.IsSuccess = false;
-        //            apiResponse.StatusCode = HttpStatusCode.NotFound;
-        //            apiResponse.ErrorMessages = new List<string> { $"Failed to add city: {cityName} to province: {provinceName}." };
-        //            return NotFound(apiResponse);
-        //        }
-        //        apiResponse.IsSuccess = true;
-        //        apiResponse.StatusCode = HttpStatusCode.OK;
-        //        apiResponse.Result = result;
-        //        return Ok(apiResponse);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        apiResponse.IsSuccess = false;
-        //        apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-        //        apiResponse.ErrorMessages = new List<string> { ex.Message };
-        //        return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
-        //    }
-        //}
+      
+
+        [HttpPost]
+        [Route("AddCityToProvince")]
+        public async Task<IActionResult> AddCityToProvince(string provinceName, [FromBody] JsonDocument cityData)
+        {
+            var apiResponse = new Models.ApiResponse();
+            try
+            {
+                if (string.IsNullOrWhiteSpace(provinceName))
+                {
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
+                    apiResponse.ErrorMessages = new List<string> { "Province name cannot be null or empty." };
+                    return BadRequest(apiResponse);
+                }
+
+                if (cityData == null)
+                {
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
+                    apiResponse.ErrorMessages = new List<string> { "City data cannot be null." };
+                    return BadRequest(apiResponse);
+                }
+
+                var resultDocument = await _citiesService.AddCityToProvinceAsync(provinceName, cityData);
+                if (resultDocument == null)
+                {
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = HttpStatusCode.InternalServerError;
+                    apiResponse.ErrorMessages = new List<string> { "Service returned null result." };
+                    return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+                }
+
+                
+                var resultJson = JsonSerializer.Deserialize<JsonElement>(resultDocument.RootElement.GetRawText());
+                bool isSuccess = resultJson.GetProperty("IsSuccess").GetBoolean();
+                string message = resultJson.GetProperty("Message").GetString();
+
+                if (isSuccess)
+                {
+                    apiResponse.IsSuccess = true;
+                    apiResponse.StatusCode = HttpStatusCode.OK;
+                    apiResponse.Result = message;
+                    return Ok(apiResponse);
+                }
+                else
+                {
+                    
+                    HttpStatusCode statusCode = message.Contains("not found")
+                        ? HttpStatusCode.NotFound
+                        : HttpStatusCode.BadRequest;
+
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = statusCode;
+                    apiResponse.ErrorMessages = new List<string> { message };
+
+                    return statusCode == HttpStatusCode.NotFound
+                        ? NotFound(apiResponse)
+                        : BadRequest(apiResponse);
+                }
+            }
+            catch (Exception ex)
+            {
+                apiResponse.IsSuccess = false;
+                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
+                apiResponse.ErrorMessages = new List<string> { ex.Message };
+                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+            }
+        }
     }
 }

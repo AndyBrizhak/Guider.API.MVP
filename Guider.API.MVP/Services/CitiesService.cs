@@ -42,7 +42,7 @@ namespace Guider.API.MVP.Services
                     Cities = cities
                 }.ToJson();
                 return JsonDocument.Parse(successResponse);
-                //return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+                
             }
             catch (Exception ex)
             {
@@ -55,183 +55,102 @@ namespace Guider.API.MVP.Services
             }
         }
 
-        //TODO: добавить передачу в параметрах полного объекта города, добавление этого объекта в массив городов
-        //public async Task<JsonDocument> AddCityToProvinceAsync(string provinceName, string cityName)
-        //{
-        //    try
-        //    {
-        //        var filter = Builders<BsonDocument>.Filter.Eq("name", provinceName);
-        //        var province = await _citiesCollection.Find(filter).FirstOrDefaultAsync();
+        public async Task<JsonDocument> AddCityToProvinceAsync(string provinceName, JsonDocument cityData)
+        {
+            try
+            {
+                
+                var cityJson = cityData.RootElement.GetRawText();
+                var cityBson = BsonDocument.Parse(cityJson);
 
-        //        if (province == null)
-        //        {
-        //            var errorResponse = new
-        //            {
-        //                IsSuccess = false,
-        //                Message = "Province not found."
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //        }
+                
+                string cityName = "";
+                if (cityBson.Contains("name") && cityBson["name"].BsonType == BsonType.String)
+                {
+                    cityName = cityBson["name"].AsString;
+                }
+                else
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "City data must contain a 'name' field."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
 
-        //        var cities = province["cities"].AsBsonArray;
-        //        if (cities.Any(city => city.AsBsonDocument["name"].AsString == cityName))
-        //        {
-        //            var errorResponse = new
-        //            {
-        //                IsSuccess = false,
-        //                Message = "City with the same name already exists in the province."
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //        }
+                var filter = Builders<BsonDocument>.Filter.Eq("name", provinceName);
+                var province = await _citiesCollection.Find(filter).FirstOrDefaultAsync();
 
-        //        var newCity = new BsonDocument { { "name", cityName } };
-        //        cities.Add(newCity);
+                if (province == null)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "Province not found."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
 
-        //        var update = Builders<BsonDocument>.Update.Set("cities", cities);
-        //        await _citiesCollection.UpdateOneAsync(filter, update);
+                
+                if (!province.Contains("cities") || province["cities"].BsonType != BsonType.Array)
+                {
+                    
+                    var update = Builders<BsonDocument>.Update.Set("cities", new BsonArray());
+                    await _citiesCollection.UpdateOneAsync(filter, update);
 
-        //        var successResponse = new
-        //        {
-        //            IsSuccess = true,
-        //            Message = $"City '{cityName}' has been successfully added to province '{provinceName}'."
-        //        };
-        //        return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        var errorResponse = new
-        //        {
-        //            IsSuccess = false,
-        //            Message = $"An error occurred: {ex.Message}"
-        //        };
-        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //    }
-        //}
+                    
+                    province = await _citiesCollection.Find(filter).FirstOrDefaultAsync();
+                }
 
-        // ==========================
-        // TEMPORARILY DISABLED
-        // Reason : [временно не используется, до подключения методов создания новых городов]
-        // Disabled by : [AFB]
-        // Date    : [22/o4/25]
-        // TODO   : Включить обратно после создания методов создания новых городов
-        // ==========================
-        //public async Task<JsonDocument> UpdateCityNameAsync(string provinceName, string oldCityName, string newCityName)
-        //{
-        //    try
-        //    {
-        //        var filter = Builders<BsonDocument>.Filter.Eq("name", provinceName);
-        //        var province = await _citiesCollection.Find(filter).FirstOrDefaultAsync();
+                var cities = province["cities"].AsBsonArray;
 
-        //        if (province == null)
-        //        {
-        //            var errorResponse = new
-        //            {
-        //                IsSuccess = false,
-        //                Message = "Province not found."
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //        }
+                
+                bool cityExists = false;
+                foreach (var city in cities)
+                {
+                    if (city.IsBsonDocument &&
+                        city.AsBsonDocument.Contains("name") &&
+                        city.AsBsonDocument["name"].BsonType == BsonType.String &&
+                        city.AsBsonDocument["name"].AsString == cityName)
+                    {
+                        cityExists = true;
+                        break;
+                    }
+                }
 
-        //        var cities = province["cities"].AsBsonArray;
-        //        var cityToUpdate = cities.FirstOrDefault(city => city.AsBsonDocument["name"].AsString == oldCityName);
+                if (cityExists)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "City with the same name already exists in the province."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
 
-        //        if (cityToUpdate == null)
-        //        {
-        //            var errorResponse = new
-        //            {
-        //                IsSuccess = false,
-        //                Message = "City not found in the specified province."
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //        }
+                
+                cities.Add(cityBson);
+                var updateCities = Builders<BsonDocument>.Update.Set("cities", cities);
+                await _citiesCollection.UpdateOneAsync(filter, updateCities);
 
-        //        cityToUpdate["name"] = newCityName;
-
-        //        var update = Builders<BsonDocument>.Update.Set("cities", cities);
-        //        var updateResult = await _citiesCollection.UpdateOneAsync(filter, update);
-
-        //        if (updateResult.ModifiedCount == 0)
-        //        {
-        //            var errorResponse = new
-        //            {
-        //                IsSuccess = false,
-        //                Message = "City name update failed due to an unknown reason."
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //        }
-
-        //        var successResponse = new
-        //        {
-        //            IsSuccess = true,
-        //            Message = $"City name updated successfully from '{oldCityName}' to '{newCityName}' in province '{provinceName}'."
-        //        };
-        //        return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        var errorResponse = new
-        //        {
-        //            IsSuccess = false,
-        //            Message = $"An error occurred: {ex.Message}"
-        //        };
-        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //    }
-        //}
-
-
-        // ==========================
-        // TEMPORARILY DISABLED
-        // Reason : [временно не используется, до подключения методов создания новых городов]
-        // Disabled by : [AFB]
-        // Date    : [22/o4/25]
-        // TODO   : Включить обратно после создания метода уаждегия в клгьолддеое
-        // ==========================
-        //public async Task<JsonDocument> DeleteCityFromProvinceAsync(string provinceName, string cityName)
-        //{
-        //    try
-        //    {
-        //        var filter = Builders<BsonDocument>.Filter.Eq("name", provinceName);
-        //        var province = await _citiesCollection.Find(filter).FirstOrDefaultAsync();
-        //        if (province == null)
-        //        {
-        //            var errorResponse = new
-        //            {
-        //                IsSuccess = false,
-        //                Message = "Province not found."
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //        }
-        //        var cities = province["cities"].AsBsonArray;
-        //        var cityToDelete = cities.FirstOrDefault(city => city.AsBsonDocument["name"].AsString == cityName);
-        //        if (cityToDelete == null)
-        //        {
-        //            var errorResponse = new
-        //            {
-        //                IsSuccess = false,
-        //                Message = "City not found in the specified province."
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //        }
-        //        cities.Remove(cityToDelete);
-        //        var update = Builders<BsonDocument>.Update.Set("cities", cities);
-        //        await _citiesCollection.UpdateOneAsync(filter, update);
-        //        var successResponse = new
-        //        {
-        //            IsSuccess = true,
-        //            Message = $"City '{cityName}' has been successfully deleted from province '{provinceName}'."
-        //        };
-        //        return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        var errorResponse = new
-        //        {
-        //            IsSuccess = false,
-        //            Message = $"An error occurred: {ex.Message}"
-        //        };
-        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //    }
-        //}
+                var successResponse = new
+                {
+                    IsSuccess = true,
+                    Message = $"City '{cityName}' has been successfully added to province '{provinceName}'."
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"An error occurred: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+        }
 
 
 
