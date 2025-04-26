@@ -248,5 +248,80 @@ namespace Guider.API.MVP.Services
             }
         }
 
+        public async Task<JsonDocument> RemoveCityFromProvinceAsync(string provinceName, string cityName)
+        {
+            try
+            {
+                // Filter to find the province by name
+                var filter = Builders<BsonDocument>.Filter.Eq("name", provinceName);
+
+                // Retrieve the province document
+                var province = await _citiesCollection.Find(filter).FirstOrDefaultAsync();
+
+                if (province == null)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = $"Province '{provinceName}' not found."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Check if the province contains cities
+                if (!province.Contains("cities") || province["cities"].BsonType != BsonType.Array)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = $"No cities found in province '{provinceName}'."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                var cities = province["cities"].AsBsonArray;
+
+                // Find the city to remove
+                var cityToRemove = cities.FirstOrDefault(city =>
+                    city.IsBsonDocument &&
+                    city.AsBsonDocument.Contains("name") &&
+                    city.AsBsonDocument["name"].BsonType == BsonType.String &&
+                    city.AsBsonDocument["name"].AsString.Equals(cityName, StringComparison.OrdinalIgnoreCase));
+
+                if (cityToRemove == null)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = $"City '{cityName}' not found in province '{provinceName}'."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Remove the city from the array
+                cities.Remove(cityToRemove);
+
+                // Update the province document with the modified cities array
+                var update = Builders<BsonDocument>.Update.Set("cities", cities);
+                await _citiesCollection.UpdateOneAsync(filter, update);
+
+                var successResponse = new
+                {
+                    IsSuccess = true,
+                    Message = $"City '{cityName}' has been successfully removed from province '{provinceName}'."
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"An error occurred: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+        }
+
     }
 }

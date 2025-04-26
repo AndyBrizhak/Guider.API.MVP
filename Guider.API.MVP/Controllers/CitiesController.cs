@@ -186,6 +186,73 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
+        [HttpDelete]
+        [Route("RemoveCityFromProvince")]
+        public async Task<IActionResult> RemoveCityFromProvince(string provinceName, string cityName)
+        {
+            var apiResponse = new Models.ApiResponse();
+            try
+            {
+                if (string.IsNullOrWhiteSpace(provinceName))
+                {
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
+                    apiResponse.ErrorMessages = new List<string> { "Province name cannot be null or empty." };
+                    return BadRequest(apiResponse);
+                }
+
+                if (string.IsNullOrWhiteSpace(cityName))
+                {
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
+                    apiResponse.ErrorMessages = new List<string> { "City name cannot be null or empty." };
+                    return BadRequest(apiResponse);
+                }
+
+                var resultDocument = await _citiesService.RemoveCityFromProvinceAsync(provinceName, cityName);
+                if (resultDocument == null)
+                {
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = HttpStatusCode.InternalServerError;
+                    apiResponse.ErrorMessages = new List<string> { "Service returned null result." };
+                    return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+                }
+
+                var resultJson = JsonSerializer.Deserialize<JsonElement>(resultDocument.RootElement.GetRawText());
+                bool isSuccess = resultJson.GetProperty("IsSuccess").GetBoolean();
+                string message = resultJson.GetProperty("Message").GetString();
+
+                if (isSuccess)
+                {
+                    apiResponse.IsSuccess = true;
+                    apiResponse.StatusCode = HttpStatusCode.OK;
+                    apiResponse.Result = message;
+                    return Ok(apiResponse);
+                }
+                else
+                {
+                    HttpStatusCode statusCode = message.Contains("not found")
+                        ? HttpStatusCode.NotFound
+                        : HttpStatusCode.BadRequest;
+
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = statusCode;
+                    apiResponse.ErrorMessages = new List<string> { message };
+
+                    return statusCode == HttpStatusCode.NotFound
+                        ? NotFound(apiResponse)
+                        : BadRequest(apiResponse);
+                }
+            }
+            catch (Exception ex)
+            {
+                apiResponse.IsSuccess = false;
+                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
+                apiResponse.ErrorMessages = new List<string> { ex.Message };
+                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+            }
+        }
+
 
     }
 }
