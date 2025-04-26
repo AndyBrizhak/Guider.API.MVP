@@ -1,4 +1,6 @@
 ﻿using Guider.API.MVP.Services;
+using Guider.API.MVP.Utility;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
@@ -19,6 +21,7 @@ namespace Guider.API.MVP.Controllers
 
         [HttpGet]
         [Route("GetCitiesByProvince")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetCitiesByProvince(string provinceName)
         {
             var apiResponse = new Models.ApiResponse();
@@ -59,6 +62,7 @@ namespace Guider.API.MVP.Controllers
      
         [HttpGet]
         [Route("GetCityByNameAndProvince")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetCityByNameAndProvince(string provinceName, string cityName)
         {
             var apiResponse = new Models.ApiResponse();
@@ -119,6 +123,7 @@ namespace Guider.API.MVP.Controllers
 
         [HttpPost]
         [Route("AddCityToProvince")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> AddCityToProvince(string provinceName, [FromBody] JsonDocument cityData)
         {
             var apiResponse = new Models.ApiResponse();
@@ -188,6 +193,7 @@ namespace Guider.API.MVP.Controllers
 
         [HttpDelete]
         [Route("RemoveCityFromProvince")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<IActionResult> RemoveCityFromProvince(string provinceName, string cityName)
         {
             var apiResponse = new Models.ApiResponse();
