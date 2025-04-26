@@ -1,5 +1,7 @@
 ﻿using Guider.API.MVP.Models;
 using Guider.API.MVP.Services;
+using Guider.API.MVP.Utility;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
@@ -26,6 +28,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="request">Запрос на загрузку изображения</param>  
         /// <returns>Объект ApiResponse с путем к сохраненному изображению или ошибками</returns>  
         [HttpPost("upload")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> UploadImage([FromForm] ImageUploadRequest request)
         {
             var response = new ApiResponse();
@@ -175,6 +178,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="pageSize">Размер страницы (количество изображений)</param>
         /// <returns>Список изображений с информацией о постраничной навигации</returns>
         [HttpGet("list")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public IActionResult GetImagesList([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
             var response = new ApiResponse();
@@ -241,6 +245,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="fullPath">Полный путь к изображению</param>  
         /// <returns>Результат операции удаления</returns>  
         [HttpDelete("delete")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public IActionResult DeleteImage([FromQuery] string fullPath)
         {
             if (string.IsNullOrEmpty(fullPath))
