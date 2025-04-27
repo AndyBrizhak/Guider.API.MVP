@@ -10,8 +10,8 @@ namespace Guider.API.MVP.Services
 
         JsonDocument DeleteImage(string fullPath);
 
+        Task<JsonDocument> UpdateImageAsync(string oldImagePath, string newImagePath = null, IFormFile newImageFile = null);
 
-        
         //Task<string> UpdateImageAsync(string imagePath, IFormFile imageFile, bool createIfNotExists = true);
     }
 }

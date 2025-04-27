@@ -2,13 +2,9 @@
 {
     public class ImageUpdateRequest
     {
-        // Путь в формате "провинция/город/название" (локальная часть URL)
-        public string ImagePath { get; set; }
-
-        // Файл изображения
-        public IFormFile ImageFile { get; set; }
-
-        // Создать, если не существует
-        public bool CreateIfNotExists { get; set; } = true;
+        public string OldImagePath { get; set; }
+        public string ? NewImagePath { get; set; }
+        public IFormFile ? NewImageFile { get; set; }
     }
 }
+

@@ -28,7 +28,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="request">Запрос на загрузку изображения</param>  
         /// <returns>Объект ApiResponse с путем к сохраненному изображению или ошибками</returns>  
         [HttpPost("upload")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> UploadImage([FromForm] ImageUploadRequest request)
         {
             var response = new ApiResponse();
@@ -238,6 +238,88 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
+        
+        /// <summary>
+        /// Обновление изображения
+        /// </summary>
+        /// <param name="request">Запрос на обновление изображения</param>
+        /// <returns>Объект ApiResponse с путем к обновленному изображению или ошибками</returns>
+        [HttpPut("update")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        public async Task<IActionResult> UpdateImage([FromForm] ImageUpdateRequest request)
+        {
+            var response = new ApiResponse();
+            if (request == null || string.IsNullOrEmpty(request.OldImagePath))
+            {
+                response.IsSuccess = false;
+                response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                response.ErrorMessages.Add("Отсутствует путь к исходному изображению");
+                return BadRequest(response);
+            }
+
+            // Проверка, указан ли новый путь или новый файл
+            if (string.IsNullOrEmpty(request.NewImagePath) && request.NewImageFile == null)
+            {
+                response.IsSuccess = false;
+                response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                response.ErrorMessages.Add("Необходимо указать новый путь или загрузить новый файл");
+                return BadRequest(response);
+            }
+
+            try
+            {
+                // Получаем JsonDocument из сервиса
+                var jsonResult = await _imageService.UpdateImageAsync(
+                    request.OldImagePath,
+                    request.NewImagePath,
+                    request.NewImageFile);
+
+                // Проверяем, успешно ли выполнена операция
+                if (jsonResult.RootElement.TryGetProperty("Success", out var successElement) &&
+                    successElement.GetBoolean() == false)
+                {
+                    // Операция не успешна, извлекаем сообщение об ошибке
+                    response.IsSuccess = false;
+                    response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                    if (jsonResult.RootElement.TryGetProperty("Message", out var messageElement))
+                    {
+                        response.ErrorMessages.Add(messageElement.GetString());
+                    }
+                    else
+                    {
+                        response.ErrorMessages.Add("Неизвестная ошибка при обновлении изображения");
+                    }
+                    return BadRequest(response);
+                }
+
+                // Операция успешна, извлекаем путь к изображению
+                string imagePath = "";
+                if (jsonResult.RootElement.TryGetProperty("Path", out var pathElement))
+                {
+                    imagePath = pathElement.GetString();
+                }
+
+                response.StatusCode = System.Net.HttpStatusCode.OK;
+                response.Result = new { Path = imagePath };
+                return Ok(response);
+            }
+            catch (ArgumentException ex)
+            {
+                response.IsSuccess = false;
+                response.StatusCode = System.Net.HttpStatusCode.BadRequest;
+                response.ErrorMessages.Add(ex.Message);
+                return BadRequest(response);
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.StatusCode = System.Net.HttpStatusCode.InternalServerError;
+                response.ErrorMessages.Add("Внутренняя ошибка сервера при обновлении изображения");
+                response.ErrorMessages.Add(ex.Message);
+                return StatusCode(500, response);
+            }
+        }
+
 
         /// <summary>  
         /// Удаление изображения по полному пути  
@@ -281,87 +363,6 @@ namespace Guider.API.MVP.Controllers
             return StatusCode((int)response.StatusCode, response);
         }
 
-        /// <summary>  
-        /// Обновление существующего изображения  
-        /// </summary>  
-        /// <param name="request">Запрос на обновление изображения</param>  
-        /// <returns>Результат операции обновления</returns>  
-        //[HttpPut("update")]
-        //public async Task<IActionResult> UpdateImage([FromForm] ImageUpdateRequest request)
-        //{
-        //    if (request == null || string.IsNullOrEmpty(request.ImagePath) || request.ImageFile == null)
-        //    {
-        //        return BadRequest("Отсутствуют необходимые параметры");
-        //    }
-
-        //    try
-        //    {
-        //        string updatedPath = await _imageService.UpdateImageAsync(request.ImagePath, request.ImageFile, request.CreateIfNotExists);
-        //        return Ok(new
-        //        {
-        //            Path = updatedPath,
-        //            IsCreated = !request.CreateIfNotExists
-        //        });
-        //    }
-        //    catch (ArgumentException ex)
-        //    {
-        //        return BadRequest(ex.Message);
-        //    }
-        //    catch (FileNotFoundException ex)
-        //    {
-        //        return NotFound(ex.Message);
-        //    }
-        //    catch (Exception)
-        //    {
-        //        return StatusCode(500, "Внутренняя ошибка сервера при обновлении изображения");
-        //    }
-        //}
-
-        /// <summary>  
-        /// Замена существующего изображения  
-        /// </summary>  
-        /// <param name="fullPath">Полный путь к существующему изображению</param>  
-        /// <param name="imageFile">Новый файл изображения</param>  
-        /// <returns>Результат операции замены</returns>  
-        //[HttpPatch("replace")]
-        //public async Task<IActionResult> ReplaceImage([FromQuery] string fullPath, [FromForm] IFormFile imageFile)
-        //{
-        //    if (string.IsNullOrEmpty(fullPath) || imageFile == null)
-        //    {
-        //        return BadRequest("Отсутствуют необходимые параметры");
-        //    }
-
-        //    // Removed the incorrect reference to _baseImagePath
-        //    if (!System.IO.File.Exists(fullPath))
-        //    {
-        //        return NotFound($"Изображение не найдено по пути: {fullPath}");
-        //    }
-
-        //    try
-        //    {
-        //        System.IO.File.Delete(fullPath);
-
-        //        string directory = Path.GetDirectoryName(fullPath);
-        //        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-        //        {
-        //            Directory.CreateDirectory(directory);
-        //        }
-
-        //        using (var fileStream = new FileStream(fullPath, FileMode.Create))
-        //        {
-        //            await imageFile.CopyToAsync(fileStream);
-        //        }
-
-        //        return Ok(new
-        //        {
-        //            Path = fullPath,
-        //            Message = "Изображение успешно заменено"
-        //        });
-        //    }
-        //    catch (Exception)
-        //    {
-        //        return StatusCode(500, "Внутренняя ошибка сервера при замене изображения");
-        //    }
-        //}
+        
     }
 }

@@ -241,88 +241,172 @@ namespace Guider.API.MVP.Services
             return JsonDocument.Parse(stream);
         }
 
-        
-        //public async Task<string> UpdateImageAsync(string imagePath, IFormFile imageFile, bool createIfNotExists = true)
-        //{
-        //    if (string.IsNullOrEmpty(imagePath) || imageFile == null || imageFile.Length == 0)
-        //    {
-        //        throw new ArgumentException("Недопустимые параметры для обновления изображения");
-        //    }
+        public async Task<JsonDocument> UpdateImageAsync(
+                                                            string oldImagePath,
+                                                            string newImagePath = null,
+                                                            IFormFile newImageFile = null)
+        {
+            try
+            {
+                // Проверка на пустой старый путь
+                if (string.IsNullOrEmpty(oldImagePath))
+                {
+                    return CreateJsonResponse(false, "Путь к исходному изображению не может быть пустым");
+                }
 
-            
-        //    imagePath = imagePath.Trim('/');
-        //    string[] pathParts = imagePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                // Если и новый путь, и новый файл пустые, нечего обновлять
+                if (string.IsNullOrEmpty(newImagePath) && (newImageFile == null || newImageFile.Length == 0))
+                {
+                    return CreateJsonResponse(false, "Для обновления необходимо указать новый путь или загрузить новый файл");
+                }
 
-        //    if (pathParts.Length < 1)
-        //    {
-        //        throw new ArgumentException("Путь должен содержать провинцию и название изображения");
-        //    }
+                // Проверка существования старого файла
+                string oldAbsolutePath = Path.Combine(_baseImagePath, oldImagePath);
+                if (!File.Exists(oldAbsolutePath))
+                {
+                    return CreateJsonResponse(false, $"Исходное изображение не найдено по пути: {oldImagePath}");
+                }
 
-        //    string province = pathParts[0];
-        //    string city = pathParts[1];
-        //    string imageName = pathParts[2];
+                // Если новый путь не указан, используем старый
+                string pathToUse = newImagePath ?? oldImagePath;
 
-            
-        //    string directoryPath = Path.Combine(_baseImagePath, province, city);
+                // Обработка пути
+                pathToUse = pathToUse.Trim('/');
+                string[] pathParts = pathToUse.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
-            
-        //    string extension = Path.GetExtension(imageFile.FileName);
-        //    if (string.IsNullOrEmpty(extension))
-        //    {
-        //        extension = ".jpg"; 
-        //    }
+                if (pathParts.Length < 1)
+                {
+                    return CreateJsonResponse(false, "Путь обязательно должен содержать хотя бы название провинции");
+                }
 
-           
-        //    string fullImageName = string.IsNullOrEmpty(Path.GetExtension(imageName))
-        //        ? $"{imageName}{extension}"
-        //        : imageName;
+                string province = pathParts[0];
+                string city = pathParts.Length > 1 ? pathParts[1] : null;
+                string imageName = pathParts.Length > 2 ? pathParts[2] : null;
 
-        //    string fullPath = Path.Combine(directoryPath, fullImageName);
-        //    string relativePath = Path.Combine(province, city, fullImageName).Replace("\\", "/");
+                if (string.IsNullOrEmpty(imageName))
+                {
+                    // Если имя не указано в новом пути, используем имя из старого пути
+                    imageName = Path.GetFileName(oldImagePath);
+                }
 
-            
-        //    bool fileExists = File.Exists(fullPath);
-        //    bool directoryExists = Directory.Exists(directoryPath);
+                // Определение директории для сохранения
+                string directoryPath = city == null
+                    ? Path.Combine(_baseImagePath, province)
+                    : Path.Combine(_baseImagePath, province, city);
 
-        //    /
-        //    if (!fileExists && !createIfNotExists)
-        //    {
-        //        throw new FileNotFoundException($"Изображение для обновления не найдено по пути: {relativePath}");
-        //    }
+                // Создание директории, если она не существует
+                if (!Directory.Exists(directoryPath))
+                {
+                    Directory.CreateDirectory(directoryPath);
+                }
 
-        //    try
-        //    {
-                
-        //        if (!directoryExists)
-        //        {
-        //            Directory.CreateDirectory(directoryPath);
-        //        }
+                // Проверка на дубликаты, только если меняется путь
+                if (newImagePath != null && newImagePath != oldImagePath)
+                {
+                    string imageNameWithoutExtension = Path.GetFileNameWithoutExtension(imageName);
+                    string[] allFiles = Directory.GetFiles(_baseImagePath, "*.*", SearchOption.AllDirectories);
 
-                
-        //        if (fileExists)
-        //        {
-        //            File.Delete(fullPath);
-        //            //_logger.LogInformation($"Существующее изображение удалено: {relativePath}");
-        //        }
+                    string duplicateFilePath = allFiles.FirstOrDefault(file =>
+                        Path.GetFileNameWithoutExtension(file).Equals(imageNameWithoutExtension, StringComparison.OrdinalIgnoreCase) &&
+                        file != oldAbsolutePath);  // Исключаем текущий файл из проверки
 
-               
-        //        using (var fileStream = new FileStream(fullPath, FileMode.Create))
-        //        {
-        //            await imageFile.CopyToAsync(fileStream);
-        //        }
+                    if (duplicateFilePath != null)
+                    {
+                        string relativeDuplicatePath = duplicateFilePath.Replace(_baseImagePath, "")
+                            .TrimStart('\\', '/')
+                            .Replace("\\", "/");
 
-        //        //_logger.LogInformation($"Изображение {(fileExists ? "обновлено" : "создано")}: {relativePath}");
+                        return CreateJsonResponse(false, $"Файл с таким названием уже существует в папке: {relativeDuplicatePath}");
+                    }
+                }
 
-                
-        //        return relativePath;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        //_logger.LogError(ex, $"Ошибка при {(fileExists ? "обновлении" : "создании")} изображения");
-        //        throw new Exception($"Ошибка при {(fileExists ? "обновлении" : "создании")} изображения", ex);
-        //    }
-        //}
+                // Определение расширения файла
+                string extension;
 
-      
+                if (newImageFile != null)
+                {
+                    // Проверка допустимых расширений
+                    string[] validExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
+                    extension = Path.GetExtension(newImageFile.FileName).ToLower();
+
+                    if (string.IsNullOrEmpty(extension))
+                    {
+                        extension = ".jpg"; // По умолчанию
+                    }
+                    else if (!validExtensions.Contains(extension))
+                    {
+                        return CreateJsonResponse(false, $"Недопустимое расширение файла: {extension}. Допустимые расширения: {string.Join(", ", validExtensions)}");
+                    }
+                }
+                else
+                {
+                    // Если нет нового файла, используем расширение старого
+                    extension = Path.GetExtension(oldImagePath);
+                }
+
+                // Формирование имени файла с расширением
+                string fullImageName = string.IsNullOrEmpty(Path.GetExtension(imageName))
+                    ? $"{imageName}{extension}"
+                    : imageName;
+
+                string newAbsolutePath = Path.Combine(directoryPath, fullImageName);
+
+                // Формирование относительного пути
+                string relativePath = city == null
+                    ? Path.Combine(province, fullImageName).Replace("\\", "/")
+                    : Path.Combine(province, city, fullImageName).Replace("\\", "/");
+
+                // Проверка, не указывает ли новый путь на старый файл
+                if (newAbsolutePath == oldAbsolutePath && newImageFile == null)
+                {
+                    return CreateJsonResponse(false, "Новый путь совпадает со старым, а новый файл не загружен. Нечего обновлять.");
+                }
+
+                // Обновление файла 
+                if (newImageFile != null)
+                {
+                    // Если это тот же путь, удаляем старый файл
+                    if (File.Exists(newAbsolutePath) && newAbsolutePath != oldAbsolutePath)
+                    {
+                        File.Delete(newAbsolutePath);
+                    }
+
+                    // Сохраняем новый файл
+                    using (var fileStream = new FileStream(newAbsolutePath, FileMode.Create))
+                    {
+                        await newImageFile.CopyToAsync(fileStream);
+                    }
+                }
+                else
+                {
+                    // Если путь изменился, но файл тот же - перемещаем файл
+                    if (newAbsolutePath != oldAbsolutePath)
+                    {
+                        // Если файл уже существует по новому пути, удаляем его
+                        if (File.Exists(newAbsolutePath))
+                        {
+                            File.Delete(newAbsolutePath);
+                        }
+
+                        // Копируем старый файл в новое место
+                        File.Copy(oldAbsolutePath, newAbsolutePath);
+
+                        // Удаляем старый файл
+                        File.Delete(oldAbsolutePath);
+                    }
+                }
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = true, Path = relativePath }));
+            }
+            catch (Exception ex)
+            {
+                //_logger.LogError(ex, "Ошибка при обновлении изображения");
+                return CreateJsonResponse(false, $"Ошибка при обновлении изображения: {ex.Message}");
+            }
+        }
+
+
+
+
     }
 }
