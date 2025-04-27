@@ -152,6 +152,137 @@ namespace Guider.API.MVP.Services
             }
         }
 
+        public async Task<JsonDocument> UpdateCityInProvinceAsync(string provinceName, string cityName, JsonDocument cityData)
+        {
+            try
+            {
+                // Преобразуем входные данные о городе из JsonDocument в BsonDocument
+                var cityJson = cityData.RootElement.GetRawText();
+                var updatedCityBson = BsonDocument.Parse(cityJson);
+
+                // Проверяем, что в обновленных данных содержится поле name
+                string updatedCityName = "";
+                if (updatedCityBson.Contains("name") && updatedCityBson["name"].BsonType == BsonType.String)
+                {
+                    updatedCityName = updatedCityBson["name"].AsString;
+                }
+                else
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "Updated city data must contain a 'name' field."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Находим провинцию по имени
+                var filter = Builders<BsonDocument>.Filter.Eq("name", provinceName);
+                var province = await _citiesCollection.Find(filter).FirstOrDefaultAsync();
+
+                if (province == null)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "Province not found."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Проверяем, существует ли массив городов в провинции
+                if (!province.Contains("cities") || province["cities"].BsonType != BsonType.Array)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = $"Province '{provinceName}' does not have any cities."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Получаем массив городов
+                var cities = province["cities"].AsBsonArray;
+
+                // Ищем город для обновления
+                int cityIndex = -1;
+                for (int i = 0; i < cities.Count; i++)
+                {
+                    if (cities[i].IsBsonDocument &&
+                        cities[i].AsBsonDocument.Contains("name") &&
+                        cities[i].AsBsonDocument["name"].BsonType == BsonType.String &&
+                        cities[i].AsBsonDocument["name"].AsString == cityName)
+                    {
+                        cityIndex = i;
+                        break;
+                    }
+                }
+
+                // Если город не найден
+                if (cityIndex == -1)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = $"City '{cityName}' not found in province '{provinceName}'."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Проверяем, если новое имя города уже существует в другом городе провинции
+                //if (cityName != updatedCityName)
+                //{
+                //    bool nameExists = false;
+                //    foreach (var city in cities)
+                //    {
+                //        if (city.IsBsonDocument &&
+                //            city.AsBsonDocument.Contains("name") &&
+                //            city.AsBsonDocument["name"].BsonType == BsonType.String &&
+                //            city.AsBsonDocument["name"].AsString == updatedCityName &&
+                //            city != cities[cityIndex])
+                //        {
+                //            nameExists = true;
+                //            break;
+                //        }
+                //    }
+
+                //    if (nameExists)
+                //    {
+                //        var errorResponse = new
+                //        {
+                //            IsSuccess = false,
+                //            Message = $"Another city with the name '{updatedCityName}' already exists in the province."
+                //        };
+                //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                //    }
+                //}
+
+                // Обновляем город в массиве
+                cities[cityIndex] = updatedCityBson;
+
+                // Обновляем документ в коллекции
+                var updateCities = Builders<BsonDocument>.Update.Set("cities", cities);
+                await _citiesCollection.UpdateOneAsync(filter, updateCities);
+
+                var successResponse = new
+                {
+                    IsSuccess = true,
+                    Message = $"City '{cityName}' has been successfully updated to '{updatedCityName}' in province '{provinceName}'."
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"An error occurred: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+        }
+
         public async Task<JsonDocument> GetCityByNameAndProvinceAsync(string provinceName, string cityName)
         {
             try
