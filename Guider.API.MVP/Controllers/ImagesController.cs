@@ -245,7 +245,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="request">Запрос на обновление изображения</param>
         /// <returns>Объект ApiResponse с путем к обновленному изображению или ошибками</returns>
         [HttpPut("update")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> UpdateImage([FromForm] ImageUpdateRequest request)
         {
             var response = new ApiResponse();

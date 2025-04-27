@@ -18,6 +18,103 @@ namespace Guider.API.MVP.Services
             }
         }
 
+        //public async Task<JsonDocument> SaveImageAsync(string imagePath, IFormFile imageFile)
+        //{
+        //    if (string.IsNullOrEmpty(imagePath) || imageFile == null || imageFile.Length == 0)
+        //    {
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = "Недопустимые параметры для загрузки изображения" }));
+        //    }
+
+
+        //    imagePath = imagePath.Trim('/');
+        //    string[] pathParts = imagePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        //    if (pathParts.Length < 1)
+        //    {
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = "Путь обязательно должен содержать хотя бы название провинции" }));
+        //    }
+
+        //    string province = pathParts[0];
+        //    string city = pathParts.Length > 1 ? pathParts[1] : null;
+        //    string imageName = pathParts.Length > 2 ? pathParts[2] : null;
+
+        //    if (string.IsNullOrEmpty(imageName))
+        //    {
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = "Путь должен содержать название изображения" }));
+        //    }
+
+
+        //    string directoryPath = city == null
+        //        ? Path.Combine(_baseImagePath, province)
+        //        : Path.Combine(_baseImagePath, province, city);
+
+        //    if (!Directory.Exists(directoryPath))
+        //    {
+        //        Directory.CreateDirectory(directoryPath);
+        //    }
+
+
+
+        //    string imageNameWithoutExtension = Path.GetFileNameWithoutExtension(imageName);
+
+
+        //    string[] allFiles = Directory.GetFiles(_baseImagePath, "*.*", SearchOption.AllDirectories);
+
+
+        //    string duplicateFilePath = allFiles.FirstOrDefault(file =>
+        //        Path.GetFileNameWithoutExtension(file).Equals(imageNameWithoutExtension, StringComparison.OrdinalIgnoreCase));
+
+        //    if (duplicateFilePath != null)
+        //    {
+
+        //        string relativeDuplicatePath = duplicateFilePath.Replace(_baseImagePath, "")
+        //            .TrimStart('\\', '/')
+        //            .Replace("\\", "/");
+
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(new
+        //        {
+        //            Success = false,
+        //            Message = $"Файл с таким названием уже существует в папке: {relativeDuplicatePath}"
+        //        }));
+        //    }
+
+
+
+        //    string extension = Path.GetExtension(imageFile.FileName);
+        //    if (string.IsNullOrEmpty(extension))
+        //    {
+        //        extension = ".jpg"; // Расширение по умолчанию
+        //    }
+
+
+        //    string fullImageName = string.IsNullOrEmpty(Path.GetExtension(imageName))
+        //        ? $"{imageName}{extension}"
+        //        : imageName;
+
+        //    string fullPath = Path.Combine(directoryPath, fullImageName);
+
+        //    try
+        //    {
+
+        //        using (var fileStream = new FileStream(fullPath, FileMode.Create))
+        //        {
+        //            await imageFile.CopyToAsync(fileStream);
+        //        }
+
+
+        //        string relativePath = city == null
+        //            ? Path.Combine(province, fullImageName).Replace("\\", "/")
+        //            : Path.Combine(province, city, fullImageName).Replace("\\", "/");
+
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = true, Path = relativePath }));
+        //    }
+        //    catch (Exception ex)
+        //    {
+
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = $"Ошибка при сохранении изображения: {ex.Message}" }));
+        //    }
+        //}
+
         public async Task<JsonDocument> SaveImageAsync(string imagePath, IFormFile imageFile)
         {
             if (string.IsNullOrEmpty(imagePath) || imageFile == null || imageFile.Length == 0)
@@ -25,52 +122,54 @@ namespace Guider.API.MVP.Services
                 return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = "Недопустимые параметры для загрузки изображения" }));
             }
 
-            
+            // Проверка допустимых расширений файлов изображений
+            string[] allowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
+            string fileExtension = Path.GetExtension(imageFile.FileName).ToLowerInvariant();
+
+            if (!allowedExtensions.Contains(fileExtension))
+            {
+                return JsonDocument.Parse(JsonSerializer.Serialize(new
+                {
+                    Success = false,
+                    Message = $"Недопустимый формат файла. Разрешены только следующие форматы: {string.Join(", ", allowedExtensions)}"
+                }));
+            }
+
             imagePath = imagePath.Trim('/');
             string[] pathParts = imagePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-
             if (pathParts.Length < 1)
             {
                 return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = "Путь обязательно должен содержать хотя бы название провинции" }));
             }
-
             string province = pathParts[0];
             string city = pathParts.Length > 1 ? pathParts[1] : null;
             string imageName = pathParts.Length > 2 ? pathParts[2] : null;
-
             if (string.IsNullOrEmpty(imageName))
             {
                 return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = "Путь должен содержать название изображения" }));
             }
 
-            
             string directoryPath = city == null
                 ? Path.Combine(_baseImagePath, province)
                 : Path.Combine(_baseImagePath, province, city);
-
             if (!Directory.Exists(directoryPath))
             {
                 Directory.CreateDirectory(directoryPath);
             }
 
-            
-            
+
             string imageNameWithoutExtension = Path.GetFileNameWithoutExtension(imageName);
 
-            
             string[] allFiles = Directory.GetFiles(_baseImagePath, "*.*", SearchOption.AllDirectories);
 
-            
             string duplicateFilePath = allFiles.FirstOrDefault(file =>
                 Path.GetFileNameWithoutExtension(file).Equals(imageNameWithoutExtension, StringComparison.OrdinalIgnoreCase));
-
             if (duplicateFilePath != null)
             {
-                
+
                 string relativeDuplicatePath = duplicateFilePath.Replace(_baseImagePath, "")
                     .TrimStart('\\', '/')
                     .Replace("\\", "/");
-
                 return JsonDocument.Parse(JsonSerializer.Serialize(new
                 {
                     Success = false,
@@ -78,39 +177,29 @@ namespace Guider.API.MVP.Services
                 }));
             }
 
+            // Используем проверенное расширение из загружаемого файла
+            string extension = fileExtension;
 
-            
-            string extension = Path.GetExtension(imageFile.FileName);
-            if (string.IsNullOrEmpty(extension))
-            {
-                extension = ".jpg"; // Расширение по умолчанию
-            }
-
-            
             string fullImageName = string.IsNullOrEmpty(Path.GetExtension(imageName))
                 ? $"{imageName}{extension}"
                 : imageName;
-
             string fullPath = Path.Combine(directoryPath, fullImageName);
-
             try
             {
-                
+
                 using (var fileStream = new FileStream(fullPath, FileMode.Create))
                 {
                     await imageFile.CopyToAsync(fileStream);
                 }
 
-               
                 string relativePath = city == null
                     ? Path.Combine(province, fullImageName).Replace("\\", "/")
                     : Path.Combine(province, city, fullImageName).Replace("\\", "/");
-
                 return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = true, Path = relativePath }));
             }
             catch (Exception ex)
             {
-                
+
                 return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = $"Ошибка при сохранении изображения: {ex.Message}" }));
             }
         }
