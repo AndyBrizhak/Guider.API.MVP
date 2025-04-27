@@ -396,7 +396,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="request">Запрос на загрузку изображения</param>  
         /// <returns>Объект ApiResponse с путем к сохраненному изображению или ошибками</returns>  
         [HttpPost("upload")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> UploadImage([FromForm] ImageUploadRequest request)
         {
             var response = new ApiResponse();
@@ -560,7 +560,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="pageSize">Размер страницы (количество изображений)</param>
         /// <returns>Список изображений с информацией о постраничной навигации</returns>
         [HttpGet("list")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public IActionResult GetImagesList([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
             var response = new ApiResponse();
@@ -700,6 +700,84 @@ namespace Guider.API.MVP.Controllers
         //        return StatusCode(500, response);
         //    }
         //}
+
+        /// <summary>
+        /// Удаление изображения
+        /// </summary>
+        /// <param name="request">Запрос на удаление изображения</param>
+        /// <returns>Объект ApiResponse с результатом операции удаления</returns>
+        [HttpDelete("delete")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        public IActionResult DeleteImage([FromQuery] ImageDeleteRequest request)
+        {
+            var response = new ApiResponse();
+            if (request == null ||
+                string.IsNullOrEmpty(request.Province) ||
+                string.IsNullOrEmpty(request.Place) ||
+                string.IsNullOrEmpty(request.ImageName))
+            {
+                response.IsSuccess = false;
+                response.StatusCode = HttpStatusCode.BadRequest;
+                response.ErrorMessages.Add("Отсутствуют необходимые параметры для удаления изображения");
+                return BadRequest(response);
+            }
+
+            try
+            {
+                // Вызываем метод сервиса с разбитыми параметрами
+                var jsonResult = _imageService.DeleteImage(
+                    request.Province,
+                    request.City,
+                    request.Place,
+                    request.ImageName);
+
+                // Проверяем, успешно ли выполнена операция
+                if (jsonResult.RootElement.TryGetProperty("Success", out var successElement) &&
+                    successElement.GetBoolean() == false)
+                {
+                    // Операция не успешна, извлекаем сообщение об ошибке
+                    response.IsSuccess = false;
+                    response.StatusCode = HttpStatusCode.BadRequest;
+                    if (jsonResult.RootElement.TryGetProperty("Message", out var message))
+                    {
+                        response.ErrorMessages.Add(message.GetString());
+                    }
+                    else
+                    {
+                        response.ErrorMessages.Add("Неизвестная ошибка при удалении изображения");
+                    }
+                    return BadRequest(response);
+                }
+
+                // Операция успешна
+                response.StatusCode = HttpStatusCode.OK;
+                if (jsonResult.RootElement.TryGetProperty("Message", out var messageElement))
+                {
+                    response.Result = new { Message = messageElement.GetString() };
+                }
+                else
+                {
+                    response.Result = new { Message = "Изображение успешно удалено" };
+                }
+
+                return Ok(response);
+            }
+            catch (ArgumentException ex)
+            {
+                response.IsSuccess = false;
+                response.StatusCode = HttpStatusCode.BadRequest;
+                response.ErrorMessages.Add(ex.Message);
+                return BadRequest(response);
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.StatusCode = HttpStatusCode.InternalServerError;
+                response.ErrorMessages.Add("Внутренняя ошибка сервера при удалении изображения");
+                response.ErrorMessages.Add(ex.Message);
+                return StatusCode(500, response);
+            }
+        }
 
     }
 }
