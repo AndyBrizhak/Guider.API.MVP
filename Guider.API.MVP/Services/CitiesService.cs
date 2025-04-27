@@ -156,11 +156,11 @@ namespace Guider.API.MVP.Services
         {
             try
             {
-                // Преобразуем входные данные о городе из JsonDocument в BsonDocument
+                
                 var cityJson = cityData.RootElement.GetRawText();
                 var updatedCityBson = BsonDocument.Parse(cityJson);
 
-                // Проверяем, что в обновленных данных содержится поле name
+                
                 string updatedCityName = "";
                 if (updatedCityBson.Contains("name") && updatedCityBson["name"].BsonType == BsonType.String)
                 {
@@ -176,7 +176,7 @@ namespace Guider.API.MVP.Services
                     return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
                 }
 
-                // Находим провинцию по имени
+                
                 var filter = Builders<BsonDocument>.Filter.Eq("name", provinceName);
                 var province = await _citiesCollection.Find(filter).FirstOrDefaultAsync();
 
@@ -190,7 +190,7 @@ namespace Guider.API.MVP.Services
                     return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
                 }
 
-                // Проверяем, существует ли массив городов в провинции
+                
                 if (!province.Contains("cities") || province["cities"].BsonType != BsonType.Array)
                 {
                     var errorResponse = new
@@ -201,10 +201,10 @@ namespace Guider.API.MVP.Services
                     return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
                 }
 
-                // Получаем массив городов
+                
                 var cities = province["cities"].AsBsonArray;
 
-                // Ищем город для обновления
+                
                 int cityIndex = -1;
                 for (int i = 0; i < cities.Count; i++)
                 {
@@ -218,7 +218,7 @@ namespace Guider.API.MVP.Services
                     }
                 }
 
-                // Если город не найден
+                
                 if (cityIndex == -1)
                 {
                     var errorResponse = new
@@ -229,38 +229,12 @@ namespace Guider.API.MVP.Services
                     return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
                 }
 
-                // Проверяем, если новое имя города уже существует в другом городе провинции
-                //if (cityName != updatedCityName)
-                //{
-                //    bool nameExists = false;
-                //    foreach (var city in cities)
-                //    {
-                //        if (city.IsBsonDocument &&
-                //            city.AsBsonDocument.Contains("name") &&
-                //            city.AsBsonDocument["name"].BsonType == BsonType.String &&
-                //            city.AsBsonDocument["name"].AsString == updatedCityName &&
-                //            city != cities[cityIndex])
-                //        {
-                //            nameExists = true;
-                //            break;
-                //        }
-                //    }
+                
 
-                //    if (nameExists)
-                //    {
-                //        var errorResponse = new
-                //        {
-                //            IsSuccess = false,
-                //            Message = $"Another city with the name '{updatedCityName}' already exists in the province."
-                //        };
-                //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                //    }
-                //}
-
-                // Обновляем город в массиве
+                
                 cities[cityIndex] = updatedCityBson;
 
-                // Обновляем документ в коллекции
+                
                 var updateCities = Builders<BsonDocument>.Update.Set("cities", cities);
                 await _citiesCollection.UpdateOneAsync(filter, updateCities);
 
