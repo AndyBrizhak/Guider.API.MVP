@@ -28,7 +28,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="request">Запрос на загрузку изображения</param>  
         /// <returns>Объект ApiResponse с путем к сохраненному изображению или ошибками</returns>  
         [HttpPost("upload")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> UploadImage([FromForm] ImageUploadRequest request)
         {
             var response = new ApiResponse();
