@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 
@@ -38,9 +39,16 @@ namespace Guider.API.MVP.Controllers
         /// <summary>
         /// Authenticates a user based on the provided credentials and generates a JWT token.
         /// </summary>
-        /// <param name="model">The login request containing the username and password.</param>
+        /// <param name="model">The login request containing the following fields:
+        /// - UserName: The username of the user.
+        /// - Password: The password of the user.
+        /// </param>
         /// <returns>
-        /// Returns an ApiResponse containing the login result. If successful, includes the user's details and a JWT token.
+        /// Returns an ApiResponse containing the login result. If successful, the response includes:
+        /// - UserId: The unique identifier of the user.
+        /// - UserName: The username of the user.
+        /// - Email: The email address of the user.
+        /// - Token: The generated JWT access token.
         /// Possible status codes:
         /// - 200 OK: Login successful.
         /// - 400 Bad Request: Invalid request or incorrect username/password.
@@ -98,22 +106,28 @@ namespace Guider.API.MVP.Controllers
             _response.IsSuccess = true;
             _response.Result = loginResponse;
             return Ok(_response);
+            
         }
 
 
 
-        /// <summary>
-        /// Registers a new user in the system with the provided details.
+        
+        ///<sumary>
+        /// Registers a new user in the system.
         /// </summary>
-        /// <param name="model">The registration request containing the username, email, and password.</param>
+        /// <param name="model">The registration request containing the following fields:
+        /// - UserName: The username of the user (required).
+        /// - Email: The email address of the user (required, must be valid).
+        /// - Password: The password of the user (required, must be at least 6 characters long).
+        /// </param>
         /// <returns>
         /// Returns an ApiResponse indicating the result of the registration process. Possible outcomes:
-        /// - 201 Created: Registration successful.
-        /// - 400 Bad Request: Validation errors, such as password length or duplicate username.
-        /// - 500 Internal Server Error: An error occurred during processing.
+        /// - 201 Created: User registered successfully.
+        /// - 400 Bad Request: Validation errors such as invalid email, short password, or username already exists.
+        /// - 500 Internal Server Error: An error occurred during the registration process.
         /// </returns>
         /// <remarks>
-        /// This method also ensures that default roles are created if they do not exist and assigns the "User" role to the newly registered user.
+        /// The email must be a valid email address, and the password must be at least 6 characters long.
         /// </remarks>
         [HttpPost("register")]
         [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(ApiResponse))]
@@ -121,6 +135,14 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ApiResponse))]
         public async Task<ActionResult<ApiResponse>> Register([FromBody] RegisterRequestDTO model)
         {
+            if (string.IsNullOrEmpty(model.Email) || !new EmailAddressAttribute().IsValid(model.Email))
+            {
+                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
+                _response.IsSuccess = false;
+                _response.ErrorMessages = new List<string> { "A valid email address is required!" };
+                return BadRequest(_response);
+            }
+
             if (model.Password.Length < 6)
             {
                 _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
@@ -167,7 +189,7 @@ namespace Guider.API.MVP.Controllers
 
                     _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status201Created;
                     _response.IsSuccess = true;
-                    _response.Result = newUser;
+                    //_response.Result = newUser;
                     return CreatedAtAction(nameof(Register), new { id = newUser.Id }, _response);
                 }
             }
@@ -183,7 +205,6 @@ namespace Guider.API.MVP.Controllers
             _response.IsSuccess = false;
             _response.ErrorMessages.Add("Error while registration");
             return BadRequest(_response);
-            
         }
 
 
