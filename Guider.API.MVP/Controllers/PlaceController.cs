@@ -359,10 +359,19 @@ namespace Guider.API.MVP.Controllers
 
 
         /// <summary>
+        /// Получить доступные теги для фильтрации мест.
         /// 
-        /// Получить доступные теги для фильтрации мест
+        /// Этот метод позволяет получить список доступных тегов, которые можно использовать
+        /// для фильтрации мест. Теги могут быть отфильтрованы по категории или с учетом
+        /// уже выбранных тегов. Если категория не указана, возвращаются теги для всех категорий.
+        /// 
+        /// Пример использования:
+        /// - Укажите категорию, чтобы получить теги, относящиеся только к этой категории.
+        /// - Передайте список выбранных тегов, чтобы исключить их из результата.
         /// </summary>
-
+        /// <param name="category">Категория, для которой нужно получить теги (опционально).</param>
+        /// <param name="selectedTags">Список уже выбранных тегов, которые нужно исключить из результата (опционально).</param>
+        /// <returns>Список доступных тегов в формате JSON, обернутый в ApiResponse.</returns>
         [HttpGet("available-tags")]
         public async Task<ActionResult> GetAvailableTags(
            [FromQuery] string? category = null,
@@ -370,12 +379,12 @@ namespace Guider.API.MVP.Controllers
         {
             try
             {
-                
+
                 var result = await _placeService.GetAvailableTagsAsync(
-                    category, 
+                    category,
                     selectedTags);
 
-                
+
                 var response = new ApiResponse
                 {
                     StatusCode = HttpStatusCode.OK,
@@ -387,7 +396,7 @@ namespace Guider.API.MVP.Controllers
             }
             catch (Exception ex)
             {
-                
+
                 var errorResponse = new ApiResponse
                 {
                     StatusCode = HttpStatusCode.InternalServerError,
