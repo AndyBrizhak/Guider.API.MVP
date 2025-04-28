@@ -19,6 +19,11 @@ namespace Guider.API.MVP.Controllers
             _citiesService = citiesService;
         }
 
+        /// <summary>
+        /// Retrieves a list of cities for a given province.
+        /// </summary>
+        /// <param name="provinceName">The name of the province to retrieve cities for.</param>
+        /// <returns>A list of cities in the specified province.</returns>
         [HttpGet]
         [Route("GetCitiesByProvince")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
@@ -60,6 +65,12 @@ namespace Guider.API.MVP.Controllers
         }
 
      
+        /// <summary>
+        /// Retrieves a city by its name and the province it belongs to.
+        /// </summary>
+        /// <param name="provinceName">The name of the province where the city is located.</param>
+        /// <param name="cityName">The name of the city to retrieve.</param>
+        /// <returns>The city details if found, or an appropriate error response.</returns>
         [HttpGet]
         [Route("GetCityByNameAndProvince")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
@@ -121,6 +132,16 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
+
+        /// <summary>
+        /// Adds a new city to the specified province.
+        /// </summary>
+        /// <param name="provinceName">The name of the province where the city will be added.</param>
+        /// <param name="cityData">A valid JSON document containing the city details.</param>
+        /// <remarks>
+        /// The cityData parameter must be a valid JSON document with the required city information.
+        /// </remarks>
+        /// <returns>A response indicating the success or failure of the operation.</returns>
         [HttpPost]
         [Route("AddCityToProvince")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
@@ -154,7 +175,7 @@ namespace Guider.API.MVP.Controllers
                     return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
                 }
 
-                
+
                 var resultJson = JsonSerializer.Deserialize<JsonElement>(resultDocument.RootElement.GetRawText());
                 bool isSuccess = resultJson.GetProperty("IsSuccess").GetBoolean();
                 string message = resultJson.GetProperty("Message").GetString();
@@ -168,7 +189,7 @@ namespace Guider.API.MVP.Controllers
                 }
                 else
                 {
-                    
+
                     HttpStatusCode statusCode = message.Contains("not found")
                         ? HttpStatusCode.NotFound
                         : HttpStatusCode.BadRequest;
@@ -191,6 +212,24 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
+        /// <summary>
+        /// Updates the details of a city in the specified province.
+        /// </summary>
+        /// <param name="provinceName">The name of the province where the city is located.</param>
+        /// <param name="cityName">The name of the city to update.</param>
+        /// <param name="cityData">
+        /// A valid JSON document containing the updated city details.  
+        /// Example:
+        /// {
+        ///   "Population": 500000,
+        ///   "Area": 300.5,
+        ///   "IsCapital": true
+        /// }
+        /// </param>
+        /// <remarks>
+        /// The cityData parameter must be a valid JSON document with the required city information.
+        /// </remarks>
+        /// <returns>A response indicating the success or failure of the update operation.</returns>
         [HttpPut]
         [Route("UpdateCityInProvince")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
@@ -273,8 +312,14 @@ namespace Guider.API.MVP.Controllers
                 apiResponse.ErrorMessages = new List<string> { ex.Message };
                 return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
             }
+            
         }
 
+        /// <summary>
+        /// 
+        /// Deletes a city from the specified province.
+        /// 
+        /// </summary>
         [HttpDelete]
         [Route("RemoveCityFromProvince")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
