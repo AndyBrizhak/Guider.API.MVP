@@ -1,156 +1,151 @@
-# Guider API MVP
+# Guider.API.MVP
 
 ## Описание проекта
+Guider.API.MVP — это API-сервис, разработанный на ASP.NET Core (.NET 8), предназначенный для управления изображениями, тегами и другими сущностями. Проект использует PostgreSQL для хранения данных ASP.NET Identity и MongoDB для работы с коллекциями данных. API поддерживает аутентификацию с использованием JWT и предоставляет удобный интерфейс для работы с данными через RESTful API.
 
-Guider API MVP - это API для работы с коллекцией мест (Places) в базе данных MongoDB. API предоставляет возможности для получения, создания, обновления и удаления документов, а также для выполнения гео-поиска с использованием различных фильтров.
+---
 
-## Функциональные возможности
+## Особенности проекта
+- **ASP.NET Identity**: Реализована система аутентификации и авторизации.
+- **PostgreSQL**: Используется для хранения данных пользователей и ролей.
+- **MongoDB**: Используется для хранения коллекций данных, таких как теги.
+- **Swagger**: Для документирования и тестирования API.
+- **Docker**: Поддержка контейнеризации для удобного развертывания.
 
-- Получение всех документов из коллекции Places
-- Получение документа по ID
-- Получение документа по веб-параметру
-- Получение документа по ID из заголовка
-- Гео-поиск ближайших мест
-- Гео-поиск ближайших мест с центром и лимитом
-- Гео-поиск по категории и тегам
-- Гео-поиск с текстовым поиском по всем текстовым полям
+---
 
 ## Установка и настройка
 
-1. Клонируйте репозиторий:
-   
+### 1. Клонирование репозитория
 
-```
-   git clone https://gitlab.com/yourusername/guider-api-mvp.git
-   
-
-```
-
-2. Перейдите в директорию проекта:
-   
-
-```
-   cd guider-api-mvp
-   
+```shell
+git clone <URL вашего репозитория>
+cd Guider.API.MVP
 
 ```
 
-3. Настройте параметры подключения к MongoDB в файле `appsettings.Development.json`:
-   
+---
 
+## Настройка Docker
+
+### 2. Создание Docker-образа
+Для создания Docker-образа выполните следующие шаги:
+
+1. Убедитесь, что у вас установлен Docker.
+2. Создайте файл `Dockerfile` в корне проекта (если его нет):
+   
+```docker
+   FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+   WORKDIR /app
+   EXPOSE 80
+
+   FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+   WORKDIR /src
+   COPY ["Guider.API.MVP/Guider.API.MVP.csproj", "Guider.API.MVP/"]
+   RUN dotnet restore "Guider.API.MVP/Guider.API.MVP.csproj"
+   COPY . .
+   WORKDIR "/src/Guider.API.MVP"
+   RUN dotnet build -c Release -o /app/build
+
+   FROM build AS publish
+   RUN dotnet publish -c Release -o /app/publish
+
+   FROM base AS final
+   WORKDIR /app
+   COPY --from=publish /app/publish .
+   ENTRYPOINT ["dotnet", "Guider.API.MVP.dll"]
+   
 ```
-   {
-     "Logging": {
-       "LogLevel": {
-         "Default": "Information",
-         "Microsoft.AspNetCore": "Warning"
-       }
-     },
-     "MongoDBSettings": {
-       "ConnectionString": "*******",
-       "DatabaseName": "guider",
-       "CollectionName": "places_clear"
-     }
+
+3. Соберите Docker-образ:
+   
+```shell
+   docker build -t guider-api-mvp .
+   
+```
+
+4. Запустите контейнер:
+   
+```shell
+   docker run -d -p 5000:80 --name guider-api-mvp-container guider-api-mvp
+   
+```
+
+---
+
+## Настройка подключения к PostgreSQL
+
+### 3. Конфигурация PostgreSQL
+1. Убедитесь, что PostgreSQL установлен на удалённом сервере.
+2. В файле `appsettings.json` укажите строку подключения:
+   
+```json
+   "ConnectionStrings": {
+       "PostgreSQL": "Host=<REMOTE_HOST>;Port=5432;Database=<DB_NAME>;Username=<USERNAME>;Password=<PASSWORD>"
    }
    
-
 ```
 
-4. Запустите проект:
+3. Выполните миграции для создания таблиц ASP.NET Identity:
    
-
+```shell
+   dotnet ef migrations add InitialIdentityMigration
+   dotnet ef database update
+   
 ```
+
+---
+
+## Настройка подключения к MongoDB
+
+### 4. Конфигурация MongoDB
+1. Убедитесь, что MongoDB установлен на удалённом сервере.
+2. В файле `appsettings.json` укажите настройки MongoDB:
+   
+```json
+   "MongoDbSettings": {
+       "ConnectionString": "mongodb://<USERNAME>:<PASSWORD>@<REMOTE_HOST>:27017",
+       "DatabaseName": "<DB_NAME>",
+       "Collections": {
+           "Tags": "tags",
+           "Provinces": "provinces",
+           "Cities": "cities"
+       }
+   }
+   
+```
+
+3. Проверьте, что сервисы MongoDB зарегистрированы в `Program.cs`:
+   
+```csharp
+   builder.Services.Configure<MongoDbSettings>(
+       builder.Configuration.GetSection("MongoDbSettings"));
+   builder.Services.AddSingleton<TagsService>();
+   builder.Services.AddSingleton<ProvinceService>();
+   builder.Services.AddSingleton<CitiesService>();
+   
+```
+
+---
+
+## Запуск приложения
+1. Запустите приложение локально:
+   
+```shell
    dotnet run
    
-
 ```
 
-## Использование
-
-### Получение всех документов
-
-
-
+2. Откройте Swagger для тестирования API:
+   
 ```
-.....
-
-
+   http://localhost:5000/swagger
+   
 ```
 
-### Получение документа по ID
+---
 
-
-
-```
-GET /api/place/{id}
-
-
-```
-
-### Получение документа по веб-параметру
-
-
-
-```
-......
-
-
-```
-
-### Получение документа по web и ID из заголовка
-
-
-
-```
-GET /api/place/id?web={web}&id={id}
-
-
-```
-
-### Гео-поиск ближайших мест
-
-
-
-```
-GET /api/place/geonear
-Headers:
-  X-Latitude: {lat}
-  X-Longitude: {lng}
-  X-Max-Distance: {maxDistance}
-
-
-```
-
-### ......
-
-
-
-```
-.......
-
-
-```
-
-### ......
-
-
-
-```
-........
-
-
-```
-
-### ......
-
-
-
-```
-......
-
-
-```
-
-## Лицензия
-
-Этот проект лицензирован под лицензией MIT. Подробности см. в файле LICENSE.
+## Примечания
+- Убедитесь, что порты PostgreSQL и MongoDB открыты для удалённого подключения.
+- Используйте безопасные пароли и настройте брандмауэр для защиты баз данных.
+- Для продакшн-среды рекомендуется использовать Docker Compose для управления зависимостями.
