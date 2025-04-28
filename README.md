@@ -8,7 +8,7 @@ Guider.API.MVP — это API-сервис, разработанный на ASP.
 ## Особенности проекта
 - **ASP.NET Identity**: Реализована система аутентификации и авторизации.
 - **PostgreSQL**: Используется для хранения данных пользователей и ролей.
-- **MongoDB**: Используется для хранения коллекций данных, таких как теги.
+- **MongoDB**: Используется для хранения коллекций данных.
 - **Swagger**: Для документирования и тестирования API.
 - **Docker**: Поддержка контейнеризации для удобного развертывания.
 
@@ -105,8 +105,9 @@ cd Guider.API.MVP
 ```json
    "MongoDbSettings": {
        "ConnectionString": "mongodb://<USERNAME>:<PASSWORD>@<REMOTE_HOST>:27017",
-       "DatabaseName": "<DB_NAME>",
+       "DatabaseName": "guider",
        "Collections": {
+          "Places": "places_clear",
            "Tags": "tags",
            "Provinces": "provinces",
            "Cities": "cities"
@@ -120,11 +121,13 @@ cd Guider.API.MVP
 ```csharp
    builder.Services.Configure<MongoDbSettings>(
        builder.Configuration.GetSection("MongoDbSettings"));
+   builder.Services.AddSingleton<PlaceService>();
    builder.Services.AddSingleton<TagsService>();
    builder.Services.AddSingleton<ProvinceService>();
    builder.Services.AddSingleton<CitiesService>();
    
-```
+```// Регистрация сервиса для работы с изображениями
+   builder.Services.AddScoped<IImageService, ImageService>();
 
 ---
 
