@@ -19,6 +19,11 @@ namespace Guider.API.MVP.Controllers
             _tagsService = tagsService;
         }
 
+        /// <summary>
+        /// Retrieves tags by their type.
+        /// </summary>
+        /// <param name="typeName">The name of the tag type.</param>
+        /// <returns>A list of tags matching the specified type.</returns>
         [HttpGet]
         [Route("GetTagsByType")]
         public async Task<IActionResult> GetCitiesByProvince(string typeName)
@@ -58,11 +63,16 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
+        /// <summary>
+        /// Creates a new tag for a specified type.
+        /// </summary>
+        /// <param name="typeName">The name of the tag type.</param>
+        /// <param name="newTagData">The data for the new tag in JSON format.</param>
+        /// <returns>The created tag or an error message.</returns>
         [HttpPost]
         [Route("CreateTag")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> CreateTag(string typeName, [FromBody] JsonDocument newTagData)
-
         {
             var apiResponse = new Models.ApiResponse();
 
@@ -86,7 +96,6 @@ namespace Guider.API.MVP.Controllers
 
                 var result = await _tagsService.CreateTagAsync(typeName, newTagData);
 
-                // Проверяем результат выполнения метода сервиса
                 if (result.RootElement.GetProperty("IsSuccess").GetBoolean())
                 {
                     apiResponse.IsSuccess = true;
@@ -96,7 +105,6 @@ namespace Guider.API.MVP.Controllers
                 }
                 else
                 {
-                    // Если в сервисе произошла ошибка, возвращаем сообщение об ошибке оттуда
                     string errorMessage = result.RootElement.GetProperty("Message").GetString();
                     apiResponse.IsSuccess = false;
                     apiResponse.StatusCode = HttpStatusCode.BadRequest;
@@ -113,10 +121,17 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
+        /// <summary>
+        /// Updates an existing tag for a specified type.
+        /// </summary>
+        /// <param name="typeName">The name of the tag type.</param>
+        /// <param name="tagName">The name of the tag to update.</param>
+        /// <param name="updateTagData">The updated data for the tag in JSON format.</param>
+        /// <returns>The updated tag or an error message.</returns>
         [HttpPut]
         [Route("UpdateTag")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<IActionResult> UpdateTag(string typeName, string tagName, [FromBody] System.Text.Json.JsonDocument updateTagData)
+        public async Task<IActionResult> UpdateTag(string typeName, string tagName, [FromBody] JsonDocument updateTagData)
         {
             var apiResponse = new Models.ApiResponse();
 
@@ -148,7 +163,6 @@ namespace Guider.API.MVP.Controllers
 
                 var result = await _tagsService.UpdateTagAsync(typeName, tagName, updateTagData);
 
-                // Проверяем результат выполнения метода сервиса
                 if (result.RootElement.GetProperty("IsSuccess").GetBoolean())
                 {
                     apiResponse.IsSuccess = true;
@@ -158,7 +172,6 @@ namespace Guider.API.MVP.Controllers
                 }
                 else
                 {
-                    // Если в сервисе произошла ошибка, возвращаем сообщение об ошибке оттуда
                     string errorMessage = result.RootElement.GetProperty("Message").GetString();
                     apiResponse.IsSuccess = false;
                     apiResponse.StatusCode = HttpStatusCode.BadRequest;
@@ -175,6 +188,12 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
+        /// <summary>
+        /// Deletes a tag for a specified type.
+        /// </summary>
+        /// <param name="typeName">The name of the tag type.</param>
+        /// <param name="tagName">The name of the tag to delete.</param>
+        /// <returns>A success message or an error message.</returns>
         [HttpDelete]
         [Route("DeleteTag")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
@@ -202,7 +221,6 @@ namespace Guider.API.MVP.Controllers
 
                 var result = await _tagsService.DeleteTagAsync(typeName, tagName);
 
-                // Проверяем результат выполнения метода сервиса
                 if (result.RootElement.GetProperty("IsSuccess").GetBoolean())
                 {
                     apiResponse.IsSuccess = true;
@@ -212,7 +230,6 @@ namespace Guider.API.MVP.Controllers
                 }
                 else
                 {
-                    // Если в сервисе произошла ошибка, возвращаем сообщение об ошибке оттуда
                     string errorMessage = result.RootElement.GetProperty("Message").GetString();
                     apiResponse.IsSuccess = false;
                     apiResponse.StatusCode = HttpStatusCode.BadRequest;
@@ -229,6 +246,10 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
+        /// <summary>
+        /// Finds duplicate tags in the system.
+        /// </summary>
+        /// <returns>A list of duplicate tags or an error message.</returns>
         [HttpGet]
         [Route("FindDuplicateTags")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
@@ -240,7 +261,6 @@ namespace Guider.API.MVP.Controllers
             {
                 var result = await _tagsService.FindDuplicateTagsAsync();
 
-                // Проверяем результат выполнения метода сервиса
                 if (result.RootElement.GetProperty("IsSuccess").GetBoolean())
                 {
                     apiResponse.IsSuccess = true;
@@ -250,7 +270,6 @@ namespace Guider.API.MVP.Controllers
                 }
                 else
                 {
-                    // Если в сервисе произошла ошибка, возвращаем сообщение об ошибке оттуда
                     string errorMessage = result.RootElement.GetProperty("Message").GetString();
                     apiResponse.IsSuccess = false;
                     apiResponse.StatusCode = HttpStatusCode.BadRequest;
@@ -266,8 +285,5 @@ namespace Guider.API.MVP.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
             }
         }
-
-
-
     }
 }
