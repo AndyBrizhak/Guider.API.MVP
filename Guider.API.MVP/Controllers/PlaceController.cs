@@ -498,30 +498,38 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-
-
+                
         /// <summary>
-        /// 
         /// Обновление существующего документа в коллекции Places.
         /// 
         /// Доступно только для авторизованных пользователей с ролями Super Admin, Admin или Manager.
         /// 
-        /// Во входящем параметре должен передаваться валидный JSON-документ.
-        /// 
+        /// В параметрах должны передаваться идентификатор объекта и валидный JSON-документ с данными.
         /// </summary>
         /// 
+        /// <param name="id">Строка с уникальным идентификатором объекта</param>
         /// <param name="jsonDocument">JSON-документ, представляющий данные для обновления существующего объекта.</param>
         /// 
         /// <returns>Обновленный объект в формате JSON, обернутый в ApiResponse.</returns>
         /// 
-
-        [HttpPut("update")]
+        [HttpPut("update/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<IActionResult> Update([FromBody] JsonDocument jsonDocument)
+        public async Task<IActionResult> Update(string id, [FromBody] JsonDocument jsonDocument)
         {
             try
             {
                 // Валидация входящих данных
+                if (string.IsNullOrEmpty(id))
+                {
+                    var idErrorResponse = new ApiResponse
+                    {
+                        StatusCode = HttpStatusCode.BadRequest,
+                        IsSuccess = false,
+                        ErrorMessages = new List<string> { "Object ID is required." }
+                    };
+                    return BadRequest(idErrorResponse);
+                }
+
                 if (jsonDocument == null || jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
                 {
                     var validationResponse = new ApiResponse
@@ -534,8 +542,7 @@ namespace Guider.API.MVP.Controllers
                 }
 
                 // Отправляем в сервис для обновления
-                var updatedDocument = await _placeService.UpdateAsync(jsonDocument);
-
+                var updatedDocument = await _placeService.UpdateAsync(id, jsonDocument);
                 if (updatedDocument == null)
                 {
                     var notFoundResponse = new ApiResponse
@@ -551,13 +558,17 @@ namespace Guider.API.MVP.Controllers
                 if (updatedDocument.RootElement.TryGetProperty("success", out var successElement) &&
                    successElement.ValueKind == JsonValueKind.False)
                 {
-                    string errorMessage = "Failed to update document or missing id.";
-
+                    string errorMessage = "Failed to update document.";
                     // Добавляем сообщение об ошибке из сервиса, если оно присутствует
                     if (updatedDocument.RootElement.TryGetProperty("message", out var serviceErrorElement) &&
                         serviceErrorElement.ValueKind == JsonValueKind.String)
                     {
-                        errorMessage += $" Service error: {serviceErrorElement.GetString()}";
+                        errorMessage = serviceErrorElement.GetString();
+                    }
+                    else if (updatedDocument.RootElement.TryGetProperty("error", out var errorElement) &&
+                            errorElement.ValueKind == JsonValueKind.String)
+                    {
+                        errorMessage = errorElement.GetString();
                     }
 
                     var badRequestResponse = new ApiResponse
@@ -566,8 +577,26 @@ namespace Guider.API.MVP.Controllers
                         IsSuccess = false,
                         ErrorMessages = new List<string> { errorMessage }
                     };
-
                     return BadRequest(badRequestResponse);
+                }
+
+                // Извлекаем документ и сообщение об успешном обновлении
+                string successMessage = "Document successfully updated.";
+                JsonElement documentElement;
+
+                // Проверяем, содержит ли ответ документ внутри структуры success
+                if (updatedDocument.RootElement.TryGetProperty("document", out documentElement))
+                {
+                    if (updatedDocument.RootElement.TryGetProperty("message", out var messageElement) &&
+                        messageElement.ValueKind == JsonValueKind.String)
+                    {
+                        successMessage = messageElement.GetString();
+                    }
+                }
+                else
+                {
+                    // Если нет вложенного документа, то весь ответ и есть документ
+                    documentElement = updatedDocument.RootElement;
                 }
 
                 // Формируем успешный ответ
@@ -575,9 +604,9 @@ namespace Guider.API.MVP.Controllers
                 {
                     StatusCode = HttpStatusCode.OK,
                     IsSuccess = true,
-                    Result = updatedDocument.ToJson()
+                    Result = documentElement.ToString(),
+                    //SuccessMessage = successMessage
                 };
-
                 return Ok(successResponse);
             }
             catch (Exception ex)
@@ -592,7 +621,6 @@ namespace Guider.API.MVP.Controllers
                 return StatusCode((int)HttpStatusCode.InternalServerError, errorResponse);
             }
         }
-
 
 
         /// <summary>

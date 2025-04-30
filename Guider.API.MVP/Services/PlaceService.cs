@@ -159,21 +159,45 @@
         }
 
 
+       
         /// <summary>  
         /// Обновить существующий документ в коллекции Places  
         /// </summary>  
-        /// <param name="jsonDocument">JSON-строка с обновленными данными, содержащая идентификатор</param>  
+        /// <param name="id">Строка с уникальным идентификатором объекта</param>
+        /// <param name="jsonDocument">JSON-строка с обновленными данными</param>  
         /// <returns>Обновленный документ</returns>  
-        public async Task<JsonDocument> UpdateAsync(JsonDocument jsonDocument)
+        public async Task<JsonDocument> UpdateAsync(string id, JsonDocument jsonDocument)
         {
             try
             {
+                if (string.IsNullOrEmpty(id) || !ObjectId.TryParse(id, out var objectId))
+                {
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "A valid object ID must be provided." }));
+                }
+
                 var jsonString = jsonDocument.RootElement.GetRawText();
                 var updatedDocument = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<BsonDocument>(jsonString);
 
-                if (!updatedDocument.Contains("_id") || !ObjectId.TryParse(updatedDocument["_id"].ToString(), out var objectId))
+                // Проверяем, есть ли идентификатор в документе и соответствует ли он переданному
+                if (updatedDocument.Contains("_id"))
                 {
-                    return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "The document must contain a valid '_id' field." }));
+                    var docIdString = updatedDocument["_id"].ToString();
+                    // Проверяем совпадение идентификаторов
+                    if (docIdString != id && docIdString != objectId.ToString())
+                    {
+                        return JsonDocument.Parse(JsonSerializer.Serialize(new
+                        {
+                            success = false,
+                            message = "The ID in the document does not match the provided ID parameter."
+                        }));
+                    }
+                    // Если идентификаторы совпадают, убедимся что формат правильный
+                    updatedDocument["_id"] = objectId;
+                }
+                else
+                {
+                    // Если в документе нет идентификатора, добавляем его
+                    updatedDocument.Add("_id", objectId);
                 }
 
                 // Check for unique name
@@ -183,16 +207,18 @@
                         Builders<BsonDocument>.Filter.Eq("name", updatedDocument["name"].AsString),
                         Builders<BsonDocument>.Filter.Ne("_id", objectId)
                     );
-
-                    if (updatedDocument.Contains("address.city") && updatedDocument.Contains("address.province"))
+                    if (updatedDocument.Contains("address") &&
+                        updatedDocument["address"].IsBsonDocument &&
+                        updatedDocument["address"].AsBsonDocument.Contains("city") &&
+                        updatedDocument["address"].AsBsonDocument.Contains("province"))
                     {
+                        var addressDoc = updatedDocument["address"].AsBsonDocument;
                         nameFilter = Builders<BsonDocument>.Filter.And(
                             nameFilter,
-                            Builders<BsonDocument>.Filter.Eq("address.city", updatedDocument["address.city"].AsString),
-                            Builders<BsonDocument>.Filter.Eq("address.province", updatedDocument["address.province"].AsString)
+                            Builders<BsonDocument>.Filter.Eq("address.city", addressDoc["city"].AsString),
+                            Builders<BsonDocument>.Filter.Eq("address.province", addressDoc["province"].AsString)
                         );
                     }
-
                     var existingNameDocument = await _placeCollection.Find(nameFilter).FirstOrDefaultAsync();
                     if (existingNameDocument != null)
                     {
@@ -207,7 +233,6 @@
                         Builders<BsonDocument>.Filter.Eq("web", updatedDocument["web"].AsString),
                         Builders<BsonDocument>.Filter.Ne("_id", objectId)
                     );
-
                     var existingWebDocument = await _placeCollection.Find(webFilter).FirstOrDefaultAsync();
                     if (existingWebDocument != null)
                     {
@@ -219,18 +244,37 @@
                 {
                     updatedDocument.Add("updatedAt", DateTime.UtcNow);
                 }
+                else
+                {
+                    updatedDocument["updatedAt"] = DateTime.UtcNow;
+                }
 
                 var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
-                await _placeCollection.ReplaceOneAsync(filter, updatedDocument);
+                var result = await _placeCollection.ReplaceOneAsync(filter, updatedDocument);
 
+                if (result.MatchedCount == 0)
+                {
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "Document with the specified ID was not found." }));
+                }
+
+                // Создаем результат с оригинальным документом и флагами успеха
                 var updatedJsonString = updatedDocument.ToJson();
-                return JsonDocument.Parse(updatedJsonString);
+                var responseObj = new
+                {
+                    success = true,
+                    message = "Document successfully updated.",
+                    document = JsonDocument.Parse(updatedJsonString).RootElement
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(responseObj));
             }
             catch (Exception ex)
             {
                 return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, error = ex.Message }));
             }
         }
+
+
 
         public async Task<JsonDocument> DeleteAsync(string id)
         {
