@@ -493,8 +493,3 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
-
-/Guider.API.MVP/appsettings.Development.json
-/Guider.API.MVP/gitignore
-/Guider.API.MVP/gitattributes
-/Guider.API.MVP/wwwroot/images/negros/dumaguete
