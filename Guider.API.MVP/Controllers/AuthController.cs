@@ -55,63 +55,154 @@ namespace Guider.API.MVP.Controllers
         /// - 401 Unauthorized: Authentication failed.
         /// - 500 Internal Server Error: An error occurred during processing.
         /// </returns>
-        [HttpPost("login")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<ApiResponse>> Login([FromBody] LoginRequestDTO model)
-        {
-            ApplicationUser userFromDb = _db.ApplicationUsers
-                .FirstOrDefault(u => u.UserName.ToLower() == model.UserName.ToLower());
+        //[HttpPost("login")]
+        //[ProducesResponseType(StatusCodes.Status200OK)]
+        //[ProducesResponseType(StatusCodes.Status400BadRequest)]
+        //[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        //[ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        //public async Task<ActionResult<ApiResponse>> Login([FromBody] LoginRequestDTO model)
+        //{
+        //    ApplicationUser userFromDb = _db.ApplicationUsers
+        //        .FirstOrDefault(u => u.UserName.ToLower() == model.UserName.ToLower());
 
-            if (userFromDb == null || !await _userManager.CheckPasswordAsync(userFromDb, model.Password))
+        //    if (userFromDb == null || !await _userManager.CheckPasswordAsync(userFromDb, model.Password))
+        //    {
+        //        _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status401Unauthorized;
+        //        _response.IsSuccess = false;
+        //        _response.ErrorMessages = new List<string> { "Username or password is incorrect!" };
+        //        return BadRequest(_response);
+        //    }
+
+        //    var userRoles = await _userManager.GetRolesAsync(userFromDb);
+        //    var userRole = userRoles.FirstOrDefault() ?? "User";
+
+        //    var tokenHandler = new JwtSecurityTokenHandler();
+        //    var key = Encoding.ASCII.GetBytes(secretKey);
+        //    var tokenDescriptor = new SecurityTokenDescriptor
+        //    {
+        //        Subject = new System.Security.Claims.ClaimsIdentity(new[]
+        //        {
+        //            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userFromDb.Id.ToString()),
+        //            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, userFromDb.UserName),
+        //            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, userFromDb.Email),
+        //            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, userRole)
+        //        }),
+        //        Expires = DateTime.UtcNow.AddDays(7),
+        //        SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
+        //    };
+
+        //    var token = tokenHandler.CreateToken(tokenDescriptor);
+        //    var tokenString = tokenHandler.WriteToken(token);
+
+        //    LoginResponseDTO loginResponse = new()
+        //    {
+        //        UserId = userFromDb.Id,
+        //        UserName = userFromDb.UserName,
+        //        Email = userFromDb.Email,
+        //        Token = tokenString
+        //    };
+
+        //    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status200OK;
+        //    _response.IsSuccess = true;
+        //    _response.Result = loginResponse;
+        //    return Ok(_response);
+
+        //}
+
+
+
+        /// <summary>
+        /// 
+        /// Authenticates a user based on the provided credentials and generates a JWT token.
+        /// 
+        /// </summary>
+        /// 
+        /// <param name="model">The login request containing the following fields:
+        /// 
+        /// - UserName: The username of the user.
+        /// 
+        /// - Password: The password of the user.
+        /// 
+        /// </param>
+        [HttpPost("login")]
+        public async Task<ActionResult> Login([FromBody] LoginRequestDTO model)
+        {
+            // React Admin по умолчанию отправляет username и password
+            // Проверяем, не пришли ли данные в формате React Admin
+            string userName = model.username;
+            string password = model.password;
+
+            // Если в модели нет UserName, но есть Email или Username (как в React Admin)
+            if (string.IsNullOrEmpty(userName))
             {
-                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status401Unauthorized;
-                _response.IsSuccess = false;
-                _response.ErrorMessages = new List<string> { "Username or password is incorrect!" };
-                return BadRequest(_response);
+                // React Admin может отправить email в качестве username
+                if (!string.IsNullOrEmpty(model.Email))
+                {
+                    userName = model.Email;
+                }
+                // Или может использовать поле username в нижнем регистре
+                else if (model.GetType().GetProperty("username") != null)
+                {
+                    userName = (string)model.GetType().GetProperty("username").GetValue(model, null);
+                }
             }
 
-            var userRoles = await _userManager.GetRolesAsync(userFromDb);
-            var userRole = userRoles.FirstOrDefault() ?? "User";
+            // Если в модели нет Password, но есть password (в нижнем регистре, как в React Admin)
+            //if (string.IsNullOrEmpty(password) && model.GetType().GetProperty("password") != null)
+            //{
+            //    password = (string)model.GetType().GetProperty("password").GetValue(model, null);
+            //}
 
+            // Поиск пользователя (проверяем и по имени пользователя, и по email)
+            ApplicationUser userFromDb = _db.ApplicationUsers
+                .FirstOrDefault(u =>
+                    u.UserName.ToLower() == userName.ToLower() ||
+                    u.Email.ToLower() == userName.ToLower());
+
+            // Если пользователь не найден или пароль неверный
+            if (userFromDb == null || !await _userManager.CheckPasswordAsync(userFromDb, password))
+            {
+                return Unauthorized(new
+                {
+                    message = "Username or password is incorrect!"
+                });
+            }
+
+            // Получаем роли пользователя
+            var userRoles = await _userManager.GetRolesAsync(userFromDb);
+            var userRole = userRoles.FirstOrDefault() ?? "user";
+
+            // Создаем токен
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(secretKey);
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new System.Security.Claims.ClaimsIdentity(new[]
                 {
-                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userFromDb.Id.ToString()),
-                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, userFromDb.UserName),
-                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, userFromDb.Email),
-                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, userRole)
-                }),
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userFromDb.Id.ToString()),
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, userFromDb.UserName),
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, userFromDb.Email),
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, userRole)
+            }),
                 Expires = DateTime.UtcNow.AddDays(7),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
-
             var token = tokenHandler.CreateToken(tokenDescriptor);
             var tokenString = tokenHandler.WriteToken(token);
 
-            LoginResponseDTO loginResponse = new()
+            // Формируем ответ в формате, подходящем для React Admin
+            // React Admin ожидает прямой ответ без обертки
+            return Ok(new
             {
-                UserId = userFromDb.Id,
-                UserName = userFromDb.UserName,
-                Email = userFromDb.Email,
-                Token = tokenString
-            };
-
-            _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status200OK;
-            _response.IsSuccess = true;
-            _response.Result = loginResponse;
-            return Ok(_response);
-            
+                token = tokenString,
+                id = userFromDb.Id,
+                username = userFromDb.UserName,
+                email = userFromDb.Email,
+                role = userRole.ToLower() // Роль в нижнем регистре для единообразия
+            });
         }
 
 
-
-        
         ///<sumary>
         /// Registers a new user in the system.
         /// </summary>
