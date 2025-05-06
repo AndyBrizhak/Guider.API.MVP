@@ -220,42 +220,148 @@ namespace Guider.API.MVP.Controllers
         /// <remarks>
         /// The email must be a valid email address, and the password must be at least 6 characters long.
         /// </remarks>
+        //[HttpPost("register")]
+        //[ProducesResponseType(StatusCodes.Status201Created, Type = typeof(ApiResponse))]
+        //[ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ApiResponse))]
+        //[ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ApiResponse))]
+        //public async Task<ActionResult<ApiResponse>> Register([FromBody] RegisterRequestDTO model)
+        //{
+        //    if (string.IsNullOrEmpty(model.Email) || !new EmailAddressAttribute().IsValid(model.Email))
+        //    {
+        //        _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
+        //        _response.IsSuccess = false;
+        //        _response.ErrorMessages = new List<string> { "A valid email address is required!" };
+        //        return BadRequest(_response);
+        //    }
+
+        //    if (model.Password.Length < 6)
+        //    {
+        //        _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
+        //        _response.IsSuccess = false;
+        //        _response.ErrorMessages = new List<string> { "Password must be at least 6 characters long!" };
+        //        return BadRequest(_response);
+        //    }
+
+        //    if (_db.ApplicationUsers.Any(u => u.UserName.ToLower() == model.UserName.ToLower()))
+        //    {
+        //        _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
+        //        _response.IsSuccess = false;
+        //        _response.ErrorMessages = new List<string> { "User already exists!" };
+        //        return BadRequest(_response);
+        //    }
+
+        //    ApplicationUser newUser = new()
+        //    {
+        //        UserName = model.UserName,
+        //        Email = model.Email,
+        //        NormalizedUserName = model.UserName.ToUpper(),
+        //        NormalizedEmail = model.Email.ToUpper(),
+        //        EmailConfirmed = false,
+        //        PhoneNumberConfirmed = false,
+        //        TwoFactorEnabled = false,
+        //        LockoutEnabled = true,
+        //        SecurityStamp = Guid.NewGuid().ToString()
+        //    };
+
+        //    try
+        //    {
+        //        var result = await _userManager.CreateAsync(newUser, model.Password);
+        //        if (result.Succeeded)
+        //        {
+        //            if (!_roleManager.RoleExistsAsync(SD.Role_Super_Admin).GetAwaiter().GetResult())
+        //            {
+        //                await _roleManager.CreateAsync(new IdentityRole(SD.Role_Super_Admin));
+        //                await _roleManager.CreateAsync(new IdentityRole(SD.Role_Admin));
+        //                await _roleManager.CreateAsync(new IdentityRole(SD.Role_Manager));
+        //                await _roleManager.CreateAsync(new IdentityRole(SD.Role_User));
+        //            }
+
+        //            await _userManager.AddToRoleAsync(newUser, SD.Role_User);
+
+        //            _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status201Created;
+        //            _response.IsSuccess = true;
+        //            //_response.Result = newUser;
+        //            return CreatedAtAction(nameof(Register), new { id = newUser.Id }, _response);
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status500InternalServerError;
+        //        _response.IsSuccess = false;
+        //        _response.ErrorMessages = new List<string> { ex.Message };
+        //        return StatusCode(StatusCodes.Status500InternalServerError, _response);
+        //    }
+
+        //    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
+        //    _response.IsSuccess = false;
+        //    _response.ErrorMessages.Add("Error while registration");
+        //    return BadRequest(_response);
+        //}
+
+
         [HttpPost("register")]
-        [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(ApiResponse))]
-        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ApiResponse))]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ApiResponse))]
-        public async Task<ActionResult<ApiResponse>> Register([FromBody] RegisterRequestDTO model)
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult> Register([FromBody] RegisterRequestDTO model)
         {
-            if (string.IsNullOrEmpty(model.Email) || !new EmailAddressAttribute().IsValid(model.Email))
+            // Обработка данных в формате React Admin
+            string userName = model.username;
+            string email = model.email;
+            string password = model.password;
+            //string role = model.role;
+            string role = SD.Role_User;
+
+            // Если оригинальные поля пустые, используем поля в формате React Admin
+            //if (string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(model.username))
+            //{
+            //    userName = model.username;
+            //}
+
+            //if (string.IsNullOrEmpty(email) && !string.IsNullOrEmpty(model.email))
+            //{
+            //    email = model.email;
+            //}
+
+            //if (string.IsNullOrEmpty(password) && !string.IsNullOrEmpty(model.password))
+            //{
+            //    password = model.password;
+            //}
+
+            //if (string.IsNullOrEmpty(role) && !string.IsNullOrEmpty(model.role))
+            //{
+            //    role = model.role;
+            //}
+
+            // Если роль не указана, устанавливаем значение по умолчанию
+            //if (string.IsNullOrEmpty(role))
+            //{
+            //    role = SD.Role_User;
+            //}
+
+            // Валидация данных
+            if (string.IsNullOrEmpty(email) || !new EmailAddressAttribute().IsValid(email))
             {
-                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
-                _response.IsSuccess = false;
-                _response.ErrorMessages = new List<string> { "A valid email address is required!" };
-                return BadRequest(_response);
+                return BadRequest(new { message = "A valid email address is required!" });
             }
 
-            if (model.Password.Length < 6)
+            if (password.Length < 6)
             {
-                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
-                _response.IsSuccess = false;
-                _response.ErrorMessages = new List<string> { "Password must be at least 6 characters long!" };
-                return BadRequest(_response);
+                return BadRequest(new { message = "Password must be at least 6 characters long!" });
             }
 
-            if (_db.ApplicationUsers.Any(u => u.UserName.ToLower() == model.UserName.ToLower()))
+            if (_db.ApplicationUsers.Any(u => u.UserName.ToLower() == userName.ToLower()))
             {
-                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
-                _response.IsSuccess = false;
-                _response.ErrorMessages = new List<string> { "User already exists!" };
-                return BadRequest(_response);
+                return BadRequest(new { message = "User already exists!" });
             }
 
+            // Создание пользователя
             ApplicationUser newUser = new()
             {
-                UserName = model.UserName,
-                Email = model.Email,
-                NormalizedUserName = model.UserName.ToUpper(),
-                NormalizedEmail = model.Email.ToUpper(),
+                UserName = userName,
+                Email = email,
+                NormalizedUserName = userName.ToUpper(),
+                NormalizedEmail = email.ToUpper(),
                 EmailConfirmed = false,
                 PhoneNumberConfirmed = false,
                 TwoFactorEnabled = false,
@@ -265,9 +371,10 @@ namespace Guider.API.MVP.Controllers
 
             try
             {
-                var result = await _userManager.CreateAsync(newUser, model.Password);
+                var result = await _userManager.CreateAsync(newUser, password);
                 if (result.Succeeded)
                 {
+                    // Создаем роли, если они не существуют
                     if (!_roleManager.RoleExistsAsync(SD.Role_Super_Admin).GetAwaiter().GetResult())
                     {
                         await _roleManager.CreateAsync(new IdentityRole(SD.Role_Super_Admin));
@@ -276,27 +383,44 @@ namespace Guider.API.MVP.Controllers
                         await _roleManager.CreateAsync(new IdentityRole(SD.Role_User));
                     }
 
-                    await _userManager.AddToRoleAsync(newUser, SD.Role_User);
+                    // Проверяем, существует ли указанная роль
+                    if (_roleManager.RoleExistsAsync(role).GetAwaiter().GetResult())
+                    {
+                        await _userManager.AddToRoleAsync(newUser, role);
+                    }
+                    else
+                    {
+                        // Если указанная роль не существует, назначаем роль по умолчанию
+                        await _userManager.AddToRoleAsync(newUser, SD.Role_User);
+                    }
 
-                    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status201Created;
-                    _response.IsSuccess = true;
-                    //_response.Result = newUser;
-                    return CreatedAtAction(nameof(Register), new { id = newUser.Id }, _response);
+                    // Получаем роль пользователя для ответа
+                    var userRoles = await _userManager.GetRolesAsync(newUser);
+                    var userRole = userRoles.FirstOrDefault() ?? SD.Role_User;
+
+                    // Формируем ответ в формате, совместимом с React Admin
+                    return Created("", new
+                    {
+                        id = newUser.Id,
+                        username = newUser.UserName,
+                        email = newUser.Email,
+                        role = userRole.ToLower()
+                    });
+                }
+                else
+                {
+                    // Обработка ошибок валидации
+                    var errors = result.Errors.Select(e => e.Description);
+                    return BadRequest(new { message = string.Join(", ", errors) });
                 }
             }
             catch (Exception ex)
             {
-                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status500InternalServerError;
-                _response.IsSuccess = false;
-                _response.ErrorMessages = new List<string> { ex.Message };
-                return StatusCode(StatusCodes.Status500InternalServerError, _response);
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
             }
-
-            _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
-            _response.IsSuccess = false;
-            _response.ErrorMessages.Add("Error while registration");
-            return BadRequest(_response);
         }
+
+
 
 
         /// <summary>
