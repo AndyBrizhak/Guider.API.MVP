@@ -255,64 +255,27 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-
         /// <summary>
-        /// Retrieves a paginated list of users from the database.
+        /// 
+        /// Retrieves a paginated list of users.
+        /// 
         /// </summary>
-        /// <param name="pageNumber">The page number to retrieve. Defaults to 1.</param>
-        /// <param name="pageSize">The number of users per page. Defaults to 10.</param>
+        /// 
+        /// <param name="pageNumber">The page number to retrieve (default is 1).</param>
+        /// 
+        /// <param name="pageSize">The number of users per page (default is 10).</param>
+        /// 
         /// <returns>
-        /// Returns an ApiResponse containing the paginated list of users. Each user includes:
-        /// - Id: The user's unique identifier.
-        /// - UserName: The user's username.
-        /// - Email: The user's email address.
-        /// - FirstRole: The first role assigned to the user or "No Role Assigned" if none exist.
-        /// Possible status codes:
+        /// 
+        /// Returns a paginated list of users in the format expected by React Admin.
+        /// 
+        /// Possible outcomes:
+        /// 
         /// - 200 OK: Users retrieved successfully.
+        /// 
         /// - 404 Not Found: No users found.
+        /// 
         /// </returns>
-        /// <remarks>
-        /// This method is restricted to users with the "Super Admin" or "Admin" roles.
-        /// </remarks>
-        //[HttpGet("users")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        //[ProducesResponseType(StatusCodes.Status200OK)]
-        //[ProducesResponseType(StatusCodes.Status404NotFound)]
-        //public async Task<ActionResult<ApiResponse>> GetUsersPaged(int pageNumber = 1, int pageSize = 10)
-        //{
-        //    var users = _db.ApplicationUsers
-        //        .Skip((pageNumber - 1) * pageSize)
-        //        .Take(pageSize)
-        //        .ToList();
-
-        //    if (!users.Any())
-        //    {
-        //        _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status404NotFound;
-        //        _response.IsSuccess = false;
-        //        _response.ErrorMessages = new List<string> { "No users found!" };
-        //        return NotFound(_response);
-        //    }
-
-        //    var userList = new List<object>();
-        //    foreach (var user in users)
-        //    {
-        //        var roles = await _userManager.GetRolesAsync(user);
-        //        var firstRole = roles.FirstOrDefault() ?? "No Role Assigned";
-        //        userList.Add(new
-        //        {
-        //            user.Id,
-        //            user.UserName,
-        //            user.Email,
-        //            FirstRole = firstRole
-        //        });
-        //    }
-
-        //    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status200OK;
-        //    _response.IsSuccess = true;
-        //    _response.Result = userList;
-        //    return Ok(_response);
-        //}
-
         [HttpGet("users")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> GetUsersPaged(int pageNumber = 1, int pageSize = 10)
@@ -345,47 +308,47 @@ namespace Guider.API.MVP.Controllers
             return Ok(userList);
         }
 
-
+          
         /// <summary>
+        /// 
         /// Retrieves a user by their unique identifier.
+        /// 
         /// </summary>
+        /// 
         /// <param name="id">The unique identifier of the user.</param>
+        /// 
         /// <returns>
-        /// Returns an ApiResponse containing the user's details if found. Possible outcomes:
+        /// 
+        /// Returns the user's details in the format expected by React Admin.
+        /// 
+        /// Possible outcomes:
+        /// 
         /// - 200 OK: User found and details retrieved successfully.
+        /// 
         /// - 404 Not Found: User with the specified ID does not exist.
+        /// 
         /// </returns>
-        /// <remarks>
-        /// This method is restricted to users with the "Super Admin" or "Admin" roles.
-        /// </remarks>
         [HttpGet("user/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<ApiResponse>> GetUserById(string id)
+        public async Task<ActionResult> GetUserById(string id)
         {
             var user = await _userManager.FindByIdAsync(id);
             if (user == null)
             {
-                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status404NotFound;
-                _response.IsSuccess = false;
-                _response.ErrorMessages = new List<string> { "User not found!" };
-                return NotFound(_response);
+                return NotFound(new { message = "User not found!" });
             }
 
             var roles = await _userManager.GetRolesAsync(user);
             var userDetails = new
             {
-                user.Id,
-                user.UserName,
-                user.Email,
-                Roles = roles
+                id = user.Id,
+                username = user.UserName,
+                email = user.Email,
+                role = roles.FirstOrDefault()?.ToLower() ?? "user"
             };
 
-            _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status200OK;
-            _response.IsSuccess = true;
-            _response.Result = userDetails;
-            return Ok(_response);
+            // Return data in format expected by React Admin
+            return Ok(userDetails);
         }
 
 
