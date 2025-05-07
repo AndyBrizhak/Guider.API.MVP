@@ -53,8 +53,7 @@ namespace Guider.API.MVP.Controllers
         [HttpPost("login")]
         public async Task<ActionResult> Login([FromBody] LoginRequestDTO model)
         {
-            // React Admin по умолчанию отправляет username и password
-            // Проверяем, не пришли ли данные в формате React Admin
+            
             string userName = model.username;
             string password = model.password;
 
@@ -73,12 +72,7 @@ namespace Guider.API.MVP.Controllers
                 }
             }
 
-            // Если в модели нет Password, но есть password (в нижнем регистре, как в React Admin)
-            //if (string.IsNullOrEmpty(password) && model.GetType().GetProperty("password") != null)
-            //{
-            //    password = (string)model.GetType().GetProperty("password").GetValue(model, null);
-            //}
-
+            
             // Поиск пользователя (проверяем и по имени пользователя, и по email)
             ApplicationUser userFromDb = _db.ApplicationUsers
                 .FirstOrDefault(u =>
@@ -147,32 +141,7 @@ namespace Guider.API.MVP.Controllers
             //string role = model.role;
             string role = SD.Role_User;
 
-            // Если оригинальные поля пустые, используем поля в формате React Admin
-            //if (string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(model.username))
-            //{
-            //    userName = model.username;
-            //}
-
-            //if (string.IsNullOrEmpty(email) && !string.IsNullOrEmpty(model.email))
-            //{
-            //    email = model.email;
-            //}
-
-            //if (string.IsNullOrEmpty(password) && !string.IsNullOrEmpty(model.password))
-            //{
-            //    password = model.password;
-            //}
-
-            //if (string.IsNullOrEmpty(role) && !string.IsNullOrEmpty(model.role))
-            //{
-            //    role = model.role;
-            //}
-
-            // Если роль не указана, устанавливаем значение по умолчанию
-            //if (string.IsNullOrEmpty(role))
-            //{
-            //    role = SD.Role_User;
-            //}
+            
 
             // Валидация данных
             if (string.IsNullOrEmpty(email) || !new EmailAddressAttribute().IsValid(email))
@@ -503,6 +472,31 @@ namespace Guider.API.MVP.Controllers
             {
                 return NotFound(new { message = "User not found!" });
             }
+
+            // Get the roles of the current user (the one making the request)
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden,
+                new { message = "You do not have permission to delete this user!" });
+            }
+
+            var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
+            // Check if the current user is a Super Admin
+            bool isSuperAdmin = currentUserRoles.Contains(SD.Role_Super_Admin);
+
+            if (!isSuperAdmin)
+            {
+                // If not a Super Admin, ensure the target user has a role of "user" or "manager" only
+                var targetUserRoles = await _userManager.GetRolesAsync(userToDelete);
+                if (targetUserRoles.Any(r => r.Equals(SD.Role_Super_Admin, StringComparison.OrdinalIgnoreCase) ||
+                                             r.Equals(SD.Role_Admin, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                    new { message = "Only Super Admins can delete users with Admin or Super Admin roles!" });
+                }
+            }
+
 
             var result = await _userManager.DeleteAsync(userToDelete);
             if (!result.Succeeded)
