@@ -381,6 +381,8 @@ namespace Guider.API.MVP.Controllers
         /// 
         /// - 404 Not Found: User with the specified ID does not exist.
         /// 
+        /// - 403 Forbidden: Current user does not have permission to update the target user.
+        /// 
         /// - 500 Internal Server Error: An error occurred during the update process.
         /// 
         /// </returns>
@@ -390,9 +392,9 @@ namespace Guider.API.MVP.Controllers
         public async Task<ActionResult> UpdateUser(string id, [FromBody] UpdateUserDTO model)
         {
             // Get the UserName and Email from the React Admin format fields
-            string userName =  model.username;
-            string email =  model.email;
-            string role =  model.role;
+            string userName = model.username;
+            string email = model.email;
+            string role = model.role;
 
             if (string.IsNullOrEmpty(userName) && string.IsNullOrEmpty(email) && string.IsNullOrEmpty(role))
             {
@@ -403,6 +405,39 @@ namespace Guider.API.MVP.Controllers
             if (userToUpdate == null)
             {
                 return NotFound(new { message = "User not found!" });
+            }
+
+            // Get the roles of the current user (the one making the request)
+            var currentUser = await _userManager.GetUserAsync(User);
+            if (currentUser == null)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden,
+                new { message = "You do not have permission to update this user's details!" });
+            }
+
+            var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
+
+            // Check if the current user is a Super Admin
+            bool isSuperAdmin = currentUserRoles.Contains(SD.Role_Super_Admin);
+
+            if (!isSuperAdmin)
+            {
+                // If not a Super Admin, ensure the target user has a role of "user" or "manager"
+                var targetUserRoles = await _userManager.GetRolesAsync(userToUpdate);
+                if (targetUserRoles.Any(r => r.Equals(SD.Role_Super_Admin, StringComparison.OrdinalIgnoreCase) ||
+                                             r.Equals(SD.Role_Admin, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                    new { message = "You do not have permission to update this user's details!" });
+                }
+
+                if (!string.IsNullOrEmpty(role) &&
+                (role.Equals(SD.Role_Super_Admin, StringComparison.OrdinalIgnoreCase) ||
+                 role.Equals(SD.Role_Admin, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                    new { message = "Only Super Admins can assign Admin or Super Admin roles!" });
+                }
             }
 
             if (!string.IsNullOrEmpty(userName))
