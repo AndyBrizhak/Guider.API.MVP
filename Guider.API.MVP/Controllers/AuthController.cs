@@ -36,81 +36,7 @@ namespace Guider.API.MVP.Controllers
             _userManager = userManager;
         }
 
-        /// <summary>
-        /// Authenticates a user based on the provided credentials and generates a JWT token.
-        /// </summary>
-        /// <param name="model">The login request containing the following fields:
-        /// - UserName: The username of the user.
-        /// - Password: The password of the user.
-        /// </param>
-        /// <returns>
-        /// Returns an ApiResponse containing the login result. If successful, the response includes:
-        /// - UserId: The unique identifier of the user.
-        /// - UserName: The username of the user.
-        /// - Email: The email address of the user.
-        /// - Token: The generated JWT access token.
-        /// Possible status codes:
-        /// - 200 OK: Login successful.
-        /// - 400 Bad Request: Invalid request or incorrect username/password.
-        /// - 401 Unauthorized: Authentication failed.
-        /// - 500 Internal Server Error: An error occurred during processing.
-        /// </returns>
-        //[HttpPost("login")]
-        //[ProducesResponseType(StatusCodes.Status200OK)]
-        //[ProducesResponseType(StatusCodes.Status400BadRequest)]
-        //[ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        //[ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        //public async Task<ActionResult<ApiResponse>> Login([FromBody] LoginRequestDTO model)
-        //{
-        //    ApplicationUser userFromDb = _db.ApplicationUsers
-        //        .FirstOrDefault(u => u.UserName.ToLower() == model.UserName.ToLower());
-
-        //    if (userFromDb == null || !await _userManager.CheckPasswordAsync(userFromDb, model.Password))
-        //    {
-        //        _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status401Unauthorized;
-        //        _response.IsSuccess = false;
-        //        _response.ErrorMessages = new List<string> { "Username or password is incorrect!" };
-        //        return BadRequest(_response);
-        //    }
-
-        //    var userRoles = await _userManager.GetRolesAsync(userFromDb);
-        //    var userRole = userRoles.FirstOrDefault() ?? "User";
-
-        //    var tokenHandler = new JwtSecurityTokenHandler();
-        //    var key = Encoding.ASCII.GetBytes(secretKey);
-        //    var tokenDescriptor = new SecurityTokenDescriptor
-        //    {
-        //        Subject = new System.Security.Claims.ClaimsIdentity(new[]
-        //        {
-        //            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userFromDb.Id.ToString()),
-        //            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, userFromDb.UserName),
-        //            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, userFromDb.Email),
-        //            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, userRole)
-        //        }),
-        //        Expires = DateTime.UtcNow.AddDays(7),
-        //        SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-        //    };
-
-        //    var token = tokenHandler.CreateToken(tokenDescriptor);
-        //    var tokenString = tokenHandler.WriteToken(token);
-
-        //    LoginResponseDTO loginResponse = new()
-        //    {
-        //        UserId = userFromDb.Id,
-        //        UserName = userFromDb.UserName,
-        //        Email = userFromDb.Email,
-        //        Token = tokenString
-        //    };
-
-        //    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status200OK;
-        //    _response.IsSuccess = true;
-        //    _response.Result = loginResponse;
-        //    return Ok(_response);
-
-        //}
-
-
-
+       
         /// <summary>
         /// 
         /// Authenticates a user based on the provided credentials and generates a JWT token.
@@ -203,102 +129,11 @@ namespace Guider.API.MVP.Controllers
         }
 
 
-        ///<sumary>
-        /// Registers a new user in the system.
+        /// <summary>
+        /// 
         /// </summary>
-        /// <param name="model">The registration request containing the following fields:
-        /// - UserName: The username of the user (required).
-        /// - Email: The email address of the user (required, must be valid).
-        /// - Password: The password of the user (required, must be at least 6 characters long).
-        /// </param>
-        /// <returns>
-        /// Returns an ApiResponse indicating the result of the registration process. Possible outcomes:
-        /// - 201 Created: User registered successfully.
-        /// - 400 Bad Request: Validation errors such as invalid email, short password, or username already exists.
-        /// - 500 Internal Server Error: An error occurred during the registration process.
-        /// </returns>
-        /// <remarks>
-        /// The email must be a valid email address, and the password must be at least 6 characters long.
-        /// </remarks>
-        //[HttpPost("register")]
-        //[ProducesResponseType(StatusCodes.Status201Created, Type = typeof(ApiResponse))]
-        //[ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ApiResponse))]
-        //[ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ApiResponse))]
-        //public async Task<ActionResult<ApiResponse>> Register([FromBody] RegisterRequestDTO model)
-        //{
-        //    if (string.IsNullOrEmpty(model.Email) || !new EmailAddressAttribute().IsValid(model.Email))
-        //    {
-        //        _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
-        //        _response.IsSuccess = false;
-        //        _response.ErrorMessages = new List<string> { "A valid email address is required!" };
-        //        return BadRequest(_response);
-        //    }
-
-        //    if (model.Password.Length < 6)
-        //    {
-        //        _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
-        //        _response.IsSuccess = false;
-        //        _response.ErrorMessages = new List<string> { "Password must be at least 6 characters long!" };
-        //        return BadRequest(_response);
-        //    }
-
-        //    if (_db.ApplicationUsers.Any(u => u.UserName.ToLower() == model.UserName.ToLower()))
-        //    {
-        //        _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
-        //        _response.IsSuccess = false;
-        //        _response.ErrorMessages = new List<string> { "User already exists!" };
-        //        return BadRequest(_response);
-        //    }
-
-        //    ApplicationUser newUser = new()
-        //    {
-        //        UserName = model.UserName,
-        //        Email = model.Email,
-        //        NormalizedUserName = model.UserName.ToUpper(),
-        //        NormalizedEmail = model.Email.ToUpper(),
-        //        EmailConfirmed = false,
-        //        PhoneNumberConfirmed = false,
-        //        TwoFactorEnabled = false,
-        //        LockoutEnabled = true,
-        //        SecurityStamp = Guid.NewGuid().ToString()
-        //    };
-
-        //    try
-        //    {
-        //        var result = await _userManager.CreateAsync(newUser, model.Password);
-        //        if (result.Succeeded)
-        //        {
-        //            if (!_roleManager.RoleExistsAsync(SD.Role_Super_Admin).GetAwaiter().GetResult())
-        //            {
-        //                await _roleManager.CreateAsync(new IdentityRole(SD.Role_Super_Admin));
-        //                await _roleManager.CreateAsync(new IdentityRole(SD.Role_Admin));
-        //                await _roleManager.CreateAsync(new IdentityRole(SD.Role_Manager));
-        //                await _roleManager.CreateAsync(new IdentityRole(SD.Role_User));
-        //            }
-
-        //            await _userManager.AddToRoleAsync(newUser, SD.Role_User);
-
-        //            _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status201Created;
-        //            _response.IsSuccess = true;
-        //            //_response.Result = newUser;
-        //            return CreatedAtAction(nameof(Register), new { id = newUser.Id }, _response);
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status500InternalServerError;
-        //        _response.IsSuccess = false;
-        //        _response.ErrorMessages = new List<string> { ex.Message };
-        //        return StatusCode(StatusCodes.Status500InternalServerError, _response);
-        //    }
-
-        //    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
-        //    _response.IsSuccess = false;
-        //    _response.ErrorMessages.Add("Error while registration");
-        //    return BadRequest(_response);
-        //}
-
-
+        /// <param name="model"></param>
+        /// <returns></returns>
         [HttpPost("register")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
