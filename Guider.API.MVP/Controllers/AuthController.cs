@@ -256,8 +256,6 @@ namespace Guider.API.MVP.Controllers
         }
 
 
-
-
         /// <summary>
         /// Retrieves a paginated list of users from the database.
         /// </summary>
@@ -276,11 +274,48 @@ namespace Guider.API.MVP.Controllers
         /// <remarks>
         /// This method is restricted to users with the "Super Admin" or "Admin" roles.
         /// </remarks>
+        //[HttpGet("users")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        //[ProducesResponseType(StatusCodes.Status200OK)]
+        //[ProducesResponseType(StatusCodes.Status404NotFound)]
+        //public async Task<ActionResult<ApiResponse>> GetUsersPaged(int pageNumber = 1, int pageSize = 10)
+        //{
+        //    var users = _db.ApplicationUsers
+        //        .Skip((pageNumber - 1) * pageSize)
+        //        .Take(pageSize)
+        //        .ToList();
+
+        //    if (!users.Any())
+        //    {
+        //        _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status404NotFound;
+        //        _response.IsSuccess = false;
+        //        _response.ErrorMessages = new List<string> { "No users found!" };
+        //        return NotFound(_response);
+        //    }
+
+        //    var userList = new List<object>();
+        //    foreach (var user in users)
+        //    {
+        //        var roles = await _userManager.GetRolesAsync(user);
+        //        var firstRole = roles.FirstOrDefault() ?? "No Role Assigned";
+        //        userList.Add(new
+        //        {
+        //            user.Id,
+        //            user.UserName,
+        //            user.Email,
+        //            FirstRole = firstRole
+        //        });
+        //    }
+
+        //    _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status200OK;
+        //    _response.IsSuccess = true;
+        //    _response.Result = userList;
+        //    return Ok(_response);
+        //}
+
         [HttpGet("users")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<ApiResponse>> GetUsersPaged(int pageNumber = 1, int pageSize = 10)
+        public async Task<ActionResult> GetUsersPaged(int pageNumber = 1, int pageSize = 10)
         {
             var users = _db.ApplicationUsers
                 .Skip((pageNumber - 1) * pageSize)
@@ -289,10 +324,7 @@ namespace Guider.API.MVP.Controllers
 
             if (!users.Any())
             {
-                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status404NotFound;
-                _response.IsSuccess = false;
-                _response.ErrorMessages = new List<string> { "No users found!" };
-                return NotFound(_response);
+                return NotFound(new { message = "No users found!" });
             }
 
             var userList = new List<object>();
@@ -302,17 +334,15 @@ namespace Guider.API.MVP.Controllers
                 var firstRole = roles.FirstOrDefault() ?? "No Role Assigned";
                 userList.Add(new
                 {
-                    user.Id,
-                    user.UserName,
-                    user.Email,
-                    FirstRole = firstRole
+                    id = user.Id,
+                    username = user.UserName,
+                    email = user.Email,
+                    role = firstRole.ToLower()
                 });
             }
 
-            _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status200OK;
-            _response.IsSuccess = true;
-            _response.Result = userList;
-            return Ok(_response);
+            // Return data in format expected by React Admin
+            return Ok(userList);
         }
 
 
