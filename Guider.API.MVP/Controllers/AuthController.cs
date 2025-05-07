@@ -351,81 +351,92 @@ namespace Guider.API.MVP.Controllers
             return Ok(userDetails);
         }
 
-
         /// <summary>
-        /// Updates a user's details, including their username, email, or role.
+        /// 
+        /// Updates a user's details based on the provided unique identifier and update model.
+        /// 
         /// </summary>
+        /// 
         /// <param name="id">The unique identifier of the user to update.</param>
-        /// <param name="model">The update request containing the new username, email, or role.</param>
+        /// 
+        /// <param name="model">The update model containing the following fields:
+        /// 
+        /// - UserName: The new username of the user (optional).
+        /// 
+        /// - Email: The new email of the user (optional).
+        /// 
+        /// - Role: The new role of the user (optional).
+        /// 
+        /// </param>
+        /// 
         /// <returns>
-        /// Returns an ApiResponse indicating the result of the update operation. Possible outcomes:
+        /// 
+        /// Returns the updated user's details in the format expected by React Admin.
+        /// 
+        /// Possible outcomes:
+        /// 
         /// - 200 OK: User updated successfully.
-        /// - 400 Bad Request: No fields provided for update or validation errors.
+        /// 
+        /// - 400 Bad Request: At least one field (UserName, Email, or Role) must be provided for update.
+        /// 
         /// - 404 Not Found: User with the specified ID does not exist.
+        /// 
         /// - 500 Internal Server Error: An error occurred during the update process.
+        /// 
         /// </returns>
-        /// <remarks>
-        /// This method is restricted to users with the "Super Admin" or "Admin" roles.
-        /// </remarks>
+        /// 
         [HttpPut("user/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<ApiResponse>> UpdateUser(string id, [FromBody] UpdateUserDTO model)
+        public async Task<ActionResult> UpdateUser(string id, [FromBody] UpdateUserDTO model)
         {
-            if (string.IsNullOrEmpty(model.UserName) && string.IsNullOrEmpty(model.Email) && string.IsNullOrEmpty(model.Role))
+            // Get the UserName and Email from the React Admin format fields
+            string userName =  model.username;
+            string email =  model.email;
+            string role =  model.role;
+
+            if (string.IsNullOrEmpty(userName) && string.IsNullOrEmpty(email) && string.IsNullOrEmpty(role))
             {
-                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status400BadRequest;
-                _response.IsSuccess = false;
-                _response.ErrorMessages = new List<string> { "At least one field (UserName, Email, or Role) must be provided for update!" };
-                return BadRequest(_response);
+                return BadRequest(new { message = "At least one field (UserName, Email, or Role) must be provided for update!" });
             }
 
             var userToUpdate = await _userManager.FindByIdAsync(id);
             if (userToUpdate == null)
             {
-                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status404NotFound;
-                _response.IsSuccess = false;
-                _response.ErrorMessages = new List<string> { "User not found!" };
-                return NotFound(_response);
+                return NotFound(new { message = "User not found!" });
             }
 
-            if (!string.IsNullOrEmpty(model.UserName))
+            if (!string.IsNullOrEmpty(userName))
             {
-                userToUpdate.UserName = model.UserName;
+                userToUpdate.UserName = userName;
             }
 
-            if (!string.IsNullOrEmpty(model.Email))
+            if (!string.IsNullOrEmpty(email))
             {
-                userToUpdate.Email = model.Email;
+                userToUpdate.Email = email;
             }
 
             var updateResult = await _userManager.UpdateAsync(userToUpdate);
             if (!updateResult.Succeeded)
             {
-                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status500InternalServerError;
-                _response.IsSuccess = false;
-                _response.ErrorMessages = updateResult.Errors.Select(e => e.Description).ToList();
-                return StatusCode(StatusCodes.Status500InternalServerError, _response);
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = string.Join(", ", updateResult.Errors.Select(e => e.Description)) });
             }
 
-            if (!string.IsNullOrEmpty(model.Role))
+            if (!string.IsNullOrEmpty(role))
             {
                 var currentRoles = await _userManager.GetRolesAsync(userToUpdate);
                 await _userManager.RemoveFromRolesAsync(userToUpdate, currentRoles);
-                await _userManager.AddToRoleAsync(userToUpdate, model.Role);
+                await _userManager.AddToRoleAsync(userToUpdate, role);
             }
 
-            _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status200OK;
-            _response.IsSuccess = true;
-            _response.Result = new
+            // Return data in format expected by React Admin
+            return Ok(new
             {
-                userToUpdate.Id,
-                userToUpdate.UserName,
-                userToUpdate.Email,
-                NewRole = model.Role ?? "No Role Change"
-            };
-            return Ok(_response);
+                id = userToUpdate.Id,
+                username = userToUpdate.UserName,
+                email = userToUpdate.Email,
+                role = role ?? "user"
+            });
         }
 
 
