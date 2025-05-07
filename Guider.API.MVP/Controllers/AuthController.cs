@@ -439,48 +439,45 @@ namespace Guider.API.MVP.Controllers
             });
         }
 
-
         /// <summary>
-        /// Deletes a user by their unique identifier.
+        /// Deletes a user based on the provided unique identifier.
+        /// 
         /// </summary>
+        /// 
         /// <param name="id">The unique identifier of the user to delete.</param>
+        /// 
         /// <returns>
-        /// Returns an ApiResponse indicating the result of the delete operation. Possible outcomes:
+        /// 
+        /// Returns a success message in the format expected by React Admin.
+        /// 
+        /// Possible outcomes:
+        /// 
         /// - 200 OK: User deleted successfully.
+        /// 
         /// - 404 Not Found: User with the specified ID does not exist.
-        /// - 500 Internal Server Error: An error occurred during the delete process.
+        /// 
+        /// - 500 Internal Server Error: An error occurred during the deletion process.
+        /// 
         /// </returns>
-        /// <remarks>
-        /// This method is restricted to users with the "Super Admin" or "Admin" roles.
-        /// </remarks>
         [HttpDelete("user/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<ApiResponse>> DeleteUser(string id)
+        public async Task<ActionResult> DeleteUser(string id)
         {
             var userToDelete = await _userManager.FindByIdAsync(id);
             if (userToDelete == null)
             {
-                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status404NotFound;
-                _response.IsSuccess = false;
-                _response.ErrorMessages = new List<string> { "User not found!" };
-                return NotFound(_response);
+                return NotFound(new { message = "User not found!" });
             }
 
             var result = await _userManager.DeleteAsync(userToDelete);
             if (!result.Succeeded)
             {
-                _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status500InternalServerError;
-                _response.IsSuccess = false;
-                _response.ErrorMessages = result.Errors.Select(e => e.Description).ToList();
-                return StatusCode(StatusCodes.Status500InternalServerError, _response);
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = string.Join(", ", result.Errors.Select(e => e.Description)) });
             }
 
-            _response.StatusCode = (System.Net.HttpStatusCode)StatusCodes.Status200OK;
-            _response.IsSuccess = true;
-            _response.Result = new { Message = "User deleted successfully!" };
-            return Ok(_response);
+            // Return success message in format expected by React Admin
+            return Ok(new { id = id });
         }
     }
 }
