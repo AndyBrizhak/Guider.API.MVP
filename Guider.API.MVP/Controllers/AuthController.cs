@@ -246,7 +246,7 @@ namespace Guider.API.MVP.Controllers
         /// 
         /// </returns>
         [HttpGet("users")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> GetUsersPaged(int pageNumber = 1, int pageSize = 10)
         {
             var users = _db.ApplicationUsers
@@ -298,7 +298,7 @@ namespace Guider.API.MVP.Controllers
         /// 
         /// </returns>
         [HttpGet("user/{id}")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> GetUserById(string id)
         {
             var user = await _userManager.FindByIdAsync(id);
@@ -357,7 +357,7 @@ namespace Guider.API.MVP.Controllers
         /// </returns>
         /// 
         [HttpPut("user/{id}")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> UpdateUser(string id, [FromBody] UpdateUserDTO model)
         {
             // Get the UserName and Email from the React Admin format fields
@@ -464,7 +464,7 @@ namespace Guider.API.MVP.Controllers
         /// 
         /// </returns>
         [HttpDelete("user/{id}")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> DeleteUser(string id)
         {
             var userToDelete = await _userManager.FindByIdAsync(id);
