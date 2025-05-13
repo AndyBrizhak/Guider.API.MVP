@@ -13,7 +13,7 @@ using System.Text;
 
 namespace Guider.API.MVP.Controllers
 {
-    [Route("api/auth")]
+    [Route("")]
     [ApiController]
     public class AuthController : ControllerBase
     {
