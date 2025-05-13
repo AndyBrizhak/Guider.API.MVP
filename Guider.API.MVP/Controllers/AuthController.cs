@@ -510,12 +510,12 @@ namespace Guider.API.MVP.Controllers
                 });
             }
 
+            // Добавляем заголовок с общим количеством записей
+            Response.Headers.Append("X-Total-Count", totalCount.ToString());
+            Response.Headers.Append("Access-Control-Expose-Headers", "X-Total-Count");
+
             // Возвращаем данные в формате, ожидаемом React Admin
-            return Ok(new
-            {
-                data = userList,
-                total = totalCount
-            });
+            return Ok(userList);
         }
 
 
