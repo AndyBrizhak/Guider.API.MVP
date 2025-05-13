@@ -224,7 +224,7 @@ namespace Guider.API.MVP.Controllers
         //    }
         //}
 
-        [HttpPost("register")]
+        [HttpPost("users")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -561,7 +561,7 @@ namespace Guider.API.MVP.Controllers
         //    return Ok(userDetails);
         //}
 
-        [HttpGet("user/{id}")]
+        [HttpGet("users/{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> GetUserById(string id)
         {
@@ -710,7 +710,7 @@ namespace Guider.API.MVP.Controllers
         //    });
         //}
 
-        [HttpPut("user/{id}")]
+        [HttpPut("users/{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> UpdateUser(string id, [FromBody] UpdateUserRequestDTO model)
         {
@@ -893,7 +893,7 @@ namespace Guider.API.MVP.Controllers
         //    return Ok(new { id = id });
         //}
 
-        [HttpDelete("user/{id}")]
+        [HttpDelete("users/{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> DeleteUser(string id, [FromBody] DeleteUserRequestDTO model = null)
         {
