@@ -128,28 +128,132 @@ namespace Guider.API.MVP.Controllers
         /// </summary>
         /// <param name="model"></param>
         /// <returns></returns>
+        //[HttpPost("register")]
+        //[ProducesResponseType(StatusCodes.Status201Created)]
+        //[ProducesResponseType(StatusCodes.Status400BadRequest)]
+        //[ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        //public async Task<ActionResult> Register([FromBody] RegisterRequestDTO model)
+        //{
+        //    // Обработка данных в формате React Admin
+        //    string userName = model.username;
+        //    string email = model.email;
+        //    string password = model.password;
+        //    //string role = model.role;
+        //    string role = SD.Role_User;
+
+
+
+        //    // Валидация данных
+        //    if (string.IsNullOrEmpty(email) || !new EmailAddressAttribute().IsValid(email))
+        //    {
+        //        return BadRequest(new { message = "A valid email address is required!" });
+        //    }
+
+        //    if (password.Length < 6)
+        //    {
+        //        return BadRequest(new { message = "Password must be at least 6 characters long!" });
+        //    }
+
+        //    if (_db.ApplicationUsers.Any(u => u.UserName.ToLower() == userName.ToLower()))
+        //    {
+        //        return BadRequest(new { message = "User already exists!" });
+        //    }
+
+        //    // Создание пользователя
+        //    ApplicationUser newUser = new()
+        //    {
+        //        UserName = userName,
+        //        Email = email,
+        //        NormalizedUserName = userName.ToUpper(),
+        //        NormalizedEmail = email.ToUpper(),
+        //        EmailConfirmed = false,
+        //        PhoneNumberConfirmed = false,
+        //        TwoFactorEnabled = false,
+        //        LockoutEnabled = true,
+        //        SecurityStamp = Guid.NewGuid().ToString()
+        //    };
+
+        //    try
+        //    {
+        //        var result = await _userManager.CreateAsync(newUser, password);
+        //        if (result.Succeeded)
+        //        {
+        //            // Создаем роли, если они не существуют
+        //            if (!_roleManager.RoleExistsAsync(SD.Role_Super_Admin).GetAwaiter().GetResult())
+        //            {
+        //                await _roleManager.CreateAsync(new IdentityRole(SD.Role_Super_Admin));
+        //                await _roleManager.CreateAsync(new IdentityRole(SD.Role_Admin));
+        //                await _roleManager.CreateAsync(new IdentityRole(SD.Role_Manager));
+        //                await _roleManager.CreateAsync(new IdentityRole(SD.Role_User));
+        //            }
+
+        //            // Проверяем, существует ли указанная роль
+        //            if (_roleManager.RoleExistsAsync(role).GetAwaiter().GetResult())
+        //            {
+        //                await _userManager.AddToRoleAsync(newUser, role);
+        //            }
+        //            else
+        //            {
+        //                // Если указанная роль не существует, назначаем роль по умолчанию
+        //                await _userManager.AddToRoleAsync(newUser, SD.Role_User);
+        //            }
+
+        //            // Получаем роль пользователя для ответа
+        //            var userRoles = await _userManager.GetRolesAsync(newUser);
+        //            var userRole = userRoles.FirstOrDefault() ?? SD.Role_User;
+
+        //            // Формируем ответ в формате, совместимом с React Admin
+        //            return Created("", new
+        //            {
+        //                id = newUser.Id,
+        //                username = newUser.UserName,
+        //                email = newUser.Email,
+        //                role = userRole.ToLower()
+        //            });
+        //        }
+        //        else
+        //        {
+        //            // Обработка ошибок валидации
+        //            var errors = result.Errors.Select(e => e.Description);
+        //            return BadRequest(new { message = string.Join(", ", errors) });
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
+        //    }
+        //}
+
         [HttpPost("register")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult> Register([FromBody] RegisterRequestDTO model)
+        public async Task<ActionResult> Register([FromBody] CreateUserRequestDTO requestModel)
         {
-            // Обработка данных в формате React Admin
-            string userName = model.username;
-            string email = model.email;
-            string password = model.password;
-            //string role = model.role;
-            string role = SD.Role_User;
+            // Проверяем наличие обязательного объекта data
+            if (requestModel?.data == null)
+            {
+                return BadRequest(new { message = "Data object is required!" });
+            }
 
-            
+            // Получаем данные из объекта data
+            string userName = requestModel.data.username;
+            string email = requestModel.data.email;
+            string password = requestModel.data.password;
+            string role = /*!string.IsNullOrEmpty(requestModel.data.role) ? requestModel.data.role :*/ SD.Role_User;
 
             // Валидация данных
+            if (string.IsNullOrEmpty(userName))
+            {
+                return BadRequest(new { message = "Username is required!" });
+            }
+
             if (string.IsNullOrEmpty(email) || !new EmailAddressAttribute().IsValid(email))
             {
                 return BadRequest(new { message = "A valid email address is required!" });
             }
 
-            if (password.Length < 6)
+            if (string.IsNullOrEmpty(password) || password.Length < 6)
             {
                 return BadRequest(new { message = "Password must be at least 6 characters long!" });
             }
@@ -202,13 +306,16 @@ namespace Guider.API.MVP.Controllers
                     var userRoles = await _userManager.GetRolesAsync(newUser);
                     var userRole = userRoles.FirstOrDefault() ?? SD.Role_User;
 
-                    // Формируем ответ в формате, совместимом с React Admin
+                    // Возвращаем ответ в формате, совместимом с React Admin (CreateResult)
                     return Created("", new
                     {
-                        id = newUser.Id,
-                        username = newUser.UserName,
-                        email = newUser.Email,
-                        role = userRole.ToLower()
+                        data = new
+                        {
+                            id = newUser.Id,
+                            username = newUser.UserName,
+                            email = newUser.Email,
+                            role = userRole.ToLower()
+                        }
                     });
                 }
                 else
@@ -222,6 +329,21 @@ namespace Guider.API.MVP.Controllers
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
             }
+        }
+
+        // DTO для запроса на создание пользователя в формате React Admin
+        public class CreateUserRequestDTO
+        {
+            public CreateUserData data { get; set; }
+            public object? meta { get; set; }
+        }
+
+        public class CreateUserData
+        {
+            public string username { get; set; }
+            public string email { get; set; }
+            public string password { get; set; }
+            //public string role { get; set; }
         }
 
         /// <summary>
