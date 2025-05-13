@@ -416,6 +416,29 @@ namespace Guider.API.MVP.Controllers
         /// - 404 Not Found: User with the specified ID does not exist.
         /// 
         /// </returns>
+        //[HttpGet("user/{id}")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        //public async Task<ActionResult> GetUserById(string id)
+        //{
+        //    var user = await _userManager.FindByIdAsync(id);
+        //    if (user == null)
+        //    {
+        //        return NotFound(new { message = "User not found!" });
+        //    }
+
+        //    var roles = await _userManager.GetRolesAsync(user);
+        //    var userDetails = new
+        //    {
+        //        id = user.Id,
+        //        username = user.UserName,
+        //        email = user.Email,
+        //        role = roles.FirstOrDefault()?.ToLower() ?? "user"
+        //    };
+
+        //    // Return data in format expected by React Admin
+        //    return Ok(userDetails);
+        //}
+
         [HttpGet("user/{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> GetUserById(string id)
@@ -435,8 +458,11 @@ namespace Guider.API.MVP.Controllers
                 role = roles.FirstOrDefault()?.ToLower() ?? "user"
             };
 
-            // Return data in format expected by React Admin
-            return Ok(userDetails);
+            // Возвращаем данные в формате, соответствующем GetOneResult
+            return Ok(new
+            {
+                data = userDetails
+            });
         }
 
         /// <summary>
