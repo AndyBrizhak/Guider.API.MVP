@@ -501,18 +501,111 @@ namespace Guider.API.MVP.Controllers
         /// 
         /// </returns>
         /// 
+        //[HttpPut("user/{id}")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        //public async Task<ActionResult> UpdateUser(string id, [FromBody] UpdateUserDTO model)
+        //{
+        //    // Get the UserName and Email from the React Admin format fields
+        //    string userName = model.username;
+        //    string email = model.email;
+        //    string role = model.role;
+
+        //    if (string.IsNullOrEmpty(userName) && string.IsNullOrEmpty(email) && string.IsNullOrEmpty(role))
+        //    {
+        //        return BadRequest(new { message = "At least one field (UserName, Email, or Role) must be provided for update!" });
+        //    }
+
+        //    var userToUpdate = await _userManager.FindByIdAsync(id);
+        //    if (userToUpdate == null)
+        //    {
+        //        return NotFound(new { message = "User not found!" });
+        //    }
+
+        //    // Get the roles of the current user (the one making the request)
+        //    var currentUser = await _userManager.GetUserAsync(User);
+        //    if (currentUser == null)
+        //    {
+        //        return StatusCode(StatusCodes.Status403Forbidden,
+        //        new { message = "You do not have permission to update this user's details!" });
+        //    }
+
+        //    var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
+
+        //    // Check if the current user is a Super Admin
+        //    bool isSuperAdmin = currentUserRoles.Contains(SD.Role_Super_Admin);
+
+        //    if (!isSuperAdmin)
+        //    {
+        //        // If not a Super Admin, ensure the target user has a role of "user" or "manager"
+        //        var targetUserRoles = await _userManager.GetRolesAsync(userToUpdate);
+        //        if (targetUserRoles.Any(r => r.Equals(SD.Role_Super_Admin, StringComparison.OrdinalIgnoreCase) ||
+        //                                     r.Equals(SD.Role_Admin, StringComparison.OrdinalIgnoreCase)))
+        //        {
+        //            return StatusCode(StatusCodes.Status403Forbidden,
+        //            new { message = "You do not have permission to update this user's details!" });
+        //        }
+
+        //        if (!string.IsNullOrEmpty(role) &&
+        //        (role.Equals(SD.Role_Super_Admin, StringComparison.OrdinalIgnoreCase) ||
+        //         role.Equals(SD.Role_Admin, StringComparison.OrdinalIgnoreCase)))
+        //        {
+        //            return StatusCode(StatusCodes.Status403Forbidden,
+        //            new { message = "Only Super Admins can assign Admin or Super Admin roles!" });
+        //        }
+        //    }
+
+        //    if (!string.IsNullOrEmpty(userName))
+        //    {
+        //        userToUpdate.UserName = userName;
+        //    }
+
+        //    if (!string.IsNullOrEmpty(email))
+        //    {
+        //        userToUpdate.Email = email;
+        //    }
+
+        //    var updateResult = await _userManager.UpdateAsync(userToUpdate);
+        //    if (!updateResult.Succeeded)
+        //    {
+        //        return StatusCode(StatusCodes.Status500InternalServerError,
+        //            new { message = string.Join(", ", updateResult.Errors.Select(e => e.Description)) });
+        //    }
+
+        //    if (!string.IsNullOrEmpty(role))
+        //    {
+        //        var currentRoles = await _userManager.GetRolesAsync(userToUpdate);
+        //        await _userManager.RemoveFromRolesAsync(userToUpdate, currentRoles);
+        //        await _userManager.AddToRoleAsync(userToUpdate, role);
+        //    }
+
+        //    // Return data in format expected by React Admin
+        //    return Ok(new
+        //    {
+        //        id = userToUpdate.Id,
+        //        username = userToUpdate.UserName,
+        //        email = userToUpdate.Email,
+        //        role = role ?? "user"
+        //    });
+        //}
+
         [HttpPut("user/{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        public async Task<ActionResult> UpdateUser(string id, [FromBody] UpdateUserDTO model)
+        public async Task<ActionResult> UpdateUser(string id, [FromBody] UpdateUserRequestDTO model)
         {
-            // Get the UserName and Email from the React Admin format fields
-            string userName = model.username;
-            string email = model.email;
-            string role = model.role;
+            // Проверка входных данных
+            if (model?.data == null)
+            {
+                return BadRequest(new { message = "Update data is required!" });
+            }
+
+            // Получаем данные из объекта data
+            string userName = model.data.username;
+            string email = model.data.email;
+            string role = model.data.role;
 
             if (string.IsNullOrEmpty(userName) && string.IsNullOrEmpty(email) && string.IsNullOrEmpty(role))
             {
-                return BadRequest(new { message = "At least one field (UserName, Email, or Role) must be provided for update!" });
+                return BadRequest(new { message = "At least one field (username, email, or role) must be provided for update!" });
             }
 
             var userToUpdate = await _userManager.FindByIdAsync(id);
@@ -521,7 +614,7 @@ namespace Guider.API.MVP.Controllers
                 return NotFound(new { message = "User not found!" });
             }
 
-            // Get the roles of the current user (the one making the request)
+            // Проверка прав доступа
             var currentUser = await _userManager.GetUserAsync(User);
             if (currentUser == null)
             {
@@ -530,13 +623,11 @@ namespace Guider.API.MVP.Controllers
             }
 
             var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
-
-            // Check if the current user is a Super Admin
             bool isSuperAdmin = currentUserRoles.Contains(SD.Role_Super_Admin);
 
             if (!isSuperAdmin)
             {
-                // If not a Super Admin, ensure the target user has a role of "user" or "manager"
+                // Если не Super Admin, проверяем, что целевой пользователь имеет роль "user" или "manager"
                 var targetUserRoles = await _userManager.GetRolesAsync(userToUpdate);
                 if (targetUserRoles.Any(r => r.Equals(SD.Role_Super_Admin, StringComparison.OrdinalIgnoreCase) ||
                                              r.Equals(SD.Role_Admin, StringComparison.OrdinalIgnoreCase)))
@@ -554,6 +645,7 @@ namespace Guider.API.MVP.Controllers
                 }
             }
 
+            // Обновление данных пользователя
             if (!string.IsNullOrEmpty(userName))
             {
                 userToUpdate.UserName = userName;
@@ -571,21 +663,46 @@ namespace Guider.API.MVP.Controllers
                     new { message = string.Join(", ", updateResult.Errors.Select(e => e.Description)) });
             }
 
+            // Обновление роли, если она указана
             if (!string.IsNullOrEmpty(role))
             {
                 var currentRoles = await _userManager.GetRolesAsync(userToUpdate);
                 await _userManager.RemoveFromRolesAsync(userToUpdate, currentRoles);
                 await _userManager.AddToRoleAsync(userToUpdate, role);
             }
+            else
+            {
+                // Если роль не указана в запросе, используем текущую роль
+                var currentRoles = await _userManager.GetRolesAsync(userToUpdate);
+                role = currentRoles.FirstOrDefault() ?? "user";
+            }
 
-            // Return data in format expected by React Admin
+            // Формируем ответ в формате, соответствующем UpdateResult
             return Ok(new
             {
-                id = userToUpdate.Id,
-                username = userToUpdate.UserName,
-                email = userToUpdate.Email,
-                role = role ?? "user"
+                data = new
+                {
+                    id = userToUpdate.Id,
+                    username = userToUpdate.UserName,
+                    email = userToUpdate.Email,
+                    role = role.ToLower()
+                }
             });
+        }
+
+        // DTO для запроса на обновление пользователя в формате React Admin
+        public class UpdateUserRequestDTO
+        {
+            public UpdateUserData data { get; set; }
+            public object? previousData { get; set; } // Может содержать предыдущие данные, не требуется для обработки
+            public object? meta { get; set; } // Опциональные метаданные
+        }
+
+        public class UpdateUserData
+        {
+            public string username { get; set; }
+            public string email { get; set; }
+            public string role { get; set; }
         }
 
         /// <summary>
