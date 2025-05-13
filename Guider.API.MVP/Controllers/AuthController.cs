@@ -725,9 +725,55 @@ namespace Guider.API.MVP.Controllers
         /// - 500 Internal Server Error: An error occurred during the deletion process.
         /// 
         /// </returns>
+        //[HttpDelete("user/{id}")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        //public async Task<ActionResult> DeleteUser(string id)
+        //{
+        //    var userToDelete = await _userManager.FindByIdAsync(id);
+        //    if (userToDelete == null)
+        //    {
+        //        return NotFound(new { message = "User not found!" });
+        //    }
+
+        //    // Get the roles of the current user (the one making the request)
+        //    var currentUser = await _userManager.GetUserAsync(User);
+        //    if (currentUser == null)
+        //    {
+        //        return StatusCode(StatusCodes.Status403Forbidden,
+        //        new { message = "You do not have permission to delete this user!" });
+        //    }
+
+        //    var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
+        //    // Check if the current user is a Super Admin
+        //    bool isSuperAdmin = currentUserRoles.Contains(SD.Role_Super_Admin);
+
+        //    if (!isSuperAdmin)
+        //    {
+        //        // If not a Super Admin, ensure the target user has a role of "user" or "manager" only
+        //        var targetUserRoles = await _userManager.GetRolesAsync(userToDelete);
+        //        if (targetUserRoles.Any(r => r.Equals(SD.Role_Super_Admin, StringComparison.OrdinalIgnoreCase) ||
+        //                                     r.Equals(SD.Role_Admin, StringComparison.OrdinalIgnoreCase)))
+        //        {
+        //            return StatusCode(StatusCodes.Status403Forbidden,
+        //            new { message = "Only Super Admins can delete users with Admin or Super Admin roles!" });
+        //        }
+        //    }
+
+
+        //    var result = await _userManager.DeleteAsync(userToDelete);
+        //    if (!result.Succeeded)
+        //    {
+        //        return StatusCode(StatusCodes.Status500InternalServerError,
+        //            new { message = string.Join(", ", result.Errors.Select(e => e.Description)) });
+        //    }
+
+        //    // Return success message in format expected by React Admin
+        //    return Ok(new { id = id });
+        //}
+
         [HttpDelete("user/{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        public async Task<ActionResult> DeleteUser(string id)
+        public async Task<ActionResult> DeleteUser(string id, [FromBody] DeleteUserRequestDTO model = null)
         {
             var userToDelete = await _userManager.FindByIdAsync(id);
             if (userToDelete == null)
@@ -735,7 +781,20 @@ namespace Guider.API.MVP.Controllers
                 return NotFound(new { message = "User not found!" });
             }
 
-            // Get the roles of the current user (the one making the request)
+            // Получаем роли пользователя, прежде чем удалить его
+            var userRoles = await _userManager.GetRolesAsync(userToDelete);
+            var userRole = userRoles.FirstOrDefault() ?? "user";
+
+            // Сохраняем данные пользователя, чтобы вернуть их после удаления
+            var userData = new
+            {
+                id = userToDelete.Id,
+                username = userToDelete.UserName,
+                email = userToDelete.Email,
+                role = userRole.ToLower()
+            };
+
+            // Проверка прав доступа
             var currentUser = await _userManager.GetUserAsync(User);
             if (currentUser == null)
             {
@@ -744,22 +803,21 @@ namespace Guider.API.MVP.Controllers
             }
 
             var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
-            // Check if the current user is a Super Admin
+            // Проверяем, является ли текущий пользователь Super Admin
             bool isSuperAdmin = currentUserRoles.Contains(SD.Role_Super_Admin);
 
             if (!isSuperAdmin)
             {
-                // If not a Super Admin, ensure the target user has a role of "user" or "manager" only
-                var targetUserRoles = await _userManager.GetRolesAsync(userToDelete);
-                if (targetUserRoles.Any(r => r.Equals(SD.Role_Super_Admin, StringComparison.OrdinalIgnoreCase) ||
-                                             r.Equals(SD.Role_Admin, StringComparison.OrdinalIgnoreCase)))
+                // Если не Super Admin, убеждаемся, что целевой пользователь имеет роль только "user" или "manager"
+                if (userRoles.Any(r => r.Equals(SD.Role_Super_Admin, StringComparison.OrdinalIgnoreCase) ||
+                                        r.Equals(SD.Role_Admin, StringComparison.OrdinalIgnoreCase)))
                 {
                     return StatusCode(StatusCodes.Status403Forbidden,
                     new { message = "Only Super Admins can delete users with Admin or Super Admin roles!" });
                 }
             }
 
-
+            // Удаление пользователя
             var result = await _userManager.DeleteAsync(userToDelete);
             if (!result.Succeeded)
             {
@@ -767,8 +825,18 @@ namespace Guider.API.MVP.Controllers
                     new { message = string.Join(", ", result.Errors.Select(e => e.Description)) });
             }
 
-            // Return success message in format expected by React Admin
-            return Ok(new { id = id });
+            // Возвращаем данные в формате, соответствующем DeleteResult
+            return Ok(new
+            {
+                data = userData
+            });
+        }
+
+        // DTO для запроса на удаление пользователя в формате React Admin
+        public class DeleteUserRequestDTO
+        {
+            public object previousData { get; set; } // Предыдущие данные пользователя
+            public object meta { get; set; } // Опциональные метаданные
         }
     }
 }
