@@ -245,25 +245,140 @@ namespace Guider.API.MVP.Controllers
         /// - 404 Not Found: No users found.
         /// 
         /// </returns>
+        //[HttpGet("users")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        //public async Task<ActionResult> GetUsersPaged(int pageNumber = 1, int pageSize = 10)
+        //{
+        //    var users = _db.ApplicationUsers
+        //        .Skip((pageNumber - 1) * pageSize)
+        //        .Take(pageSize)
+        //        .ToList();
+
+        //    if (!users.Any())
+        //    {
+        //        return NotFound(new { message = "No users found!" });
+        //    }
+
+        //    var userList = new List<object>();
+        //    foreach (var user in users)
+        //    {
+        //        var roles = await _userManager.GetRolesAsync(user);
+        //        var firstRole = roles.FirstOrDefault() ?? "No Role Assigned";
+        //        userList.Add(new
+        //        {
+        //            id = user.Id,
+        //            username = user.UserName,
+        //            email = user.Email,
+        //            role = firstRole.ToLower()
+        //        });
+        //    }
+
+        //    Return data in format expected by React Admin
+        //    return Ok(userList);
+        //}
+
         [HttpGet("users")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        public async Task<ActionResult> GetUsersPaged(int pageNumber = 1, int pageSize = 10)
+        public async Task<ActionResult> GetUsersPaged([FromQuery] int page = 1, [FromQuery] int perPage = 10,
+        [FromQuery] string sortField = "username", [FromQuery] string sortOrder = "ASC",
+        [FromQuery] string filter = "")
         {
-            var users = _db.ApplicationUsers
-                .Skip((pageNumber - 1) * pageSize)
-                .Take(pageSize)
+            // Десериализация фильтра, если он предоставлен
+            Dictionary<string, string> filterDict = new Dictionary<string, string>();
+            if (!string.IsNullOrEmpty(filter))
+            {
+                try
+                {
+                    filterDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(filter);
+                }
+                catch
+                {
+                    // Если произошла ошибка при десериализации, оставляем пустой словарь
+                }
+            }
+
+            // Получаем базовый запрос пользователей
+            var usersQuery = _db.ApplicationUsers.AsQueryable();
+
+            // Применяем фильтры
+            if (filterDict != null)
+            {
+                foreach (var kvp in filterDict)
+                {
+                    string key = kvp.Key.ToLower();
+                    string value = kvp.Value.ToLower();
+
+                    if (key == "username" && !string.IsNullOrEmpty(value))
+                    {
+                        usersQuery = usersQuery.Where(u => u.UserName.ToLower().Contains(value));
+                    }
+                    else if (key == "email" && !string.IsNullOrEmpty(value))
+                    {
+                        usersQuery = usersQuery.Where(u => u.Email.ToLower().Contains(value));
+                    }
+                    else if (key == "id" && !string.IsNullOrEmpty(value))
+                    {
+                        usersQuery = usersQuery.Where(u => u.Id.ToLower().Contains(value));
+                    }
+                    // Фильтрация по роли будет применяться после получения данных
+                }
+            }
+
+            // Получаем общее количество записей (до пагинации)
+            int totalCount = usersQuery.Count();
+
+            // Применяем сортировку
+            sortField = sortField.ToLower();
+            if (sortField == "username")
+            {
+                usersQuery = sortOrder.ToUpper() == "DESC"
+                    ? usersQuery.OrderByDescending(u => u.UserName)
+                    : usersQuery.OrderBy(u => u.UserName);
+            }
+            else if (sortField == "email")
+            {
+                usersQuery = sortOrder.ToUpper() == "DESC"
+                    ? usersQuery.OrderByDescending(u => u.Email)
+                    : usersQuery.OrderBy(u => u.Email);
+            }
+            else if (sortField == "id")
+            {
+                usersQuery = sortOrder.ToUpper() == "DESC"
+                    ? usersQuery.OrderByDescending(u => u.Id)
+                    : usersQuery.OrderBy(u => u.Id);
+            }
+
+            // Применяем пагинацию
+            var users = usersQuery
+                .Skip((page - 1) * perPage)
+                .Take(perPage)
                 .ToList();
 
             if (!users.Any())
             {
-                return NotFound(new { message = "No users found!" });
+                // React Admin ожидает пустой массив, а не 404
+                return Ok(new
+                {
+                    data = new List<object>(),
+                    total = 0
+                });
             }
 
+            // Формируем список пользователей с их ролями
             var userList = new List<object>();
             foreach (var user in users)
             {
                 var roles = await _userManager.GetRolesAsync(user);
-                var firstRole = roles.FirstOrDefault() ?? "No Role Assigned";
+                var firstRole = roles.FirstOrDefault() ?? "user";
+
+                // Фильтрация по роли если она указана в фильтре
+                if (filterDict != null && filterDict.TryGetValue("role", out string roleFilter)
+                    && !string.IsNullOrEmpty(roleFilter)
+                    && !firstRole.ToLower().Contains(roleFilter.ToLower()))
+                {
+                    continue; // Пропускаем пользователя, если его роль не соответствует фильтру
+                }
+
                 userList.Add(new
                 {
                     id = user.Id,
@@ -273,11 +388,15 @@ namespace Guider.API.MVP.Controllers
                 });
             }
 
-            // Return data in format expected by React Admin
-            return Ok(userList);
+            // Возвращаем данные в формате, ожидаемом React Admin
+            return Ok(new
+            {
+                data = userList,
+                total = totalCount
+            });
         }
 
-          
+
         /// <summary>
         /// 
         /// Retrieves a user by their unique identifier.
