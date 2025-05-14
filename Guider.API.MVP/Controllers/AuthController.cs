@@ -581,10 +581,7 @@ namespace Guider.API.MVP.Controllers
             };
 
             // Возвращаем данные в формате, соответствующем GetOneResult
-            return Ok(new
-            {
-                data = userDetails
-            });
+            return Ok(userDetails);
         }
 
         /// <summary>
