@@ -224,22 +224,41 @@ namespace Guider.API.MVP.Controllers
         //    }
         //}
 
+
+        /// <summary>
+        /// 
+        /// Registers a new user based on the provided registration model.
+        ///
+        /// </summary>
+        /// 
+        /// <param name="requestModel">The registration request containing the following fields:
+        /// 
+        /// - username: The username of the new user.
+        /// 
+        /// - email: The email of the new user.
+        /// 
+        /// - password: The password of the new user.
+        /// 
+        /// - role: The role of the new user (optional, defaults to "user").
+        /// 
+        /// </param>
+
         [HttpPost("users")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult> Register([FromBody] CreateUserRequestDTO requestModel)
+        public async Task<ActionResult> CreateUser([FromBody] CreateUserData requestModel)
         {
             // Проверяем наличие обязательного объекта data
-            if (requestModel?.data == null)
+            if (requestModel == null)
             {
                 return BadRequest(new { message = "Data object is required!" });
             }
 
             // Получаем данные из объекта data
-            string userName = requestModel.data.username;
-            string email = requestModel.data.email;
-            string password = requestModel.data.password;
+            string userName = requestModel.username;
+            string email = requestModel.email;
+            string password = requestModel.password;
             string role = /*!string.IsNullOrEmpty(requestModel.data.role) ? requestModel.data.role :*/ SD.Role_User;
 
             // Валидация данных
@@ -309,13 +328,13 @@ namespace Guider.API.MVP.Controllers
                     // Возвращаем ответ в формате, совместимом с React Admin (CreateResult)
                     return Created("", new
                     {
-                        data = new
-                        {
+                        //data = new
+                        //{
                             id = newUser.Id,
                             username = newUser.UserName,
                             email = newUser.Email,
                             role = userRole.ToLower()
-                        }
+                        //}
                     });
                 }
                 else
@@ -332,13 +351,7 @@ namespace Guider.API.MVP.Controllers
         }
 
         // DTO для запроса на создание пользователя в формате React Admin
-        public class CreateUserRequestDTO
-        {
-            public CreateUserData data { get; set; }
-            public object? meta { get; set; }
-        }
-
-        public class CreateUserData
+       public class CreateUserData
         {
             public string username { get; set; }
             public string email { get; set; }
