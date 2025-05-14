@@ -353,9 +353,9 @@ namespace Guider.API.MVP.Controllers
         // DTO для запроса на создание пользователя в формате React Admin
        public class CreateUserData
         {
-            public string username { get; set; }
-            public string email { get; set; }
-            public string password { get; set; }
+            public string? username { get; set; }
+            public string? email { get; set; }
+            public string? password { get; set; }
             //public string role { get; set; }
         }
 
