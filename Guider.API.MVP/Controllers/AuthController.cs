@@ -722,18 +722,18 @@ namespace Guider.API.MVP.Controllers
 
         [HttpPut("users/{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        public async Task<ActionResult> UpdateUser(string id, [FromBody] UpdateUserRequestDTO model)
+        public async Task<ActionResult> UpdateUser(string id, [FromBody] UpdateUserData model)
         {
             // Проверка входных данных
-            if (model?.data == null)
+            if (model == null)
             {
                 return BadRequest(new { message = "Update data is required!" });
             }
 
             // Получаем данные из объекта data
-            string userName = model.data.username;
-            string email = model.data.email;
-            string role = model.data.role;
+            string userName = model.username;
+            string email = model.email;
+            string role = model.role;
 
             if (string.IsNullOrEmpty(userName) && string.IsNullOrEmpty(email) && string.IsNullOrEmpty(role))
             {
@@ -746,6 +746,7 @@ namespace Guider.API.MVP.Controllers
                 return NotFound(new { message = "User not found!" });
             }
 
+            /* Закомментирован код проверки прав и ролей
             // Проверка прав доступа
             var currentUser = await _userManager.GetUserAsync(User);
             if (currentUser == null)
@@ -776,6 +777,7 @@ namespace Guider.API.MVP.Controllers
                     new { message = "Only Super Admins can assign Admin or Super Admin roles!" });
                 }
             }
+            */
 
             // Обновление данных пользователя
             if (!string.IsNullOrEmpty(userName))
@@ -812,29 +814,29 @@ namespace Guider.API.MVP.Controllers
             // Формируем ответ в формате, соответствующем UpdateResult
             return Ok(new
             {
-                data = new
-                {
+                //data = new
+                //{
                     id = userToUpdate.Id,
                     username = userToUpdate.UserName,
                     email = userToUpdate.Email,
                     role = role.ToLower()
-                }
+                //}
             });
         }
 
         // DTO для запроса на обновление пользователя в формате React Admin
-        public class UpdateUserRequestDTO
-        {
-            public UpdateUserData data { get; set; }
-            public object? previousData { get; set; } // Может содержать предыдущие данные, не требуется для обработки
-            public object? meta { get; set; } // Опциональные метаданные
-        }
+        //public class UpdateUserRequestDTO
+        //{
+        //    public UpdateUserData data { get; set; }
+        //    public object? previousData { get; set; } // Может содержать предыдущие данные, не требуется для обработки
+        //    public object? meta { get; set; } // Опциональные метаданные
+        //}
 
         public class UpdateUserData
         {
-            public string username { get; set; }
-            public string email { get; set; }
-            public string role { get; set; }
+            public string? username { get; set; }
+            public string? email { get; set; }
+            public string? role { get; set; }
         }
 
         /// <summary>
