@@ -122,110 +122,7 @@ namespace Guider.API.MVP.Controllers
             });
         }
 
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="model"></param>
-        /// <returns></returns>
-        //[HttpPost("register")]
-        //[ProducesResponseType(StatusCodes.Status201Created)]
-        //[ProducesResponseType(StatusCodes.Status400BadRequest)]
-        //[ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        //public async Task<ActionResult> Register([FromBody] RegisterRequestDTO model)
-        //{
-        //    // Обработка данных в формате React Admin
-        //    string userName = model.username;
-        //    string email = model.email;
-        //    string password = model.password;
-        //    //string role = model.role;
-        //    string role = SD.Role_User;
-
-
-
-        //    // Валидация данных
-        //    if (string.IsNullOrEmpty(email) || !new EmailAddressAttribute().IsValid(email))
-        //    {
-        //        return BadRequest(new { message = "A valid email address is required!" });
-        //    }
-
-        //    if (password.Length < 6)
-        //    {
-        //        return BadRequest(new { message = "Password must be at least 6 characters long!" });
-        //    }
-
-        //    if (_db.ApplicationUsers.Any(u => u.UserName.ToLower() == userName.ToLower()))
-        //    {
-        //        return BadRequest(new { message = "User already exists!" });
-        //    }
-
-        //    // Создание пользователя
-        //    ApplicationUser newUser = new()
-        //    {
-        //        UserName = userName,
-        //        Email = email,
-        //        NormalizedUserName = userName.ToUpper(),
-        //        NormalizedEmail = email.ToUpper(),
-        //        EmailConfirmed = false,
-        //        PhoneNumberConfirmed = false,
-        //        TwoFactorEnabled = false,
-        //        LockoutEnabled = true,
-        //        SecurityStamp = Guid.NewGuid().ToString()
-        //    };
-
-        //    try
-        //    {
-        //        var result = await _userManager.CreateAsync(newUser, password);
-        //        if (result.Succeeded)
-        //        {
-        //            // Создаем роли, если они не существуют
-        //            if (!_roleManager.RoleExistsAsync(SD.Role_Super_Admin).GetAwaiter().GetResult())
-        //            {
-        //                await _roleManager.CreateAsync(new IdentityRole(SD.Role_Super_Admin));
-        //                await _roleManager.CreateAsync(new IdentityRole(SD.Role_Admin));
-        //                await _roleManager.CreateAsync(new IdentityRole(SD.Role_Manager));
-        //                await _roleManager.CreateAsync(new IdentityRole(SD.Role_User));
-        //            }
-
-        //            // Проверяем, существует ли указанная роль
-        //            if (_roleManager.RoleExistsAsync(role).GetAwaiter().GetResult())
-        //            {
-        //                await _userManager.AddToRoleAsync(newUser, role);
-        //            }
-        //            else
-        //            {
-        //                // Если указанная роль не существует, назначаем роль по умолчанию
-        //                await _userManager.AddToRoleAsync(newUser, SD.Role_User);
-        //            }
-
-        //            // Получаем роль пользователя для ответа
-        //            var userRoles = await _userManager.GetRolesAsync(newUser);
-        //            var userRole = userRoles.FirstOrDefault() ?? SD.Role_User;
-
-        //            // Формируем ответ в формате, совместимом с React Admin
-        //            return Created("", new
-        //            {
-        //                id = newUser.Id,
-        //                username = newUser.UserName,
-        //                email = newUser.Email,
-        //                role = userRole.ToLower()
-        //            });
-        //        }
-        //        else
-        //        {
-        //            // Обработка ошибок валидации
-        //            var errors = result.Errors.Select(e => e.Description);
-        //            return BadRequest(new { message = string.Join(", ", errors) });
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
-        //    }
-        //}
-
-
-        /// <summary>
+         /// <summary>
         /// 
         /// Registers a new user based on the provided registration model.
         ///
@@ -350,8 +247,7 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-        // DTO для запроса на создание пользователя в формате React Admin
-       public class CreateUserData
+        public class CreateUserData
         {
             public string? username { get; set; }
             public string? email { get; set; }
@@ -380,38 +276,6 @@ namespace Guider.API.MVP.Controllers
         /// - 404 Not Found: No users found.
         /// 
         /// </returns>
-        //[HttpGet("users")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        //public async Task<ActionResult> GetUsersPaged(int pageNumber = 1, int pageSize = 10)
-        //{
-        //    var users = _db.ApplicationUsers
-        //        .Skip((pageNumber - 1) * pageSize)
-        //        .Take(pageSize)
-        //        .ToList();
-
-        //    if (!users.Any())
-        //    {
-        //        return NotFound(new { message = "No users found!" });
-        //    }
-
-        //    var userList = new List<object>();
-        //    foreach (var user in users)
-        //    {
-        //        var roles = await _userManager.GetRolesAsync(user);
-        //        var firstRole = roles.FirstOrDefault() ?? "No Role Assigned";
-        //        userList.Add(new
-        //        {
-        //            id = user.Id,
-        //            username = user.UserName,
-        //            email = user.Email,
-        //            role = firstRole.ToLower()
-        //        });
-        //    }
-
-        //    Return data in format expected by React Admin
-        //    return Ok(userList);
-        //}
-
         [HttpGet("users")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> GetUsersPaged([FromQuery] int page = 1, [FromQuery] int perPage = 10,
@@ -551,29 +415,6 @@ namespace Guider.API.MVP.Controllers
         /// - 404 Not Found: User with the specified ID does not exist.
         /// 
         /// </returns>
-        //[HttpGet("user/{id}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        //public async Task<ActionResult> GetUserById(string id)
-        //{
-        //    var user = await _userManager.FindByIdAsync(id);
-        //    if (user == null)
-        //    {
-        //        return NotFound(new { message = "User not found!" });
-        //    }
-
-        //    var roles = await _userManager.GetRolesAsync(user);
-        //    var userDetails = new
-        //    {
-        //        id = user.Id,
-        //        username = user.UserName,
-        //        email = user.Email,
-        //        role = roles.FirstOrDefault()?.ToLower() ?? "user"
-        //    };
-
-        //    // Return data in format expected by React Admin
-        //    return Ok(userDetails);
-        //}
-
         [HttpGet("users/{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> GetUserById(string id)
@@ -633,93 +474,6 @@ namespace Guider.API.MVP.Controllers
         /// 
         /// </returns>
         /// 
-        //[HttpPut("user/{id}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        //public async Task<ActionResult> UpdateUser(string id, [FromBody] UpdateUserDTO model)
-        //{
-        //    // Get the UserName and Email from the React Admin format fields
-        //    string userName = model.username;
-        //    string email = model.email;
-        //    string role = model.role;
-
-        //    if (string.IsNullOrEmpty(userName) && string.IsNullOrEmpty(email) && string.IsNullOrEmpty(role))
-        //    {
-        //        return BadRequest(new { message = "At least one field (UserName, Email, or Role) must be provided for update!" });
-        //    }
-
-        //    var userToUpdate = await _userManager.FindByIdAsync(id);
-        //    if (userToUpdate == null)
-        //    {
-        //        return NotFound(new { message = "User not found!" });
-        //    }
-
-        //    // Get the roles of the current user (the one making the request)
-        //    var currentUser = await _userManager.GetUserAsync(User);
-        //    if (currentUser == null)
-        //    {
-        //        return StatusCode(StatusCodes.Status403Forbidden,
-        //        new { message = "You do not have permission to update this user's details!" });
-        //    }
-
-        //    var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
-
-        //    // Check if the current user is a Super Admin
-        //    bool isSuperAdmin = currentUserRoles.Contains(SD.Role_Super_Admin);
-
-        //    if (!isSuperAdmin)
-        //    {
-        //        // If not a Super Admin, ensure the target user has a role of "user" or "manager"
-        //        var targetUserRoles = await _userManager.GetRolesAsync(userToUpdate);
-        //        if (targetUserRoles.Any(r => r.Equals(SD.Role_Super_Admin, StringComparison.OrdinalIgnoreCase) ||
-        //                                     r.Equals(SD.Role_Admin, StringComparison.OrdinalIgnoreCase)))
-        //        {
-        //            return StatusCode(StatusCodes.Status403Forbidden,
-        //            new { message = "You do not have permission to update this user's details!" });
-        //        }
-
-        //        if (!string.IsNullOrEmpty(role) &&
-        //        (role.Equals(SD.Role_Super_Admin, StringComparison.OrdinalIgnoreCase) ||
-        //         role.Equals(SD.Role_Admin, StringComparison.OrdinalIgnoreCase)))
-        //        {
-        //            return StatusCode(StatusCodes.Status403Forbidden,
-        //            new { message = "Only Super Admins can assign Admin or Super Admin roles!" });
-        //        }
-        //    }
-
-        //    if (!string.IsNullOrEmpty(userName))
-        //    {
-        //        userToUpdate.UserName = userName;
-        //    }
-
-        //    if (!string.IsNullOrEmpty(email))
-        //    {
-        //        userToUpdate.Email = email;
-        //    }
-
-        //    var updateResult = await _userManager.UpdateAsync(userToUpdate);
-        //    if (!updateResult.Succeeded)
-        //    {
-        //        return StatusCode(StatusCodes.Status500InternalServerError,
-        //            new { message = string.Join(", ", updateResult.Errors.Select(e => e.Description)) });
-        //    }
-
-        //    if (!string.IsNullOrEmpty(role))
-        //    {
-        //        var currentRoles = await _userManager.GetRolesAsync(userToUpdate);
-        //        await _userManager.RemoveFromRolesAsync(userToUpdate, currentRoles);
-        //        await _userManager.AddToRoleAsync(userToUpdate, role);
-        //    }
-
-        //    // Return data in format expected by React Admin
-        //    return Ok(new
-        //    {
-        //        id = userToUpdate.Id,
-        //        username = userToUpdate.UserName,
-        //        email = userToUpdate.Email,
-        //        role = role ?? "user"
-        //    });
-        //}
-
         [HttpPut("users/{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> UpdateUser(string id, [FromBody] UpdateUserData model)
@@ -823,15 +577,6 @@ namespace Guider.API.MVP.Controllers
                 //}
             });
         }
-
-        // DTO для запроса на обновление пользователя в формате React Admin
-        //public class UpdateUserRequestDTO
-        //{
-        //    public UpdateUserData data { get; set; }
-        //    public object? previousData { get; set; } // Может содержать предыдущие данные, не требуется для обработки
-        //    public object? meta { get; set; } // Опциональные метаданные
-        //}
-
         public class UpdateUserData
         {
             public string? username { get; set; }
@@ -859,52 +604,6 @@ namespace Guider.API.MVP.Controllers
         /// - 500 Internal Server Error: An error occurred during the deletion process.
         /// 
         /// </returns>
-        //[HttpDelete("user/{id}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        //public async Task<ActionResult> DeleteUser(string id)
-        //{
-        //    var userToDelete = await _userManager.FindByIdAsync(id);
-        //    if (userToDelete == null)
-        //    {
-        //        return NotFound(new { message = "User not found!" });
-        //    }
-
-        //    // Get the roles of the current user (the one making the request)
-        //    var currentUser = await _userManager.GetUserAsync(User);
-        //    if (currentUser == null)
-        //    {
-        //        return StatusCode(StatusCodes.Status403Forbidden,
-        //        new { message = "You do not have permission to delete this user!" });
-        //    }
-
-        //    var currentUserRoles = await _userManager.GetRolesAsync(currentUser);
-        //    // Check if the current user is a Super Admin
-        //    bool isSuperAdmin = currentUserRoles.Contains(SD.Role_Super_Admin);
-
-        //    if (!isSuperAdmin)
-        //    {
-        //        // If not a Super Admin, ensure the target user has a role of "user" or "manager" only
-        //        var targetUserRoles = await _userManager.GetRolesAsync(userToDelete);
-        //        if (targetUserRoles.Any(r => r.Equals(SD.Role_Super_Admin, StringComparison.OrdinalIgnoreCase) ||
-        //                                     r.Equals(SD.Role_Admin, StringComparison.OrdinalIgnoreCase)))
-        //        {
-        //            return StatusCode(StatusCodes.Status403Forbidden,
-        //            new { message = "Only Super Admins can delete users with Admin or Super Admin roles!" });
-        //        }
-        //    }
-
-
-        //    var result = await _userManager.DeleteAsync(userToDelete);
-        //    if (!result.Succeeded)
-        //    {
-        //        return StatusCode(StatusCodes.Status500InternalServerError,
-        //            new { message = string.Join(", ", result.Errors.Select(e => e.Description)) });
-        //    }
-
-        //    // Return success message in format expected by React Admin
-        //    return Ok(new { id = id });
-        //}
-
         [HttpDelete("users/{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> DeleteUser(string id, [FromBody] DeleteUserRequestDTO model = null)
@@ -965,8 +664,6 @@ namespace Guider.API.MVP.Controllers
             // Возвращаем данные в формате, соответствующем DeleteResult
             return Ok(userData);
         }
-
-        // DTO для запроса на удаление пользователя в формате React Admin
         public class DeleteUserRequestDTO
         {
             public object? previousData { get; set; } // Предыдущие данные пользователя
