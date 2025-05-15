@@ -928,6 +928,7 @@ namespace Guider.API.MVP.Controllers
                 role = userRole.ToLower()
             };
 
+            /* Закомментирован код проверки прав и ролей
             // Проверка прав доступа
             var currentUser = await _userManager.GetUserAsync(User);
             if (currentUser == null)
@@ -950,6 +951,8 @@ namespace Guider.API.MVP.Controllers
                     new { message = "Only Super Admins can delete users with Admin or Super Admin roles!" });
                 }
             }
+            */
+
 
             // Удаление пользователя
             var result = await _userManager.DeleteAsync(userToDelete);
@@ -960,17 +963,14 @@ namespace Guider.API.MVP.Controllers
             }
 
             // Возвращаем данные в формате, соответствующем DeleteResult
-            return Ok(new
-            {
-                data = userData
-            });
+            return Ok(userData);
         }
 
         // DTO для запроса на удаление пользователя в формате React Admin
         public class DeleteUserRequestDTO
         {
-            public object previousData { get; set; } // Предыдущие данные пользователя
-            public object meta { get; set; } // Опциональные метаданные
+            public object? previousData { get; set; } // Предыдущие данные пользователя
+            public object? meta { get; set; } // Опциональные метаданные
         }
     }
 }
