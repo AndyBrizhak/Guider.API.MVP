@@ -10,6 +10,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace Guider.API.MVP.Controllers
 {
@@ -36,48 +37,28 @@ namespace Guider.API.MVP.Controllers
             _userManager = userManager;
         }
 
+
        
         /// <summary>
-        /// 
         /// Authenticates a user based on the provided credentials and generates a JWT token.
-        /// 
         /// </summary>
-        /// 
-        /// <param name="model">The login request containing the following fields:
-        /// 
-        /// - UserName: The username of the user.
-        /// 
-        /// - Password: The password of the user.
-        /// 
-        /// </param>
+        /// <param name="loginRequest">Login credentials containing username and password</param>
         [HttpPost("login")]
-        public async Task<ActionResult> Login([FromBody] LoginRequestDTO model)
+        public async Task<ActionResult> Login([FromBody] LoginRequest loginRequest)
         {
-            
-            string userName = model.username;
-            string password = model.password;
-
-            // Если в модели нет UserName, но есть Email или Username (как в React Admin)
-            if (string.IsNullOrEmpty(userName))
+            if (loginRequest == null || string.IsNullOrEmpty(loginRequest.Username) || string.IsNullOrEmpty(loginRequest.Password))
             {
-                // React Admin может отправить email в качестве username
-                if (!string.IsNullOrEmpty(model.Email))
-                {
-                    userName = model.Email;
-                }
-                // Или может использовать поле username в нижнем регистре
-                else if (model.GetType().GetProperty("username") != null)
-                {
-                    userName = (string)model.GetType().GetProperty("username").GetValue(model, null);
-                }
+                return BadRequest(new { message = "Username and password are required" });
             }
 
-            
+            string username = loginRequest.Username;
+            string password = loginRequest.Password;
+
             // Поиск пользователя (проверяем и по имени пользователя, и по email)
             ApplicationUser userFromDb = _db.ApplicationUsers
                 .FirstOrDefault(u =>
-                    u.UserName.ToLower() == userName.ToLower() ||
-                    u.Email.ToLower() == userName.ToLower());
+                    u.UserName.ToLower() == username.ToLower() ||
+                    u.Email.ToLower() == username.ToLower());
 
             // Если пользователь не найден или пароль неверный
             if (userFromDb == null || !await _userManager.CheckPasswordAsync(userFromDb, password))
@@ -111,7 +92,6 @@ namespace Guider.API.MVP.Controllers
             var tokenString = tokenHandler.WriteToken(token);
 
             // Формируем ответ в формате, подходящем для React Admin
-            // React Admin ожидает прямой ответ без обертки
             return Ok(new
             {
                 token = tokenString,
@@ -122,7 +102,18 @@ namespace Guider.API.MVP.Controllers
             });
         }
 
-         /// <summary>
+        // Добавьте этот класс для приема данных от React Admin
+        public class LoginRequest
+        {
+            [JsonPropertyName("username")]
+            public string Username { get; set; }
+
+            [JsonPropertyName("password")]
+            public string Password { get; set; }
+        }
+
+
+        /// <summary>
         /// 
         /// Registers a new user based on the provided registration model.
         ///
