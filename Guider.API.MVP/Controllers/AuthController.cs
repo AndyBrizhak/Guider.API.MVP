@@ -255,291 +255,32 @@ namespace Guider.API.MVP.Controllers
             //public string role { get; set; }
         }
 
+
         /// <summary>
-        /// 
-        /// Retrieves a paginated list of users.
-        /// 
+        /// Gets a paginated list of users based on the provided filters and sorting options.
         /// </summary>
-        /// 
-        /// <param name="pageNumber">The page number to retrieve (default is 1).</param>
-        /// 
-        /// <param name="pageSize">The number of users per page (default is 10).</param>
-        /// 
-        /// <returns>
-        /// 
-        /// Returns a paginated list of users in the format expected by React Admin.
-        /// 
-        /// Possible outcomes:
-        /// 
-        /// - 200 OK: Users retrieved successfully.
-        /// 
-        /// - 404 Not Found: No users found.
-        /// 
-        /// </returns>
-        //[HttpGet("users")]
-        ////[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        //public async Task<ActionResult> GetUsersPaged([FromQuery] int page = 1, [FromQuery] int perPage = 10,
-        //[FromQuery] string sortField = "username", [FromQuery] string sortOrder = "ASC",
-        //[FromQuery] string filter = null)
-        //{
-        //    // Десериализация фильтра, если он предоставлен
-        //    //Dictionary<string, string> filterDict = new Dictionary<string, string>();
-        //    //if (!string.IsNullOrEmpty(filter))
-        //    //{
-        //    //    try
-        //    //    {
-        //    //        filterDict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(filter);
-        //    //    }
-        //    //    catch
-        //    //    {
-        //    //        // Если произошла ошибка при десериализации, оставляем пустой словарь
-        //    //    }
-        //    //}
-
-        //    // Получаем базовый запрос пользователей
-        //    var usersQuery = _db.ApplicationUsers.AsQueryable();
-
-        //    // Применяем фильтры
-        //    //if (filterDict != null)
-        //    //{
-        //    //    foreach (var kvp in filterDict)
-        //    //    {
-        //    //        string key = kvp.Key.ToLower();
-        //    //        string value = kvp.Value.ToLower();
-
-        //    //        if (key == "username" && !string.IsNullOrEmpty(value))
-        //    //        {
-        //    //            usersQuery = usersQuery.Where(u => u.UserName.ToLower().Contains(value));
-        //    //        }
-        //    //        else if (key == "email" && !string.IsNullOrEmpty(value))
-        //    //        {
-        //    //            usersQuery = usersQuery.Where(u => u.Email.ToLower().Contains(value));
-        //    //        }
-        //    //        else if (key == "id" && !string.IsNullOrEmpty(value))
-        //    //        {
-        //    //            usersQuery = usersQuery.Where(u => u.Id.ToLower().Contains(value));
-        //    //        }
-        //    //        // Фильтрация по роли будет применяться после получения данных
-        //    //    }
-        //    //}
-
-
-
-        //    // Получаем общее количество записей (до пагинации)
-        //    int totalCount = usersQuery.Count();
-
-        //    // Применяем сортировку
-        //    sortField = sortField.ToLower();
-        //    if (sortField == "username")
-        //    {
-        //        usersQuery = sortOrder.ToUpper() == "DESC"
-        //            ? usersQuery.OrderByDescending(u => u.UserName)
-        //            : usersQuery.OrderBy(u => u.UserName);
-        //    }
-        //    else if (sortField == "email")
-        //    {
-        //        usersQuery = sortOrder.ToUpper() == "DESC"
-        //            ? usersQuery.OrderByDescending(u => u.Email)
-        //            : usersQuery.OrderBy(u => u.Email);
-        //    }
-        //    else if (sortField == "id")
-        //    {
-        //        usersQuery = sortOrder.ToUpper() == "DESC"
-        //            ? usersQuery.OrderByDescending(u => u.Id)
-        //            : usersQuery.OrderBy(u => u.Id);
-        //    }
-
-        //    // Применяем пагинацию
-        //    var users = usersQuery
-        //        .Skip((page - 1) * perPage)
-        //        .Take(perPage)
-        //        .ToList();
-
-        //    if (!users.Any())
-        //    {
-        //        // React Admin ожидает пустой массив, а не 404
-        //        return Ok(new
-        //        {
-        //            data = new List<object>(),
-        //            total = 0
-        //        });
-        //    }
-
-        //    // Формируем список пользователей с их ролями
-        //    var userList = new List<object>();
-        //    foreach (var user in users)
-        //    {
-        //        var roles = await _userManager.GetRolesAsync(user);
-        //        var firstRole = roles.FirstOrDefault() ?? "user";
-
-        //        // Фильтрация по роли если она указана в фильтре
-        //        if (filterDict != null && filterDict.TryGetValue("role", out string roleFilter)
-        //            && !string.IsNullOrEmpty(roleFilter)
-        //            && !firstRole.ToLower().Contains(roleFilter.ToLower()))
-        //        {
-        //            continue; // Пропускаем пользователя, если его роль не соответствует фильтру
-        //        }
-
-        //        userList.Add(new
-        //        {
-        //            id = user.Id,
-        //            username = user.UserName,
-        //            email = user.Email,
-        //            role = firstRole.ToLower()
-        //        });
-        //    }
-
-        //    // Добавляем заголовок с общим количеством записей
-        //    Response.Headers.Append("X-Total-Count", totalCount.ToString());
-        //    Response.Headers.Append("Access-Control-Expose-Headers", "X-Total-Count");
-
-        //    // Возвращаем данные в формате, ожидаемом React Admin
-        //    return Ok(userList);
-        //}
-
-        //[HttpGet("users")]
-        ////[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        //public async Task<ActionResult> GetUsersPaged([FromQuery] int page = 1, [FromQuery] int perPage = 10,
-        //[FromQuery] string sortField = "username", [FromQuery] string sortOrder = "ASC",
-        //[FromQuery] string filter = null)
-        //{
-        //    // Получаем базовый запрос пользователей
-        //    var usersQuery = _db.ApplicationUsers.AsQueryable();
-
-        //    // Обрабатываем фильтры
-        //    if (!string.IsNullOrEmpty(filter))
-        //    {
-        //        try
-        //        {
-        //            // В React Admin фильтры передаются как URL-параметры, а не как JSON
-        //            // Поэтому нам нужно обработать их напрямую из параметров запроса
-        //            var filterParams = HttpContext.Request.Query
-        //                .Where(q => q.Key.StartsWith("filter[") && q.Key.EndsWith("]"))
-        //                .ToDictionary(
-        //                    q => q.Key.Substring(7, q.Key.Length - 8).ToLower(), // Извлекаем имя поля из filter[имя_поля]
-        //                    q => q.Value.ToString().ToLower()
-        //                );
-
-        //            // Применяем фильтры на основе параметров
-        //            foreach (var kvp in filterParams)
-        //            {
-        //                string key = kvp.Key;
-        //                string value = kvp.Value;
-
-        //                if (!string.IsNullOrEmpty(value))
-        //                {
-        //                    if (key == "username")
-        //                    {
-        //                        usersQuery = usersQuery.Where(u => u.UserName.ToLower().Contains(value));
-        //                    }
-        //                    else if (key == "email")
-        //                    {
-        //                        usersQuery = usersQuery.Where(u => u.Email.ToLower().Contains(value));
-        //                    }
-        //                    else if (key == "id")
-        //                    {
-        //                        usersQuery = usersQuery.Where(u => u.Id.ToLower().Contains(value));
-        //                    }
-        //                    // Фильтрация по роли будет применяться после получения данных
-        //                }
-        //            }
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            // Логируем ошибку, но продолжаем выполнение без фильтров
-        //            // Здесь можно добавить логирование ошибки
-        //            Console.WriteLine($"Error parsing filters: {ex.Message}");
-        //        }
-        //    }
-
-        //    // Получаем общее количество записей (до пагинации)
-        //    int totalCount = usersQuery.Count();
-
-        //    // Применяем сортировку
-        //    sortField = sortField.ToLower();
-        //    if (sortField == "username")
-        //    {
-        //        usersQuery = sortOrder.ToUpper() == "DESC"
-        //            ? usersQuery.OrderByDescending(u => u.UserName)
-        //            : usersQuery.OrderBy(u => u.UserName);
-        //    }
-        //    else if (sortField == "email")
-        //    {
-        //        usersQuery = sortOrder.ToUpper() == "DESC"
-        //            ? usersQuery.OrderByDescending(u => u.Email)
-        //            : usersQuery.OrderBy(u => u.Email);
-        //    }
-        //    else if (sortField == "id")
-        //    {
-        //        usersQuery = sortOrder.ToUpper() == "DESC"
-        //            ? usersQuery.OrderByDescending(u => u.Id)
-        //            : usersQuery.OrderBy(u => u.Id);
-        //    }
-
-        //    // Применяем пагинацию
-        //    var users = usersQuery
-        //        .Skip((page - 1) * perPage)
-        //        .Take(perPage)
-        //        .ToList();
-
-        //    if (!users.Any())
-        //    {
-        //        // React Admin ожидает пустой массив, а не 404
-        //        Response.Headers.Append("X-Total-Count", "0");
-        //        Response.Headers.Append("Access-Control-Expose-Headers", "X-Total-Count");
-        //        return Ok(new List<object>());
-        //    }
-
-        //    // Проверяем наличие фильтра по роли
-        //    string roleFilter = null;
-        //    HttpContext.Request.Query.TryGetValue("filter[role]", out var roleFilterValue);
-        //    if (!string.IsNullOrEmpty(roleFilterValue))
-        //    {
-        //        roleFilter = roleFilterValue.ToString().ToLower();
-        //    }
-
-        //    // Формируем список пользователей с их ролями
-        //    var userList = new List<object>();
-        //    foreach (var user in users)
-        //    {
-        //        var roles = await _userManager.GetRolesAsync(user);
-        //        var firstRole = roles.FirstOrDefault() ?? "user";
-
-        //        // Фильтрация по роли если она указана в фильтре
-        //        if (roleFilter != null && !firstRole.ToLower().Contains(roleFilter))
-        //        {
-        //            continue; // Пропускаем пользователя, если его роль не соответствует фильтру
-        //        }
-
-        //        userList.Add(new
-        //        {
-        //            id = user.Id,
-        //            username = user.UserName,
-        //            email = user.Email,
-        //            role = firstRole.ToLower()
-        //        });
-        //    }
-
-        //    // Добавляем заголовок с общим количеством записей
-        //    Response.Headers.Append("X-Total-Count", totalCount.ToString());
-        //    Response.Headers.Append("Access-Control-Expose-Headers", "X-Total-Count");
-
-        //    // Возвращаем данные в формате, ожидаемом React Admin
-        //    return Ok(userList);
-        //}
-
+        /// <param name="page"></param>
+        /// <param name="perPage"></param>
+        /// <param name="sortField"></param>
+        /// <param name="sortOrder"></param>
+        /// <param name="username"></param>
+        /// <param name="email"></param>
+        /// <param name="id"></param>
+        /// <param name="role"></param>
+        /// <param name="filter"></param>
+        /// <returns></returns>
         [HttpGet("users")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> GetUsersPaged(
-    [FromQuery] int page = 1,
-    [FromQuery] int perPage = 10,
-    [FromQuery] string sortField = "username",
-    [FromQuery] string sortOrder = "ASC",
-    [FromQuery] string username = null,
-    [FromQuery] string email = null,
-    [FromQuery] string id = null,
-    [FromQuery] string role = null,
-    [FromQuery] string filter = null) // Оставляем для обратной совместимости
+        [FromQuery] int page = 1,
+        [FromQuery] int perPage = 10,
+        [FromQuery] string sortField = "username",
+        [FromQuery] string sortOrder = "ASC",
+        [FromQuery] string username = null,
+        [FromQuery] string email = null,
+        [FromQuery] string id = null,
+        [FromQuery] string role = null,
+        [FromQuery] string filter = null) // Оставляем для обратной совместимости
         {
             // Получаем базовый запрос пользователей
             var usersQuery = _db.ApplicationUsers.AsQueryable();
