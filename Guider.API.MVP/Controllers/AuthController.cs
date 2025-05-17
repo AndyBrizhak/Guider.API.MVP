@@ -261,7 +261,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="filter"></param>
         /// <returns></returns>
         [HttpGet("users")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> GetUsersPaged(
         [FromQuery] int page = 1,
         [FromQuery] int perPage = 10,
