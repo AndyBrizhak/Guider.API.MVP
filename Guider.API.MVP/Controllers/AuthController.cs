@@ -457,7 +457,7 @@ namespace Guider.API.MVP.Controllers
         /// 
         /// </returns>
         [HttpGet("users/{id}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> GetUserById(string id)
         {
             var user = await _userManager.FindByIdAsync(id);
@@ -516,7 +516,7 @@ namespace Guider.API.MVP.Controllers
         /// </returns>
         /// 
         [HttpPut("users/{id}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> UpdateUser(string id, [FromBody] UpdateUserData model)
         {
             // Проверка входных данных
@@ -541,7 +541,7 @@ namespace Guider.API.MVP.Controllers
                 return NotFound(new { message = "User not found!" });
             }
 
-            /* Закомментирован код проверки прав и ролей
+            
             // Проверка прав доступа
             var currentUser = await _userManager.GetUserAsync(User);
             if (currentUser == null)
@@ -572,7 +572,7 @@ namespace Guider.API.MVP.Controllers
                     new { message = "Only Super Admins can assign Admin or Super Admin roles!" });
                 }
             }
-            */
+
 
             // Обновление данных пользователя
             if (!string.IsNullOrEmpty(userName))
