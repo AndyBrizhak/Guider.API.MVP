@@ -646,7 +646,7 @@ namespace Guider.API.MVP.Controllers
         /// 
         /// </returns>
         [HttpDelete("users/{id}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> DeleteUser(string id, [FromBody] DeleteUserRequestDTO model = null)
         {
             var userToDelete = await _userManager.FindByIdAsync(id);
@@ -668,7 +668,7 @@ namespace Guider.API.MVP.Controllers
                 role = userRole.ToLower()
             };
 
-            /* Закомментирован код проверки прав и ролей
+            
             // Проверка прав доступа
             var currentUser = await _userManager.GetUserAsync(User);
             if (currentUser == null)
@@ -691,7 +691,7 @@ namespace Guider.API.MVP.Controllers
                     new { message = "Only Super Admins can delete users with Admin or Super Admin roles!" });
                 }
             }
-            */
+
 
 
             // Удаление пользователя
