@@ -821,14 +821,13 @@ namespace Guider.API.MVP.Services
             }
         }
 
-        public async Task<JsonDocument> RemoveCityAsync(string cityName, string provinceName)
+        public async Task<JsonDocument> RemoveCityAsync(string cityId)
         {
             try
             {
-                var filter = Builders<BsonDocument>.Filter.And(
-                    Builders<BsonDocument>.Filter.Eq("name", cityName),
-                    Builders<BsonDocument>.Filter.Eq("province", provinceName)
-                );
+                // Используем ObjectId для поиска документа по _id
+                var objectId = MongoDB.Bson.ObjectId.Parse(cityId);
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
 
                 var deleteResult = await _citiesCollection.DeleteOneAsync(filter);
 
@@ -837,7 +836,7 @@ namespace Guider.API.MVP.Services
                     var errorResponse = new
                     {
                         IsSuccess = false,
-                        Message = $"City '{cityName}' not found in province '{provinceName}'."
+                        Message = $"City with ID '{cityId}' not found."
                     };
                     return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
                 }
@@ -845,9 +844,18 @@ namespace Guider.API.MVP.Services
                 var successResponse = new
                 {
                     IsSuccess = true,
-                    Message = $"City '{cityName}' has been successfully removed from province '{provinceName}'."
+                    Message = $"City with ID '{cityId}' has been successfully removed."
                 };
                 return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+            }
+            catch (FormatException ex)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"Invalid ID format: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
             }
             catch (Exception ex)
             {

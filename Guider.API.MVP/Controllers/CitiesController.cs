@@ -696,37 +696,30 @@ namespace Guider.API.MVP.Controllers
         }
 
 
+      
         /// <summary>
-        /// Deletes a city from the specified province.
+        /// Deletes a city by its ID.
         /// </summary>
-        /// <param name="provinceName">The name of the province where the city is located.</param>
-        /// <param name="cityName">The name of the city to delete.</param>
+        /// <param name="cityId">The ID of the city to delete.</param>
         /// <returns>A response indicating the success or failure of the delete operation.</returns>
         [HttpDelete]
-        [Route("RemoveCityFromProvince")]
+        [Route("RemoveCity/{cityId}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        public async Task<IActionResult> RemoveCityFromProvince(string provinceName, string cityName)
+        public async Task<IActionResult> RemoveCity(string cityId)
         {
             var apiResponse = new Models.ApiResponse();
             try
             {
-                if (string.IsNullOrWhiteSpace(provinceName))
+                if (string.IsNullOrWhiteSpace(cityId))
                 {
                     apiResponse.IsSuccess = false;
                     apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "Province name cannot be null or empty." };
+                    apiResponse.ErrorMessages = new List<string> { "City ID cannot be null or empty." };
                     return BadRequest(apiResponse);
                 }
 
-                if (string.IsNullOrWhiteSpace(cityName))
-                {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "City name cannot be null or empty." };
-                    return BadRequest(apiResponse);
-                }
+                var resultDocument = await _citiesService.RemoveCityAsync(cityId);
 
-                var resultDocument = await _citiesService.RemoveCityAsync(cityName, provinceName);
                 if (resultDocument == null)
                 {
                     apiResponse.IsSuccess = false;
@@ -747,9 +740,14 @@ namespace Guider.API.MVP.Controllers
                 }
                 else
                 {
-                    HttpStatusCode statusCode = message.Contains("not found")
-                        ? HttpStatusCode.NotFound
-                        : HttpStatusCode.BadRequest;
+                    HttpStatusCode statusCode;
+
+                    if (message.Contains("not found"))
+                        statusCode = HttpStatusCode.NotFound;
+                    else if (message.Contains("Invalid ID format"))
+                        statusCode = HttpStatusCode.BadRequest;
+                    else
+                        statusCode = HttpStatusCode.BadRequest;
 
                     apiResponse.IsSuccess = false;
                     apiResponse.StatusCode = statusCode;
