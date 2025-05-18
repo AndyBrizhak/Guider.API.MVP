@@ -33,15 +33,34 @@ namespace Guider.API.MVP.Controllers
             _provinceService = provinceService;
         }
 
+        
         /// <summary>
         /// Retrieves all provinces in a format compatible with react-admin.
         /// </summary>
+        /// <param name="q">Search query for filtering.</param>
+        /// <param name="name">Filter by province name.</param>
+        /// <param name="url">Filter by province URL.</param>
         /// <returns>A list of provinces.</returns>
         [HttpGet("provinces")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] string q = null, [FromQuery] string name = null, [FromQuery] string url = null)
         {
-            var provincesDocuments = await _provinceService.GetAllAsync();
+            // Создаем объект фильтра для передачи в сервис
+            var filter = new Dictionary<string, string>();
+            if (!string.IsNullOrEmpty(q))
+            {
+                filter["q"] = q;
+            }
+            if (!string.IsNullOrEmpty(name))
+            {
+                filter["name"] = name;
+            }
+            if (!string.IsNullOrEmpty(url))
+            {
+                filter["url"] = url;
+            }
+
+            var provincesDocuments = await _provinceService.GetAllAsync(filter);
 
             // Transform the data format to be compatible with react-admin
             var result = new List<object>();
@@ -61,25 +80,25 @@ namespace Guider.API.MVP.Controllers
                     doc.RootElement.TryGetProperty("_id", out var idElement);
                     string id = idElement.GetProperty("$oid").GetString();
 
-                    string name = string.Empty;
+                    string docName = string.Empty;
                     if (doc.RootElement.TryGetProperty("name", out var nameElement))
                     {
-                        name = nameElement.GetString();
+                        docName = nameElement.GetString();
                     }
 
                     // Получаем URL из документа (если есть)
-                    string url = string.Empty;
+                    string docUrl = string.Empty;
                     if (doc.RootElement.TryGetProperty("url", out var urlElement))
                     {
-                        url = urlElement.GetString();
+                        docUrl = urlElement.GetString();
                     }
 
                     // Формируем объект в формате для react-admin
                     result.Add(new
                     {
                         id,
-                        name,
-                        url
+                        name = docName,
+                        url = docUrl
                     });
                 }
                 catch (Exception ex)

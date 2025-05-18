@@ -25,11 +25,49 @@ namespace Guider.API.MVP.Services
                 mongoSettings.Value.Collections["Provinces"]);
         }
 
-        public async Task<List<JsonDocument>> GetAllAsync()
+        public async Task<List<JsonDocument>> GetAllAsync(Dictionary<string, string> filter = null)
         {
             try
             {
-                var documents = await _provinceCollection.Find(_ => true).ToListAsync();
+                FilterDefinition<BsonDocument> filterDefinition = Builders<BsonDocument>.Filter.Empty;
+
+                // Применяем фильтры, если они переданы
+                if (filter != null && filter.Count > 0)
+                {
+                    var filterBuilder = Builders<BsonDocument>.Filter;
+                    var filters = new List<FilterDefinition<BsonDocument>>();
+
+                    // Обработка общего поискового запроса
+                    if (filter.TryGetValue("q", out string q) && !string.IsNullOrEmpty(q))
+                    {
+                        // Создаем фильтр для поиска по нескольким полям
+                        var nameFilter = filterBuilder.Regex("name", new BsonRegularExpression(q, "i"));
+                        var urlFilter = filterBuilder.Regex("url", new BsonRegularExpression(q, "i"));
+
+                        // Объединяем в один фильтр OR
+                        filters.Add(filterBuilder.Or(nameFilter, urlFilter));
+                    }
+
+                    // Фильтр по названию провинции
+                    if (filter.TryGetValue("name", out string name) && !string.IsNullOrEmpty(name))
+                    {
+                        filters.Add(filterBuilder.Regex("name", new BsonRegularExpression(name, "i")));
+                    }
+
+                    // Фильтр по URL слагу
+                    if (filter.TryGetValue("url", out string url) && !string.IsNullOrEmpty(url))
+                    {
+                        filters.Add(filterBuilder.Regex("url", new BsonRegularExpression(url, "i")));
+                    }
+
+                    // Если есть фильтры, применяем их
+                    if (filters.Count > 0)
+                    {
+                        filterDefinition = filterBuilder.And(filters);
+                    }
+                }
+
+                var documents = await _provinceCollection.Find(filterDefinition).ToListAsync();
                 var jsonDocuments = new List<JsonDocument>();
 
                 foreach (var document in documents)
