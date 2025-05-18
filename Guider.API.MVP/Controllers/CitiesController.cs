@@ -767,43 +767,7 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-        /// <summary>
-        /// Retrieves a list of all provinces.
-        /// </summary>
-        /// <returns>A list of all available provinces.</returns>
-        [HttpGet]
-        [Route("GetAllProvinces")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<IActionResult> GetAllProvinces()
-        {
-            var apiResponse = new Models.ApiResponse();
-            try
-            {
-                var result = await _citiesService.GetAllProvincesAsync();
-                bool isSuccess = result.RootElement.GetProperty("IsSuccess").GetBoolean();
-
-                if (!isSuccess)
-                {
-                    string errorMessage = result.RootElement.GetProperty("Message").GetString();
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.NotFound;
-                    apiResponse.ErrorMessages = new List<string> { errorMessage };
-                    return NotFound(apiResponse);
-                }
-
-                apiResponse.IsSuccess = true;
-                apiResponse.StatusCode = HttpStatusCode.OK;
-                apiResponse.Result = JsonDocument.Parse(result.RootElement.GetProperty("Provinces").GetRawText());
-                return Ok(apiResponse);
-            }
-            catch (Exception ex)
-            {
-                apiResponse.IsSuccess = false;
-                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-                apiResponse.ErrorMessages = new List<string> { ex.Message };
-                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
-            }
-        }
+        
     }
 
     // Extension method to help combine JSON objects

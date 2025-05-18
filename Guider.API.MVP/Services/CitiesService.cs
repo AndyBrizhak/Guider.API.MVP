@@ -868,56 +868,6 @@ namespace Guider.API.MVP.Services
             }
         }
 
-        public async Task<JsonDocument> GetAllProvincesAsync()
-        {
-            try
-            {
-                // Используем агрегацию для получения уникальных провинций
-                var pipeline = new BsonDocument[]
-                {
-                    new BsonDocument("$group", new BsonDocument
-                    {
-                        { "_id", "$province" }
-                    }),
-                    new BsonDocument("$project", new BsonDocument
-                    {
-                        { "_id", 0 },
-                        { "name", "$_id" }
-                    }),
-                    new BsonDocument("$sort", new BsonDocument
-                    {
-                        { "name", 1 }
-                    })
-                };
-
-                var provinces = await _citiesCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
-
-                if (provinces == null || provinces.Count == 0)
-                {
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = "No provinces found."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
-
-                var successResponse = new
-                {
-                    IsSuccess = true,
-                    Provinces = provinces
-                }.ToJson();
-                return JsonDocument.Parse(successResponse);
-            }
-            catch (Exception ex)
-            {
-                var errorResponse = new
-                {
-                    IsSuccess = false,
-                    Message = $"An error occurred: {ex.Message}"
-                };
-                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-            }
-        }
+        
     }
 }
