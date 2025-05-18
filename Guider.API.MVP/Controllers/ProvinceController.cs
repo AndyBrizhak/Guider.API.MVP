@@ -135,8 +135,8 @@ namespace Guider.API.MVP.Controllers
         /// Retrieves all provinces in a format compatible with react-admin.
         /// </summary>
         /// <returns>A list of provinces.</returns>
-        [HttpGet]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [HttpGet("provinces")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetAll()
         {
             var provincesDocuments = await _provinceService.GetAllAsync();
@@ -191,8 +191,8 @@ namespace Guider.API.MVP.Controllers
         /// </summary>
         /// <param name="id">The ID of the province.</param>
         /// <returns>The province details.</returns>
-        [HttpGet("{id}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [HttpGet("provinces/{id}")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetById(string id)
         {
             var provinceDoc = await _provinceService.GetByIdAsync(id);
@@ -235,8 +235,8 @@ namespace Guider.API.MVP.Controllers
         /// </summary>
         /// <param name="province">The province data.</param>
         /// <returns>The created province.</returns>
-        [HttpPost]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [HttpPost("provinces")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Create([FromBody] JsonElement provinceData)
         {
             if (!ModelState.IsValid)
@@ -302,8 +302,8 @@ namespace Guider.API.MVP.Controllers
         /// <param name="id">The ID of the province to update.</param>
         /// <param name="provinceData">The updated province data.</param>
         /// <returns>The updated province.</returns>
-        [HttpPut("{id}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [HttpPut("provinces/{id}")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Update(string id, [FromBody] JsonElement provinceData)
         {
             try
@@ -370,8 +370,8 @@ namespace Guider.API.MVP.Controllers
         /// </summary>
         /// <param name="id">The ID of the province to delete.</param>
         /// <returns>A confirmation of deletion.</returns>
-        [HttpDelete("{id}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [HttpDelete("provinces/{id}")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<IActionResult> Delete(string id)
         {
             var result = await _provinceService.DeleteAsync(id);
