@@ -417,66 +417,6 @@ namespace Guider.API.MVP.Controllers
             _citiesService = citiesService;
         }
 
-        ///// <summary>
-        ///// Retrieves a list of all cities with filtering, sorting and pagination support.
-        ///// </summary>
-        ///// <param name="page">Page number, default is 1</param>
-        ///// <param name="perPage">Number of items per page, default is 10</param>
-        ///// <param name="sortField">Field to sort by, default is "name"</param>
-        ///// <param name="sortOrder">Sort order (ASC or DESC), default is ASC</param>
-        ///// <param name="name">Filter by city name (optional)</param>
-        ///// <param name="province">Filter by province name (optional)</param>
-        ///// <param name="url">Filter by city URL (optional)</param>
-        ///// <returns>A paginated and filtered list of cities</returns>
-        //[HttpGet]
-        //[Route("GetCities")]
-        //public async Task<IActionResult> GetCities(
-        //    [FromQuery] int page = 1,
-        //    [FromQuery] int perPage = 10,
-        //    [FromQuery] string sortField = "name",
-        //    [FromQuery] string sortOrder = "ASC",
-        //    [FromQuery] string name = "",
-        //    [FromQuery] string province = "",
-        //    [FromQuery] string url = "")
-        //{
-        //    var apiResponse = new Models.ApiResponse();
-        //    try
-        //    {
-        //        var result = await _citiesService.GetCitiesAsync(page, perPage, sortField, sortOrder, name, province, url);
-        //        bool isSuccess = result.RootElement.GetProperty("IsSuccess").GetBoolean();
-
-        //        if (!isSuccess)
-        //        {
-        //            string errorMessage = result.RootElement.GetProperty("Message").GetString();
-        //            apiResponse.IsSuccess = false;
-        //            apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-        //            apiResponse.ErrorMessages = new List<string> { errorMessage };
-        //            return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
-        //        }
-
-        //        var cities = JsonDocument.Parse(result.RootElement.GetProperty("Cities").GetRawText());
-        //        var totalCount = result.RootElement.GetProperty("TotalCount").GetInt64();
-
-        //        apiResponse.IsSuccess = true;
-        //        apiResponse.StatusCode = HttpStatusCode.OK;
-        //        apiResponse.Result = cities;
-
-        //        // Добавляем хедер для React Admin с общим количеством записей
-        //        Response.Headers.Add("X-Total-Count", totalCount.ToString());
-        //        // Добавляем CORS хедеры для доступа к X-Total-Count из клиента
-        //        Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
-
-        //        return Ok(apiResponse.Result);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        apiResponse.IsSuccess = false;
-        //        apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-        //        apiResponse.ErrorMessages = new List<string> { ex.Message };
-        //        return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
-        //    }
-        //}
-
         /// <summary>
         /// Retrieves all cities in a format compatible with react-admin.
         /// </summary>
