@@ -1,4 +1,5 @@
 ﻿
+
 using Guider.API.MVP.Models;
 using Guider.API.MVP.Services;
 using Guider.API.MVP.Utility;
@@ -66,11 +67,19 @@ namespace Guider.API.MVP.Controllers
                         name = nameElement.GetString();
                     }
 
+                    // Получаем URL из документа (если есть)
+                    string url = string.Empty;
+                    if (doc.RootElement.TryGetProperty("url", out var urlElement))
+                    {
+                        url = urlElement.GetString();
+                    }
+
                     // Формируем объект в формате для react-admin
                     result.Add(new
                     {
                         id,
-                        name
+                        name,
+                        url
                     });
                 }
                 catch (Exception ex)
@@ -116,11 +125,19 @@ namespace Guider.API.MVP.Controllers
                     name = nameElement.GetString();
                 }
 
+                // Получаем URL из документа (если есть)
+                string url = string.Empty;
+                if (provinceDoc.RootElement.TryGetProperty("url", out var urlElement))
+                {
+                    url = urlElement.GetString();
+                }
+
                 // Формируем объект в формате для react-admin
                 var result = new
                 {
                     id = docId,
-                    name
+                    name,
+                    url
                 };
 
                 return Ok(result);
@@ -158,6 +175,13 @@ namespace Guider.API.MVP.Controllers
                     {
                         writer.WriteStartObject();
                         writer.WriteString("name", provinceData.GetProperty("name").GetString());
+
+                        // Добавляем URL если он есть
+                        if (provinceData.TryGetProperty("url", out var urlElement))
+                        {
+                            writer.WriteString("url", urlElement.GetString());
+                        }
+
                         writer.WriteEndObject();
                     }
 
@@ -181,11 +205,19 @@ namespace Guider.API.MVP.Controllers
                         name = nameElement.GetString();
                     }
 
+                    // Получаем URL из документа (если есть)
+                    string url = string.Empty;
+                    if (createdProvinceDoc.RootElement.TryGetProperty("url", out var docUrlElement))
+                    {
+                        url = docUrlElement.GetString();
+                    }
+
                     // Формируем объект в формате для react-admin
                     var result = new
                     {
                         id = docId,
-                        name
+                        name,
+                        url
                     };
 
                     return Ok(result);
@@ -222,6 +254,13 @@ namespace Guider.API.MVP.Controllers
                     {
                         writer.WriteStartObject();
                         writer.WriteString("name", provinceData.GetProperty("name").GetString());
+
+                        // Добавляем URL если он есть
+                        if (provinceData.TryGetProperty("url", out var urlElement))
+                        {
+                            writer.WriteString("url", urlElement.GetString());
+                        }
+
                         writer.WriteEndObject();
                     }
 
@@ -250,11 +289,19 @@ namespace Guider.API.MVP.Controllers
                         name = nameElement.GetString();
                     }
 
+                    // Получаем URL из документа (если есть)
+                    string url = string.Empty;
+                    if (updatedProvinceDoc.RootElement.TryGetProperty("url", out var docUrlElement))
+                    {
+                        url = docUrlElement.GetString();
+                    }
+
                     // Формируем объект в формате для react-admin
                     var result = new
                     {
                         id = docId,
-                        name
+                        name,
+                        url
                     };
 
                     return Ok(result);
