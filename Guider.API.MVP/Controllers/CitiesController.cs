@@ -600,45 +600,39 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
+        
         /// <summary>
-        /// Updates the details of a city in the specified province.
+        /// Updates the details of a city by its ID.
         /// </summary>
-        /// <param name="provinceName">The name of the province where the city is located.</param>
-        /// <param name="cityName">The name of the city to update.</param>
+        /// <param name="cityId">The MongoDB ObjectId of the city to update.</param>
         /// <param name="cityData">
         /// A valid JSON document containing the updated city details.  
         /// Example:
         /// {
         ///   "name": "New City Name",
+        ///   "province": "Province Name",
         ///   "latitude": 9.9281,
         ///   "longitude": -84.0907
         /// }
         /// </param>
         /// <remarks>
-        /// The cityData parameter must be a valid JSON document with the required city information.
+        /// The cityData parameter must be a valid JSON document with the city information to update.
+        /// The province field will be preserved if not specified in the update data.
         /// </remarks>
         /// <returns>A response indicating the success or failure of the update operation.</returns>
         [HttpPut]
-        [Route("UpdateCityInProvince")]
+        [Route("UpdateCity/{cityId}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<IActionResult> UpdateCityInProvince(string provinceName, string cityName, [FromBody] JsonDocument cityData)
+        public async Task<IActionResult> UpdateCity(string cityId, [FromBody] JsonDocument cityData)
         {
             var apiResponse = new Models.ApiResponse();
             try
             {
-                if (string.IsNullOrWhiteSpace(provinceName))
+                if (string.IsNullOrWhiteSpace(cityId))
                 {
                     apiResponse.IsSuccess = false;
                     apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "Province name cannot be null or empty." };
-                    return BadRequest(apiResponse);
-                }
-
-                if (string.IsNullOrWhiteSpace(cityName))
-                {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "City name cannot be null or empty." };
+                    apiResponse.ErrorMessages = new List<string> { "City ID cannot be null or empty." };
                     return BadRequest(apiResponse);
                 }
 
@@ -650,16 +644,7 @@ namespace Guider.API.MVP.Controllers
                     return BadRequest(apiResponse);
                 }
 
-                // Add province name to the city data to ensure it's preserved
-                var cityDataWithProvince = JsonDocument.Parse(
-                    JsonSerializer.Serialize(
-                        JsonSerializer.Deserialize<object>(cityData.RootElement.GetRawText()).With(
-                            new { province = provinceName }
-                        )
-                    )
-                );
-
-                var resultDocument = await _citiesService.UpdateCityAsync(cityName, provinceName, cityDataWithProvince);
+                var resultDocument = await _citiesService.UpdateCityAsync(cityId, cityData);
 
                 if (resultDocument == null)
                 {
@@ -681,9 +666,16 @@ namespace Guider.API.MVP.Controllers
                 }
                 else
                 {
-                    HttpStatusCode statusCode = message.Contains("not found")
-                        ? HttpStatusCode.NotFound
-                        : HttpStatusCode.BadRequest;
+                    HttpStatusCode statusCode = HttpStatusCode.BadRequest;
+
+                    if (message.Contains("not found"))
+                    {
+                        statusCode = HttpStatusCode.NotFound;
+                    }
+                    else if (message.Contains("Invalid city ID format"))
+                    {
+                        statusCode = HttpStatusCode.BadRequest;
+                    }
 
                     apiResponse.IsSuccess = false;
                     apiResponse.StatusCode = statusCode;
@@ -702,6 +694,7 @@ namespace Guider.API.MVP.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
             }
         }
+
 
         /// <summary>
         /// Deletes a city from the specified province.

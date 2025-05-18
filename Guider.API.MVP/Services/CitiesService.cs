@@ -608,19 +608,16 @@ namespace Guider.API.MVP.Services
             }
         }
 
-        public async Task<JsonDocument> UpdateCityAsync(string cityName, string provinceName, JsonDocument cityData)
+        public async Task<JsonDocument> UpdateCityAsync(string cityId, JsonDocument cityData)
         {
             try
             {
                 var cityJson = cityData.RootElement.GetRawText();
                 var updatedCityBson = BsonDocument.Parse(cityJson);
 
-                // Находим город для обновления
-                var filter = Builders<BsonDocument>.Filter.And(
-                    Builders<BsonDocument>.Filter.Eq("name", cityName),
-                    Builders<BsonDocument>.Filter.Eq("province", provinceName)
-                );
-
+                // Проверяем, существует ли город с указанным идентификатором
+                var objectId = new ObjectId(cityId);
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
                 var existingCity = await _citiesCollection.Find(filter).FirstOrDefaultAsync();
 
                 if (existingCity == null)
@@ -628,23 +625,35 @@ namespace Guider.API.MVP.Services
                     var errorResponse = new
                     {
                         IsSuccess = false,
-                        Message = $"City '{cityName}' not found in province '{provinceName}'."
+                        Message = $"City with ID '{cityId}' not found."
                     };
                     return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
                 }
 
+                // Сохраняем текущие значения для формирования сообщения
+                string currentCityName = existingCity.Contains("name") ? existingCity["name"].AsString : "Unknown";
+                string currentProvince = existingCity.Contains("province") ? existingCity["province"].AsString : "Unknown";
+
                 // Проверяем, меняется ли название города
-                string updatedCityName = cityName;
+                string updatedCityName = currentCityName;
                 if (updatedCityBson.Contains("name") && updatedCityBson["name"].BsonType == BsonType.String)
                 {
                     updatedCityName = updatedCityBson["name"].AsString;
 
-                    // Если название меняется, проверяем, не существует ли уже город с таким названием
-                    if (updatedCityName != cityName)
+                    // Если название меняется, проверяем, не существует ли уже город с таким названием в той же провинции
+                    if (updatedCityName != currentCityName)
                     {
+                        // Получаем провинцию из обновленных данных или из существующего города
+                        string provinceName = existingCity["province"].AsString;
+                        if (updatedCityBson.Contains("province") && updatedCityBson["province"].BsonType == BsonType.String)
+                        {
+                            provinceName = updatedCityBson["province"].AsString;
+                        }
+
                         var duplicateFilter = Builders<BsonDocument>.Filter.And(
                             Builders<BsonDocument>.Filter.Eq("name", updatedCityName),
-                            Builders<BsonDocument>.Filter.Eq("province", provinceName)
+                            Builders<BsonDocument>.Filter.Eq("province", provinceName),
+                            Builders<BsonDocument>.Filter.Ne("_id", objectId)
                         );
                         var duplicateCity = await _citiesCollection.Find(duplicateFilter).FirstOrDefaultAsync();
 
@@ -667,15 +676,15 @@ namespace Guider.API.MVP.Services
                     updatedCityBson["longitude"].BsonType == BsonType.Double)
                 {
                     var location = new BsonDocument
+            {
+                { "type", "Point" },
+                { "coordinates", new BsonArray
                     {
-                        { "type", "Point" },
-                        { "coordinates", new BsonArray
-                            {
-                                updatedCityBson["longitude"].AsDouble,
-                                updatedCityBson["latitude"].AsDouble
-                            }
-                        }
-                    };
+                        updatedCityBson["longitude"].AsDouble,
+                        updatedCityBson["latitude"].AsDouble
+                    }
+                }
+            };
                     updatedCityBson.Add("location", location);
 
                     // Удаляем отдельные поля широты и долготы
@@ -698,16 +707,35 @@ namespace Guider.API.MVP.Services
                 // Сохраняем исходный _id
                 updatedCityBson["_id"] = existingCity["_id"];
 
+                // Сохраняем провинцию, если она не указана в обновляемых данных
+                if (!updatedCityBson.Contains("province") && existingCity.Contains("province"))
+                {
+                    updatedCityBson["province"] = existingCity["province"];
+                }
+
                 // Обновляем документ
                 await _citiesCollection.ReplaceOneAsync(filter, updatedCityBson);
+
+                // Определяем название провинции для сообщения
+                string updatedProvince = updatedCityBson.Contains("province") ?
+                    updatedCityBson["province"].AsString : currentProvince;
 
                 var successResponse = new
                 {
                     IsSuccess = true,
-                    Message = $"City '{cityName}' has been successfully updated to '{updatedCityName}' in province '{provinceName}'."
+                    Message = $"City '{currentCityName}' has been successfully updated to '{updatedCityName}' in province '{updatedProvince}'."
                 };
 
                 return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+            }
+            catch (FormatException)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = "Invalid city ID format."
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
             }
             catch (Exception ex)
             {
