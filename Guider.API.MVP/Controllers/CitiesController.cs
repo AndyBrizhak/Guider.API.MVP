@@ -393,11 +393,14 @@
 //}
 
 
+using Guider.API.MVP.Models;
 using Guider.API.MVP.Services;
 using Guider.API.MVP.Utility;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using MongoDB.Bson;
+using MongoDB.Driver;
 using System.Net;
 using System.Text.Json;
 
@@ -412,6 +415,176 @@ namespace Guider.API.MVP.Controllers
         public CitiesController(CitiesService citiesService)
         {
             _citiesService = citiesService;
+        }
+
+        ///// <summary>
+        ///// Retrieves a list of all cities with filtering, sorting and pagination support.
+        ///// </summary>
+        ///// <param name="page">Page number, default is 1</param>
+        ///// <param name="perPage">Number of items per page, default is 10</param>
+        ///// <param name="sortField">Field to sort by, default is "name"</param>
+        ///// <param name="sortOrder">Sort order (ASC or DESC), default is ASC</param>
+        ///// <param name="name">Filter by city name (optional)</param>
+        ///// <param name="province">Filter by province name (optional)</param>
+        ///// <param name="url">Filter by city URL (optional)</param>
+        ///// <returns>A paginated and filtered list of cities</returns>
+        //[HttpGet]
+        //[Route("GetCities")]
+        //public async Task<IActionResult> GetCities(
+        //    [FromQuery] int page = 1,
+        //    [FromQuery] int perPage = 10,
+        //    [FromQuery] string sortField = "name",
+        //    [FromQuery] string sortOrder = "ASC",
+        //    [FromQuery] string name = "",
+        //    [FromQuery] string province = "",
+        //    [FromQuery] string url = "")
+        //{
+        //    var apiResponse = new Models.ApiResponse();
+        //    try
+        //    {
+        //        var result = await _citiesService.GetCitiesAsync(page, perPage, sortField, sortOrder, name, province, url);
+        //        bool isSuccess = result.RootElement.GetProperty("IsSuccess").GetBoolean();
+
+        //        if (!isSuccess)
+        //        {
+        //            string errorMessage = result.RootElement.GetProperty("Message").GetString();
+        //            apiResponse.IsSuccess = false;
+        //            apiResponse.StatusCode = HttpStatusCode.InternalServerError;
+        //            apiResponse.ErrorMessages = new List<string> { errorMessage };
+        //            return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+        //        }
+
+        //        var cities = JsonDocument.Parse(result.RootElement.GetProperty("Cities").GetRawText());
+        //        var totalCount = result.RootElement.GetProperty("TotalCount").GetInt64();
+
+        //        apiResponse.IsSuccess = true;
+        //        apiResponse.StatusCode = HttpStatusCode.OK;
+        //        apiResponse.Result = cities;
+
+        //        // Добавляем хедер для React Admin с общим количеством записей
+        //        Response.Headers.Add("X-Total-Count", totalCount.ToString());
+        //        // Добавляем CORS хедеры для доступа к X-Total-Count из клиента
+        //        Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
+
+        //        return Ok(apiResponse.Result);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        apiResponse.IsSuccess = false;
+        //        apiResponse.StatusCode = HttpStatusCode.InternalServerError;
+        //        apiResponse.ErrorMessages = new List<string> { ex.Message };
+        //        return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+        //    }
+        //}
+
+        /// <summary>
+        /// Retrieves all cities in a format compatible with react-admin.
+        /// </summary>
+        /// <param name="q">Search query for filtering.</param>
+        /// <param name="name">Filter by city name.</param>
+        /// <param name="province">Filter by province name.</param>
+        /// <param name="url">Filter by city URL.</param>
+        /// <param name="_sort">Field to sort by, default is "name"</param>
+        /// <param name="_order">Sort order (ASC or DESC), default is ASC</param>
+        /// <returns>A list of cities.</returns>
+        [HttpGet("cities")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        public async Task<IActionResult> GetCities(
+            [FromQuery] string q = null,
+            [FromQuery] string name = null,
+            [FromQuery] string province = null,
+            [FromQuery] string url = null,
+            [FromQuery] string _sort = "name",
+            [FromQuery] string _order = "ASC")
+        {
+            // Создаем объект фильтра для передачи в сервис
+            var filter = new Dictionary<string, string>();
+
+            if (!string.IsNullOrEmpty(q))
+            {
+                filter["q"] = q;
+            }
+
+            if (!string.IsNullOrEmpty(name))
+            {
+                filter["name"] = name;
+            }
+
+            if (!string.IsNullOrEmpty(province))
+            {
+                filter["province"] = province;
+            }
+
+            if (!string.IsNullOrEmpty(url))
+            {
+                filter["url"] = url;
+            }
+
+            // Добавляем параметры сортировки
+            filter["_sort"] = _sort;
+            filter["_order"] = _order;
+
+            var citiesDocuments = await _citiesService.GetCitiesAsync(filter);
+
+            // Transform the data format to be compatible with react-admin
+            var result = new List<object>();
+
+            foreach (var doc in citiesDocuments)
+            {
+                try
+                {
+                    // Проверяем, есть ли поле error
+                    if (doc.RootElement.TryGetProperty("error", out _))
+                    {
+                        // Если есть ошибка, возвращаем её
+                        return BadRequest(doc);
+                    }
+
+                    // Получаем ID и имя из документа
+                    doc.RootElement.TryGetProperty("_id", out var idElement);
+                    string id = idElement.GetProperty("$oid").GetString();
+
+                    string docName = string.Empty;
+                    if (doc.RootElement.TryGetProperty("name", out var nameElement))
+                    {
+                        docName = nameElement.GetString();
+                    }
+
+                    // Получаем провинцию из документа (если есть)
+                    string docProvince = string.Empty;
+                    if (doc.RootElement.TryGetProperty("province", out var provinceElement))
+                    {
+                        docProvince = provinceElement.GetString();
+                    }
+
+                    // Получаем URL из документа (если есть)
+                    string docUrl = string.Empty;
+                    if (doc.RootElement.TryGetProperty("url", out var urlElement))
+                    {
+                        docUrl = urlElement.GetString();
+                    }
+
+                    // Формируем объект в формате для react-admin
+                    result.Add(new
+                    {
+                        id,
+                        name = docName,
+                        province = docProvince,
+                        url = docUrl
+                    });
+                }
+                catch (Exception ex)
+                {
+                    // В случае ошибки добавляем информацию о ней
+                    return BadRequest(new ApiResponse { IsSuccess = false, ErrorMessages = new List<string> { $"Error processing city: {ex.Message}" } });
+                }
+            }
+
+            // Add total count header for react-admin pagination
+            Response.Headers.Add("X-Total-Count", result.Count.ToString());
+            Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
+
+            return Ok(result);
         }
 
         /// <summary>

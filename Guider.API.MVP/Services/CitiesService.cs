@@ -487,6 +487,172 @@ namespace Guider.API.MVP.Services
             }
         }
 
+        //public async Task<JsonDocument> GetCitiesAsync(int page = 1, int perPage = 10, string sortField = "name", string sortOrder = "ASC", string name = "", string province = "", string url = "")
+        //{
+        //    try
+        //    {
+        //        // Создаем фильтр на основе переданных параметров
+        //        var filterBuilder = Builders<BsonDocument>.Filter;
+        //        var filter = filterBuilder.Empty;
+
+        //        // Добавляем фильтрацию по названию города, если оно указано
+        //        if (!string.IsNullOrWhiteSpace(name))
+        //        {
+        //            filter &= filterBuilder.Regex("name", new BsonRegularExpression(name, "i"));
+        //        }
+
+        //        // Добавляем фильтрацию по названию провинции, если оно указано
+        //        if (!string.IsNullOrWhiteSpace(province))
+        //        {
+        //            filter &= filterBuilder.Regex("province", new BsonRegularExpression(province, "i"));
+        //        }
+
+        //        // Добавляем фильтрацию по URL города, если он указан
+        //        if (!string.IsNullOrWhiteSpace(url))
+        //        {
+        //            filter &= filterBuilder.Regex("url", new BsonRegularExpression(url, "i"));
+        //        }
+
+        //        // Определяем сортировку
+        //        var sort = sortOrder.ToUpper() == "DESC"
+        //            ? Builders<BsonDocument>.Sort.Descending(sortField)
+        //            : Builders<BsonDocument>.Sort.Ascending(sortField);
+
+        //        // Получаем общее количество записей для пагинации
+        //        var totalCount = await _citiesCollection.CountDocumentsAsync(filter);
+
+        //        // Получаем данные с учетом пагинации и сортировки
+        //        var cities = await _citiesCollection
+        //            .Find(filter)
+        //            .Sort(sort)
+        //            .Skip((page - 1) * perPage)
+        //            .Limit(perPage)
+        //            .ToListAsync();
+
+        //        if (cities == null || cities.Count == 0)
+        //        {
+        //            var emptyResponse = new
+        //            {
+        //                IsSuccess = true,
+        //                Cities = new List<BsonDocument>(),
+        //                TotalCount = 0
+        //            };
+        //            return JsonDocument.Parse(JsonSerializer.Serialize(emptyResponse));
+        //        }
+
+        //        // Преобразуем ObjectId в строку для корректной работы с React Admin
+        //        var formattedCities = cities.Select(city =>
+        //        {
+        //            var document = new BsonDocument(city);
+        //            if (document.Contains("_id"))
+        //            {
+        //                var id = document["_id"].ToString();
+        //                document.Remove("_id");
+        //                document.Add("id", id);
+        //            }
+        //            return document;
+        //        }).ToList();
+
+        //        var successResponse = new
+        //        {
+        //            IsSuccess = true,
+        //            Cities = formattedCities,
+        //            TotalCount = totalCount
+        //        }.ToJson();
+
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        var errorResponse = new
+        //        {
+        //            IsSuccess = false,
+        //            Message = $"An error occurred: {ex.Message}"
+        //        };
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //    }
+        //}
+
+        public async Task<List<JsonDocument>> GetCitiesAsync(Dictionary<string, string> filter = null)
+        {
+            try
+            {
+                FilterDefinition<BsonDocument> filterDefinition = Builders<BsonDocument>.Filter.Empty;
+                // Применяем фильтры, если они переданы
+                if (filter != null && filter.Count > 0)
+                {
+                    var filterBuilder = Builders<BsonDocument>.Filter;
+                    var filters = new List<FilterDefinition<BsonDocument>>();
+
+                    // Обработка общего поискового запроса
+                    if (filter.TryGetValue("q", out string q) && !string.IsNullOrEmpty(q))
+                    {
+                        // Создаем фильтр для поиска по нескольким полям
+                        var nameFilter = filterBuilder.Regex("name", new BsonRegularExpression(q, "i"));
+                        var urlFilter = filterBuilder.Regex("url", new BsonRegularExpression(q, "i"));
+                        var provinceFilter = filterBuilder.Regex("province", new BsonRegularExpression(q, "i"));
+                        // Объединяем в один фильтр OR
+                        filters.Add(filterBuilder.Or(nameFilter, urlFilter, provinceFilter));
+                    }
+
+                    // Фильтр по названию города
+                    if (filter.TryGetValue("name", out string name) && !string.IsNullOrEmpty(name))
+                    {
+                        filters.Add(filterBuilder.Regex("name", new BsonRegularExpression(name, "i")));
+                    }
+
+                    // Фильтр по названию провинции
+                    if (filter.TryGetValue("province", out string province) && !string.IsNullOrEmpty(province))
+                    {
+                        filters.Add(filterBuilder.Regex("province", new BsonRegularExpression(province, "i")));
+                    }
+
+                    // Фильтр по URL слагу
+                    if (filter.TryGetValue("url", out string url) && !string.IsNullOrEmpty(url))
+                    {
+                        filters.Add(filterBuilder.Regex("url", new BsonRegularExpression(url, "i")));
+                    }
+
+                    // Применяем сортировку
+                    string sortField = "name";
+                    bool isDescending = false;
+
+                    if (filter.TryGetValue("_sort", out string sort) && !string.IsNullOrEmpty(sort))
+                    {
+                        sortField = sort;
+                    }
+
+                    if (filter.TryGetValue("_order", out string order) && !string.IsNullOrEmpty(order))
+                    {
+                        isDescending = order.ToUpper() == "DESC";
+                    }
+
+                    // Если есть фильтры, применяем их
+                    if (filters.Count > 0)
+                    {
+                        filterDefinition = filterBuilder.And(filters);
+                    }
+                }
+
+                var documents = await _citiesCollection.Find(filterDefinition).ToListAsync();
+                var jsonDocuments = new List<JsonDocument>();
+
+                foreach (var document in documents)
+                {
+                    jsonDocuments.Add(JsonDocument.Parse(document.ToJson()));
+                }
+
+                return jsonDocuments;
+            }
+            catch (Exception ex)
+            {
+                return new List<JsonDocument>
+        {
+            JsonDocument.Parse($"{{\"error\": \"An error occurred: {ex.Message}\"}}")
+        };
+            }
+        }
+
         public async Task<JsonDocument> AddCityAsync(JsonDocument cityData)
         {
             try
