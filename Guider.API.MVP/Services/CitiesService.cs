@@ -56,6 +56,93 @@ namespace Guider.API.MVP.Services
             }
         }
 
+        public async Task<JsonDocument> GetCityByIdAsync(string cityId)
+        {
+            try
+            {
+                // Convert string ID to MongoDB ObjectId
+                if (!ObjectId.TryParse(cityId, out ObjectId objectId))
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "Invalid city ID format."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Create filter by ObjectId and execute query
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+                var city = await _citiesCollection.Find(filter).FirstOrDefaultAsync();
+
+                if (city == null)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = $"City with ID '{cityId}' not found."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Extract coordinates if available
+                double latitude = 0.0;
+                double longitude = 0.0;
+                if (city.Contains("location") &&
+                    city["location"].IsBsonDocument &&
+                    city["location"].AsBsonDocument.Contains("coordinates") &&
+                    city["location"]["coordinates"].IsBsonArray)
+                {
+                    var coordinates = city["location"]["coordinates"].AsBsonArray;
+                    if (coordinates.Count >= 2)
+                    {
+                        longitude = coordinates[0].AsDouble;
+                        latitude = coordinates[1].AsDouble;
+                    }
+                }
+
+                // Create a copy of the city document without the _id field for cleaner response
+                var cityCopy = city.DeepClone().AsBsonDocument;
+                cityCopy.Remove("_id");
+
+                // If location exists but we also want to expose latitude and longitude directly
+                if (cityCopy.Contains("location") && !cityCopy.Contains("latitude") && !cityCopy.Contains("longitude"))
+                {
+                    cityCopy["latitude"] = latitude;
+                    cityCopy["longitude"] = longitude;
+                }
+
+                // Формируем корректный JSON для успешного ответа
+                var responseDoc = new BsonDocument
+                {
+                    { "IsSuccess", true },
+                    { "City", cityCopy },
+                    { "Id", cityId }
+                };
+
+                return JsonDocument.Parse(responseDoc.ToJson());
+            }
+            catch (FormatException)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = "Invalid city ID format."
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"An error occurred: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+        }
+
+
 
         public async Task<(List<JsonDocument> Documents, long TotalCount)> GetCitiesAsync(Dictionary<string, string> filter = null)
         {

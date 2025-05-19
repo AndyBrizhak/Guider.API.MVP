@@ -164,6 +164,93 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
+        /// Retrieves a city by its ID.
+        /// </summary>
+        /// <param name="cityId">The MongoDB ObjectId of the city to retrieve</param>
+        /// <returns>The city details if found, or an appropriate error response.</returns>
+        [HttpGet]
+        [Route("cities/{cityId}")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        public async Task<IActionResult> GetCityById(string cityId)
+        {
+            var apiResponse = new Models.ApiResponse();
+            try
+            {
+                if (string.IsNullOrWhiteSpace(cityId))
+                {
+                    apiResponse.IsSuccess = false;
+                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
+                    apiResponse.ErrorMessages = new List<string> { "City ID cannot be null or empty." };
+                    return BadRequest(apiResponse);
+                }
+
+                var result = await _citiesService.GetCityByIdAsync(cityId);
+                bool isSuccess = result.RootElement.GetProperty("IsSuccess").GetBoolean();
+
+                if (!isSuccess)
+                {
+                    string errorMessage = result.RootElement.GetProperty("Message").GetString();
+                    apiResponse.IsSuccess = false;
+
+                    // Determine appropriate status code based on error message
+                    HttpStatusCode statusCode;
+                    if (errorMessage.Contains("not found"))
+                        statusCode = HttpStatusCode.NotFound;
+                    else if (errorMessage.Contains("Invalid city ID format"))
+                        statusCode = HttpStatusCode.BadRequest;
+                    else
+                        statusCode = HttpStatusCode.BadRequest;
+
+                    apiResponse.StatusCode = statusCode;
+                    apiResponse.ErrorMessages = new List<string> { errorMessage };
+
+                    return statusCode == HttpStatusCode.NotFound
+                        ? NotFound(apiResponse)
+                        : BadRequest(apiResponse);
+                }
+
+                // Success case - format the response
+                var cityData = JsonDocument.Parse(result.RootElement.GetProperty("City").GetRawText());
+
+                // Create response object with id for react-admin compatibility
+                var cityResponse = new
+                {
+                    id = result.RootElement.GetProperty("Id").GetString(),
+                    // Add all properties from the city data
+                    name = cityData.RootElement.TryGetProperty("name", out var nameElement) ? nameElement.GetString() : string.Empty,
+                    province = cityData.RootElement.TryGetProperty("province", out var provinceElement) ? provinceElement.GetString() : string.Empty,
+                    url = cityData.RootElement.TryGetProperty("url", out var urlElement) ? urlElement.GetString() : string.Empty,
+                    // Handle location data
+                    location = new
+                    {
+                        longitude = cityData.RootElement.TryGetProperty("longitude", out var longElement) ? longElement.GetDouble() :
+                                   (cityData.RootElement.TryGetProperty("location", out var locElement) &&
+                                    locElement.TryGetProperty("coordinates", out var coordElement) &&
+                                    coordElement.GetArrayLength() >= 1 ? coordElement[0].GetDouble() : (double?)null),
+
+                        latitude = cityData.RootElement.TryGetProperty("latitude", out var latElement) ? latElement.GetDouble() :
+                                  (cityData.RootElement.TryGetProperty("location", out var locElement2) &&
+                                   locElement2.TryGetProperty("coordinates", out var coordElement2) &&
+                                   coordElement2.GetArrayLength() >= 2 ? coordElement2[1].GetDouble() : (double?)null)
+                    }
+                };
+
+                apiResponse.IsSuccess = true;
+                apiResponse.StatusCode = HttpStatusCode.OK;
+                apiResponse.Result = cityResponse;
+                return Ok(apiResponse);
+            }
+            catch (Exception ex)
+            {
+                apiResponse.IsSuccess = false;
+                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
+                apiResponse.ErrorMessages = new List<string> { ex.Message };
+                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+            }
+        }
+
+
+        /// <summary>
         /// Retrieves a list of cities for a given province.
         /// </summary>
         /// <param name="provinceName">The name of the province to retrieve cities for.</param>
