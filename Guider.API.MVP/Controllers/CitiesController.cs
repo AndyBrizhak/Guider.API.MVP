@@ -406,7 +406,7 @@ using System.Text.Json;
 
 namespace Guider.API.MVP.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("")]
     [ApiController]
     public class CitiesController : ControllerBase
     {
@@ -553,7 +553,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="provinceName">The name of the province to retrieve cities for.</param>
         /// <returns>A list of cities in the specified province.</returns>
         [HttpGet]
-        [Route("GetCitiesByProvince")]
+        [Route("CitiesByProvince")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetCitiesByProvince(string provinceName)
         {
@@ -602,7 +602,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="cityName">The name of the city to retrieve.</param>
         /// <returns>The city details if found, or an appropriate error response.</returns>
         [HttpGet]
-        [Route("GetCityByNameAndProvince")]
+        [Route("CityByNameAndProvince")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetCityByNameAndProvince(string provinceName, string cityName)
         {
@@ -674,7 +674,7 @@ namespace Guider.API.MVP.Controllers
         /// </remarks>
         /// <returns>A response indicating the success or failure of the operation.</returns>
         [HttpPost]
-        [Route("AddCity")]
+        [Route("cities")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> AddCity([FromBody] JsonDocument cityData)
         {
@@ -754,7 +754,7 @@ namespace Guider.API.MVP.Controllers
         /// </remarks>
         /// <returns>A response indicating the success or failure of the update operation.</returns>
         [HttpPut]
-        [Route("UpdateCity/{cityId}")]
+        [Route("cities/{cityId}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> UpdateCity(string cityId, [FromBody] JsonDocument cityData)
         {
@@ -836,7 +836,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="cityId">The ID of the city to delete.</param>
         /// <returns>A response indicating the success or failure of the delete operation.</returns>
         [HttpDelete]
-        [Route("RemoveCity/{cityId}")]
+        [Route("cities/{cityId}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<IActionResult> RemoveCity(string cityId)
         {
