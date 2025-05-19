@@ -33,17 +33,25 @@ namespace Guider.API.MVP.Controllers
             _provinceService = provinceService;
         }
 
-        
+
+       
         /// <summary>
         /// Retrieves all provinces in a format compatible with react-admin.
         /// </summary>
         /// <param name="q">Search query for filtering.</param>
         /// <param name="name">Filter by province name.</param>
         /// <param name="url">Filter by province URL.</param>
+        /// <param name="page">Page number for pagination (default: 1).</param>
+        /// <param name="perPage">Items per page for pagination (default: 10).</param>
         /// <returns>A list of provinces.</returns>
         [HttpGet("provinces")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<IActionResult> GetAll([FromQuery] string q = null, [FromQuery] string name = null, [FromQuery] string url = null)
+        public async Task<IActionResult> GetAll(
+            [FromQuery] string q = null,
+            [FromQuery] string name = null,
+            [FromQuery] string url = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int perPage = 10)
         {
             // Создаем объект фильтра для передачи в сервис
             var filter = new Dictionary<string, string>();
@@ -60,11 +68,11 @@ namespace Guider.API.MVP.Controllers
                 filter["url"] = url;
             }
 
-            var provincesDocuments = await _provinceService.GetAllAsync(filter);
+            // Получаем данные с пагинацией
+            var (provincesDocuments, totalCount) = await _provinceService.GetAllAsync(filter, page, perPage);
 
             // Transform the data format to be compatible with react-admin
             var result = new List<object>();
-
             foreach (var doc in provincesDocuments)
             {
                 try
@@ -75,24 +83,20 @@ namespace Guider.API.MVP.Controllers
                         // Если есть ошибка, возвращаем её
                         return BadRequest(doc);
                     }
-
                     // Получаем ID и имя из документа
                     doc.RootElement.TryGetProperty("_id", out var idElement);
                     string id = idElement.GetProperty("$oid").GetString();
-
                     string docName = string.Empty;
                     if (doc.RootElement.TryGetProperty("name", out var nameElement))
                     {
                         docName = nameElement.GetString();
                     }
-
                     // Получаем URL из документа (если есть)
                     string docUrl = string.Empty;
                     if (doc.RootElement.TryGetProperty("url", out var urlElement))
                     {
                         docUrl = urlElement.GetString();
                     }
-
                     // Формируем объект в формате для react-admin
                     result.Add(new
                     {
@@ -109,9 +113,8 @@ namespace Guider.API.MVP.Controllers
             }
 
             // Add total count header for react-admin pagination
-            Response.Headers.Add("X-Total-Count", result.Count.ToString());
+            Response.Headers.Add("X-Total-Count", totalCount.ToString());
             Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
-
             return Ok(result);
         }
 
