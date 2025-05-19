@@ -56,8 +56,8 @@ namespace Guider.API.MVP.Services
             }
         }
 
-        
-        public async Task<List<JsonDocument>> GetCitiesAsync(Dictionary<string, string> filter = null)
+
+        public async Task<(List<JsonDocument> Documents, long TotalCount)> GetCitiesAsync(Dictionary<string, string> filter = null)
         {
             try
             {
@@ -67,7 +67,6 @@ namespace Guider.API.MVP.Services
                 {
                     var filterBuilder = Builders<BsonDocument>.Filter;
                     var filters = new List<FilterDefinition<BsonDocument>>();
-
                     // Обработка общего поискового запроса
                     if (filter.TryGetValue("q", out string q) && !string.IsNullOrEmpty(q))
                     {
@@ -78,37 +77,20 @@ namespace Guider.API.MVP.Services
                         // Объединяем в один фильтр OR
                         filters.Add(filterBuilder.Or(nameFilter, urlFilter, provinceFilter));
                     }
-
                     // Фильтр по названию города
                     if (filter.TryGetValue("name", out string name) && !string.IsNullOrEmpty(name))
                     {
                         filters.Add(filterBuilder.Regex("name", new BsonRegularExpression(name, "i")));
                     }
-
                     // Фильтр по названию провинции
                     if (filter.TryGetValue("province", out string province) && !string.IsNullOrEmpty(province))
                     {
                         filters.Add(filterBuilder.Regex("province", new BsonRegularExpression(province, "i")));
                     }
-
                     // Фильтр по URL слагу
                     if (filter.TryGetValue("url", out string url) && !string.IsNullOrEmpty(url))
                     {
                         filters.Add(filterBuilder.Regex("url", new BsonRegularExpression(url, "i")));
-                    }
-
-                    // Применяем сортировку
-                    string sortField = "name";
-                    bool isDescending = false;
-
-                    if (filter.TryGetValue("_sort", out string sort) && !string.IsNullOrEmpty(sort))
-                    {
-                        sortField = sort;
-                    }
-
-                    if (filter.TryGetValue("_order", out string order) && !string.IsNullOrEmpty(order))
-                    {
-                        isDescending = order.ToUpper() == "DESC";
                     }
 
                     // Если есть фильтры, применяем их
@@ -118,22 +100,62 @@ namespace Guider.API.MVP.Services
                     }
                 }
 
-                var documents = await _citiesCollection.Find(filterDefinition).ToListAsync();
-                var jsonDocuments = new List<JsonDocument>();
+                // Get total count before applying pagination
+                long totalCount = await _citiesCollection.CountDocumentsAsync(filterDefinition);
 
+                // Применяем сортировку
+                string sortField = "name";
+                bool isDescending = false;
+                if (filter != null)
+                {
+                    if (filter.TryGetValue("_sort", out string sort) && !string.IsNullOrEmpty(sort))
+                    {
+                        sortField = sort;
+                    }
+                    if (filter.TryGetValue("_order", out string order) && !string.IsNullOrEmpty(order))
+                    {
+                        isDescending = order.ToUpper() == "DESC";
+                    }
+                }
+
+                // Set up sort definition
+                var sortDefinition = isDescending
+                    ? Builders<BsonDocument>.Sort.Descending(sortField)
+                    : Builders<BsonDocument>.Sort.Ascending(sortField);
+
+                // Apply pagination if specified in the filter
+                IFindFluent<BsonDocument, BsonDocument> query = _citiesCollection.Find(filterDefinition).Sort(sortDefinition);
+
+                if (filter != null)
+                {
+                    // Parse pagination parameters
+                    if (filter.TryGetValue("page", out string pageStr) &&
+                        filter.TryGetValue("perPage", out string perPageStr) &&
+                        int.TryParse(pageStr, out int page) &&
+                        int.TryParse(perPageStr, out int perPage))
+                    {
+                        // Apply skip and limit for pagination
+                        // React Admin's page is 1-based, MongoDB skip is 0-based
+                        int skip = (page - 1) * perPage;
+                        query = query.Skip(skip).Limit(perPage);
+                    }
+                }
+
+                var documents = await query.ToListAsync();
+                var jsonDocuments = new List<JsonDocument>();
                 foreach (var document in documents)
                 {
                     jsonDocuments.Add(JsonDocument.Parse(document.ToJson()));
                 }
 
-                return jsonDocuments;
+                return (jsonDocuments, totalCount);
             }
             catch (Exception ex)
             {
-                return new List<JsonDocument>
+                return (new List<JsonDocument>
         {
             JsonDocument.Parse($"{{\"error\": \"An error occurred: {ex.Message}\"}}")
-        };
+        }, 0);
             }
         }
 

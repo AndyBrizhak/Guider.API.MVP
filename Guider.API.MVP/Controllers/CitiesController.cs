@@ -24,7 +24,8 @@ namespace Guider.API.MVP.Controllers
             _citiesService = citiesService;
         }
 
-        
+
+       
         /// <summary>
         /// Retrieves all cities in a format compatible with react-admin.
         /// </summary>
@@ -32,16 +33,20 @@ namespace Guider.API.MVP.Controllers
         /// <param name="name">Filter by city name.</param>
         /// <param name="province">Filter by province name.</param>
         /// <param name="url">Filter by city URL.</param>
+        /// <param name="page">Page number for pagination (1-based).</param>
+        /// <param name="perPage">Number of items per page.</param>
         /// <param name="_sort">Field to sort by, default is "name"</param>
         /// <param name="_order">Sort order (ASC or DESC), default is ASC</param>
         /// <returns>A list of cities.</returns>
         [HttpGet("cities")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetCities(
             [FromQuery] string q = null,
             [FromQuery] string name = null,
             [FromQuery] string province = null,
             [FromQuery] string url = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int perPage = 10,
             [FromQuery] string _sort = "name",
             [FromQuery] string _order = "ASC")
         {
@@ -72,7 +77,11 @@ namespace Guider.API.MVP.Controllers
             filter["_sort"] = _sort;
             filter["_order"] = _order;
 
-            var citiesDocuments = await _citiesService.GetCitiesAsync(filter);
+            // Add pagination parameters
+            filter["page"] = page.ToString();
+            filter["perPage"] = perPage.ToString();
+
+            var (citiesDocuments, totalCount) = await _citiesService.GetCitiesAsync(filter);
 
             // Transform the data format to be compatible with react-admin
             var result = new List<object>();
@@ -148,7 +157,7 @@ namespace Guider.API.MVP.Controllers
             }
 
             // Add total count header for react-admin pagination
-            Response.Headers.Add("X-Total-Count", result.Count.ToString());
+            Response.Headers.Add("X-Total-Count", totalCount.ToString());
             Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
 
             return Ok(result);
