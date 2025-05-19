@@ -417,6 +417,7 @@ namespace Guider.API.MVP.Controllers
             _citiesService = citiesService;
         }
 
+        
         /// <summary>
         /// Retrieves all cities in a format compatible with react-admin.
         /// </summary>
@@ -504,13 +505,32 @@ namespace Guider.API.MVP.Controllers
                         docUrl = urlElement.GetString();
                     }
 
+                    // Получаем геоданные из документа (если есть)
+                    double? longitude = null;
+                    double? latitude = null;
+
+                    if (doc.RootElement.TryGetProperty("location", out var locationElement))
+                    {
+                        if (locationElement.TryGetProperty("coordinates", out var coordinatesElement) &&
+                            coordinatesElement.GetArrayLength() >= 2)
+                        {
+                            longitude = coordinatesElement[0].GetDouble();
+                            latitude = coordinatesElement[1].GetDouble();
+                        }
+                    }
+
                     // Формируем объект в формате для react-admin
                     result.Add(new
                     {
                         id,
                         name = docName,
                         province = docProvince,
-                        url = docUrl
+                        url = docUrl,
+                        location = new
+                        {
+                            longitude,
+                            latitude
+                        }
                     });
                 }
                 catch (Exception ex)
