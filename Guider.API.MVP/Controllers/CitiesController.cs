@@ -39,7 +39,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="_order">Sort order (ASC or DESC), default is ASC</param>
         /// <returns>A list of cities.</returns>
         [HttpGet("cities")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetCities(
             [FromQuery] string q = null,
             [FromQuery] string name = null,
