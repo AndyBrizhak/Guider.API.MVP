@@ -226,193 +226,51 @@ namespace Guider.API.MVP.Controllers
         }
 
 
-        /// <summary>
-        /// Retrieves a list of cities for a given province.
-        /// </summary>
-        /// <param name="provinceName">The name of the province to retrieve cities for.</param>
-        /// <returns>A list of cities in the specified province.</returns>
-        //[HttpGet]
-        //[Route("CitiesByProvince")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        //public async Task<IActionResult> GetCitiesByProvince(string provinceName)
-        //{
-        //    var apiResponse = new Models.ApiResponse();
-
-        //    try
-        //    {
-        //        if (string.IsNullOrWhiteSpace(provinceName))
-        //        {
-        //            apiResponse.IsSuccess = false;
-        //            apiResponse.StatusCode = HttpStatusCode.BadRequest;
-        //            apiResponse.ErrorMessages = new List<string> { "Province name cannot be null or empty." };
-        //            return BadRequest(apiResponse);
-        //        }
-
-        //        var result = await _citiesService.GetCitiesByProvinceAsync(provinceName);
-        //        bool isSuccess = result.RootElement.GetProperty("IsSuccess").GetBoolean();
-
-        //        if (!isSuccess)
-        //        {
-        //            string errorMessage = result.RootElement.GetProperty("Message").GetString();
-        //            apiResponse.IsSuccess = false;
-        //            apiResponse.StatusCode = HttpStatusCode.NotFound;
-        //            apiResponse.ErrorMessages = new List<string> { errorMessage };
-        //            return NotFound(apiResponse);
-        //        }
-
-        //        apiResponse.IsSuccess = true;
-        //        apiResponse.StatusCode = HttpStatusCode.OK;
-        //        apiResponse.Result = JsonDocument.Parse(result.RootElement.GetProperty("Cities").GetRawText());
-        //        return Ok(apiResponse);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        apiResponse.IsSuccess = false;
-        //        apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-        //        apiResponse.ErrorMessages = new List<string> { ex.Message };
-        //        return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
-        //    }
-        //}
-
-        /// <summary>
-        /// Retrieves a city by its name and the province it belongs to.
-        /// </summary>
-        /// <param name="provinceName">The name of the province where the city is located.</param>
-        /// <param name="cityName">The name of the city to retrieve.</param>
-        /// <returns>The city details if found, or an appropriate error response.</returns>
-        //[HttpGet]
-        //[Route("CityByNameAndProvince")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        //public async Task<IActionResult> GetCityByNameAndProvince(string provinceName, string cityName)
-        //{
-        //    var apiResponse = new Models.ApiResponse();
-        //    try
-        //    {
-        //        if (string.IsNullOrWhiteSpace(provinceName))
-        //        {
-        //            apiResponse.IsSuccess = false;
-        //            apiResponse.StatusCode = HttpStatusCode.BadRequest;
-        //            apiResponse.ErrorMessages = new List<string> { "Province name cannot be null or empty." };
-        //            return BadRequest(apiResponse);
-        //        }
-
-        //        if (string.IsNullOrWhiteSpace(cityName))
-        //        {
-        //            apiResponse.IsSuccess = false;
-        //            apiResponse.StatusCode = HttpStatusCode.BadRequest;
-        //            apiResponse.ErrorMessages = new List<string> { "City name cannot be null or empty." };
-        //            return BadRequest(apiResponse);
-        //        }
-
-        //        var result = await _citiesService.GetCityByNameAndProvinceAsync(provinceName, cityName);
-        //        bool isSuccess = result.RootElement.GetProperty("IsSuccess").GetBoolean();
-
-        //        if (!isSuccess)
-        //        {
-        //            string errorMessage = result.RootElement.GetProperty("Message").GetString();
-        //            apiResponse.IsSuccess = false;
-        //            apiResponse.StatusCode = HttpStatusCode.NotFound;
-        //            apiResponse.ErrorMessages = new List<string> { errorMessage };
-        //            return NotFound(apiResponse);
-        //        }
-
-        //        var cityData = new
-        //        {
-        //            Province = JsonDocument.Parse(result.RootElement.GetProperty("Province").GetRawText()),
-        //            City = JsonDocument.Parse(result.RootElement.GetProperty("City").GetRawText())
-        //        };
-
-        //        apiResponse.IsSuccess = true;
-        //        apiResponse.StatusCode = HttpStatusCode.OK;
-        //        apiResponse.Result = cityData;
-        //        return Ok(apiResponse);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        apiResponse.IsSuccess = false;
-        //        apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-        //        apiResponse.ErrorMessages = new List<string> { ex.Message };
-        //        return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
-        //    }
-        //}
-
-      
-        /// <summary>
-        /// Adds a new city.
-        /// </summary>
-        /// <param name="cityData">A valid JSON document containing the city details.</param>
-        /// <remarks>
-        /// The cityData parameter must be a valid JSON document with the required city information.
-        /// Example:
-        /// {
-        ///   "name": "Puntarenas",
-        ///   "province": "Puntarenas",
-        ///   "latitude": 9.9763,
-        ///   "longitude": -84.8383
-        /// }
-        /// </remarks>
-        /// <returns>A response indicating the success or failure of the operation.</returns>
+       
         [HttpPost]
         [Route("cities")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> AddCity([FromBody] JsonDocument cityData)
         {
-            var apiResponse = new Models.ApiResponse();
-            try
+            
+            if (cityData == null)
             {
-                if (cityData == null)
+                return BadRequest(new { message = "City data cannot be null." });
+            }
+            var resultDocument = await _citiesService.AddCityAsync(cityData);
+            if (resultDocument == null)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Service returned null result." });
+            }
+            bool isSuccess = resultDocument.RootElement.GetProperty("IsSuccess").GetBoolean();
+            string message = resultDocument.RootElement.GetProperty("Message").GetString();
+            if (isSuccess)
+            {
+                // Получаем полные данные о новом городе из поля Data
+                if (resultDocument.RootElement.TryGetProperty("Data", out JsonElement cityDataElement))
                 {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "City data cannot be null." };
-                    return BadRequest(apiResponse);
-                }
-
-                var resultDocument = await _citiesService.AddCityAsync(cityData);
-
-                if (resultDocument == null)
-                {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-                    apiResponse.ErrorMessages = new List<string> { "Service returned null result." };
-                    return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
-                }
-
-                bool isSuccess = resultDocument.RootElement.GetProperty("IsSuccess").GetBoolean();
-                string message = resultDocument.RootElement.GetProperty("Message").GetString();
-
-                if (isSuccess)
-                {
-                    apiResponse.IsSuccess = true;
-                    apiResponse.StatusCode = HttpStatusCode.OK;
-                    apiResponse.Result = message;
-                    return Ok(apiResponse);
+                  
+                    return Ok(cityDataElement);
                 }
                 else
                 {
-                    HttpStatusCode statusCode = message.Contains("not found")
-                        ? HttpStatusCode.NotFound
-                        : HttpStatusCode.BadRequest;
-
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = statusCode;
-                    apiResponse.ErrorMessages = new List<string> { message };
-
-                    return statusCode == HttpStatusCode.NotFound
-                        ? NotFound(apiResponse)
-                        : BadRequest(apiResponse);
+                    // Если нет данных, возвращаем только сообщение
+                    return Ok(new { message });
                 }
             }
-            catch (Exception ex)
+            else
             {
-                apiResponse.IsSuccess = false;
-                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-                apiResponse.ErrorMessages = new List<string> { ex.Message };
-                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+                HttpStatusCode statusCode = message.Contains("not found")
+                    ? HttpStatusCode.NotFound
+                    : HttpStatusCode.BadRequest;
+                var errorObj = new { message };
+                return statusCode == HttpStatusCode.NotFound
+                    ? NotFound(errorObj)
+                    : BadRequest(errorObj);
             }
+            
         }
 
-              
         /// <summary>
         /// Updates the details of a city by its ID.
         /// </summary>

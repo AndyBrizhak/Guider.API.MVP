@@ -142,8 +142,6 @@ namespace Guider.API.MVP.Services
             }
         }
 
-
-
         public async Task<(List<JsonDocument> Documents, long TotalCount)> GetCitiesAsync(Dictionary<string, string> filter = null)
         {
             try
@@ -246,6 +244,7 @@ namespace Guider.API.MVP.Services
             }
         }
 
+       
         public async Task<JsonDocument> AddCityAsync(JsonDocument cityData)
         {
             try
@@ -317,43 +316,48 @@ namespace Guider.API.MVP.Services
                     cityBson.Remove("longitude");
                 }
 
-                // Если нет url (web), но есть name, создаем его
-                if (!cityBson.Contains("url") && cityBson.Contains("name"))
-                {
-                    string url = cityBson["name"].AsString.ToLower().Replace(" ", "_");
-                    cityBson.Add("url", url);
-                }
-                else if (cityBson.Contains("web") && !cityBson.Contains("url"))
-                {
-                    // Если есть web, но нет url, используем web как url
-                    cityBson.Add("url", cityBson["web"]);
-                    cityBson.Remove("web");
-                }
-
                 // Добавление города в коллекцию
                 await _citiesCollection.InsertOneAsync(cityBson);
+
+                // Получаем только что добавленный город из базы данных
+                var cityId = cityBson["_id"].AsObjectId;
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", cityId);
+                var addedCity = await _citiesCollection.Find(filter).FirstOrDefaultAsync();
+
+                if (addedCity == null)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "City was added but could not be retrieved from the database."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Преобразуем BsonDocument в JSON с нужной структурой
+                var formattedCity = new
+                {
+                    id = cityId.ToString(),
+                    name = addedCity.Contains("name") ? addedCity["name"].AsString : string.Empty,
+                    province = addedCity.Contains("province") ? addedCity["province"].AsString : string.Empty,
+                    url = addedCity.Contains("url") ? addedCity["url"].AsString :
+                          (addedCity.Contains("name") ? addedCity["name"].AsString.ToLower().Replace(" ", "-") : string.Empty),
+                    location = new
+                    {
+                        longitude = addedCity.Contains("location") && addedCity["location"].AsBsonDocument.Contains("coordinates") ?
+                                   addedCity["location"]["coordinates"][0].AsDouble : 0,
+                        latitude = addedCity.Contains("location") && addedCity["location"].AsBsonDocument.Contains("coordinates") ?
+                                  addedCity["location"]["coordinates"][1].AsDouble : 0
+                    }
+                };
 
                 var successResponse = new
                 {
                     IsSuccess = true,
                     Message = $"City '{cityName}' has been successfully added to province '{provinceName}'.",
-                    City = new
-                    {
-                        Id = cityBson["_id"].AsObjectId.ToString(),
-                        Name = cityName,
-                        Province = provinceName,
-                        Url = cityBson.Contains("url") ? cityBson["url"].AsString : null,
-                        Location = cityBson.Contains("location") ? new
-                        {
-                            Type = cityBson["location"]["type"].AsString,
-                            Coordinates = new double[]
-                            {
-                        cityBson["location"]["coordinates"][0].AsDouble,
-                        cityBson["location"]["coordinates"][1].AsDouble
-                            }
-                        } : null
-                    }
+                    Data = formattedCity
                 };
+
                 return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
             }
             catch (Exception ex)
@@ -367,7 +371,6 @@ namespace Guider.API.MVP.Services
             }
         }
 
-        
         public async Task<JsonDocument> UpdateCityAsync(string cityId, JsonDocument cityData)
         {
             try
@@ -637,7 +640,6 @@ namespace Guider.API.MVP.Services
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
             }
         }
-
         
     }
 }
