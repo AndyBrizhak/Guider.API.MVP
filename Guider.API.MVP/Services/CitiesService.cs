@@ -20,41 +20,41 @@ namespace Guider.API.MVP.Services
                 mongoSettings.Value.Collections["Cities"]);
         }
 
-        public async Task<JsonDocument> GetCitiesByProvinceAsync(string provinceName)
-        {
-            try
-            {
-                var filter = Builders<BsonDocument>.Filter.Eq("province", provinceName);
-                var projection = Builders<BsonDocument>.Projection.Exclude("_id");
-                var cities = await _citiesCollection.Find(filter).Project(projection).ToListAsync();
+        //public async Task<JsonDocument> GetCitiesByProvinceAsync(string provinceName)
+        //{
+        //    try
+        //    {
+        //        var filter = Builders<BsonDocument>.Filter.Eq("province", provinceName);
+        //        var projection = Builders<BsonDocument>.Projection.Exclude("_id");
+        //        var cities = await _citiesCollection.Find(filter).Project(projection).ToListAsync();
 
-                if (cities == null || cities.Count == 0)
-                {
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = "Province not found or no cities available."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
+        //        if (cities == null || cities.Count == 0)
+        //        {
+        //            var errorResponse = new
+        //            {
+        //                IsSuccess = false,
+        //                Message = "Province not found or no cities available."
+        //            };
+        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //        }
 
-                var successResponse = new
-                {
-                    IsSuccess = true,
-                    Cities = cities
-                }.ToJson();
-                return JsonDocument.Parse(successResponse);
-            }
-            catch (Exception ex)
-            {
-                var errorResponse = new
-                {
-                    IsSuccess = false,
-                    Message = $"An error occurred: {ex.Message}"
-                };
-                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-            }
-        }
+        //        var successResponse = new
+        //        {
+        //            IsSuccess = true,
+        //            Cities = cities
+        //        }.ToJson();
+        //        return JsonDocument.Parse(successResponse);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        var errorResponse = new
+        //        {
+        //            IsSuccess = false,
+        //            Message = $"An error occurred: {ex.Message}"
+        //        };
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //    }
+        //}
 
         public async Task<JsonDocument> GetCityByIdAsync(string cityId)
         {
@@ -367,146 +367,7 @@ namespace Guider.API.MVP.Services
             }
         }
 
-        //public async Task<JsonDocument> UpdateCityAsync(string cityId, JsonDocument cityData)
-        //{
-        //    try
-        //    {
-        //        var cityJson = cityData.RootElement.GetRawText();
-        //        var updatedCityBson = BsonDocument.Parse(cityJson);
-
-        //        // Проверяем, существует ли город с указанным идентификатором
-        //        var objectId = new ObjectId(cityId);
-        //        var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
-        //        var existingCity = await _citiesCollection.Find(filter).FirstOrDefaultAsync();
-
-        //        if (existingCity == null)
-        //        {
-        //            var errorResponse = new
-        //            {
-        //                IsSuccess = false,
-        //                Message = $"City with ID '{cityId}' not found."
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //        }
-
-        //        // Сохраняем текущие значения для формирования сообщения
-        //        string currentCityName = existingCity.Contains("name") ? existingCity["name"].AsString : "Unknown";
-        //        string currentProvince = existingCity.Contains("province") ? existingCity["province"].AsString : "Unknown";
-
-        //        // Проверяем, меняется ли название города
-        //        string updatedCityName = currentCityName;
-        //        if (updatedCityBson.Contains("name") && updatedCityBson["name"].BsonType == BsonType.String)
-        //        {
-        //            updatedCityName = updatedCityBson["name"].AsString;
-
-        //            // Если название меняется, проверяем, не существует ли уже город с таким названием в той же провинции
-        //            if (updatedCityName != currentCityName)
-        //            {
-        //                // Получаем провинцию из обновленных данных или из существующего города
-        //                string provinceName = existingCity["province"].AsString;
-        //                if (updatedCityBson.Contains("province") && updatedCityBson["province"].BsonType == BsonType.String)
-        //                {
-        //                    provinceName = updatedCityBson["province"].AsString;
-        //                }
-
-        //                var duplicateFilter = Builders<BsonDocument>.Filter.And(
-        //                    Builders<BsonDocument>.Filter.Eq("name", updatedCityName),
-        //                    Builders<BsonDocument>.Filter.Eq("province", provinceName),
-        //                    Builders<BsonDocument>.Filter.Ne("_id", objectId)
-        //                );
-        //                var duplicateCity = await _citiesCollection.Find(duplicateFilter).FirstOrDefaultAsync();
-
-        //                if (duplicateCity != null)
-        //                {
-        //                    var errorResponse = new
-        //                    {
-        //                        IsSuccess = false,
-        //                        Message = $"City with name '{updatedCityName}' already exists in province '{provinceName}'."
-        //                    };
-        //                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //                }
-        //            }
-        //        }
-
-        //        // Обработка координат, если они указаны
-        //        if (!updatedCityBson.Contains("location") &&
-        //            updatedCityBson.Contains("latitude") && updatedCityBson.Contains("longitude") &&
-        //            updatedCityBson["latitude"].BsonType == BsonType.Double &&
-        //            updatedCityBson["longitude"].BsonType == BsonType.Double)
-        //        {
-        //            var location = new BsonDocument
-        //    {
-        //        { "type", "Point" },
-        //        { "coordinates", new BsonArray
-        //            {
-        //                updatedCityBson["longitude"].AsDouble,
-        //                updatedCityBson["latitude"].AsDouble
-        //            }
-        //        }
-        //    };
-        //            updatedCityBson.Add("location", location);
-
-        //            // Удаляем отдельные поля широты и долготы
-        //            updatedCityBson.Remove("latitude");
-        //            updatedCityBson.Remove("longitude");
-        //        }
-
-        //        // Обработка url/web полей
-        //        if (!updatedCityBson.Contains("url") && updatedCityBson.Contains("name"))
-        //        {
-        //            string url = updatedCityBson["name"].AsString.ToLower().Replace(" ", "_");
-        //            updatedCityBson.Add("url", url);
-        //        }
-        //        else if (updatedCityBson.Contains("web") && !updatedCityBson.Contains("url"))
-        //        {
-        //            updatedCityBson.Add("url", updatedCityBson["web"]);
-        //            updatedCityBson.Remove("web");
-        //        }
-
-        //        // Сохраняем исходный _id
-        //        updatedCityBson["_id"] = existingCity["_id"];
-
-        //        // Сохраняем провинцию, если она не указана в обновляемых данных
-        //        if (!updatedCityBson.Contains("province") && existingCity.Contains("province"))
-        //        {
-        //            updatedCityBson["province"] = existingCity["province"];
-        //        }
-
-        //        // Обновляем документ
-        //        await _citiesCollection.ReplaceOneAsync(filter, updatedCityBson);
-
-        //        // Определяем название провинции для сообщения
-        //        string updatedProvince = updatedCityBson.Contains("province") ?
-        //            updatedCityBson["province"].AsString : currentProvince;
-
-        //        var successResponse = new
-        //        {
-        //            IsSuccess = true,
-        //            Message = $"City '{currentCityName}' has been successfully updated to '{updatedCityName}' in province '{updatedProvince}'."
-        //        };
-
-        //        return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
-        //    }
-        //    catch (FormatException)
-        //    {
-        //        var errorResponse = new
-        //        {
-        //            IsSuccess = false,
-        //            Message = "Invalid city ID format."
-        //        };
-        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        var errorResponse = new
-        //        {
-        //            IsSuccess = false,
-        //            Message = $"An error occurred: {ex.Message}"
-        //        };
-        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //    }
-        //}
-
+        
         public async Task<JsonDocument> UpdateCityAsync(string cityId, JsonDocument cityData)
         {
             try
@@ -657,78 +518,78 @@ namespace Guider.API.MVP.Services
             }
         }
 
-        public async Task<JsonDocument> GetCityByNameAndProvinceAsync(string provinceName, string cityName)
-        {
-            try
-            {
-                var filter = Builders<BsonDocument>.Filter.And(
-                    Builders<BsonDocument>.Filter.Eq("name", cityName),
-                    Builders<BsonDocument>.Filter.Eq("province", provinceName)
-                );
+        //public async Task<JsonDocument> GetCityByNameAndProvinceAsync(string provinceName, string cityName)
+        //{
+        //    try
+        //    {
+        //        var filter = Builders<BsonDocument>.Filter.And(
+        //            Builders<BsonDocument>.Filter.Eq("name", cityName),
+        //            Builders<BsonDocument>.Filter.Eq("province", provinceName)
+        //        );
 
-                var projection = Builders<BsonDocument>.Projection.Exclude("_id");
-                var cityDoc = await _citiesCollection.Find(filter).Project(projection).FirstOrDefaultAsync();
+        //        var projection = Builders<BsonDocument>.Projection.Exclude("_id");
+        //        var cityDoc = await _citiesCollection.Find(filter).Project(projection).FirstOrDefaultAsync();
 
-                if (cityDoc == null)
-                {
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = $"City '{cityName}' not found in province '{provinceName}'."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
+        //        if (cityDoc == null)
+        //        {
+        //            var errorResponse = new
+        //            {
+        //                IsSuccess = false,
+        //                Message = $"City '{cityName}' not found in province '{provinceName}'."
+        //            };
+        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //        }
 
-                // Извлекаем координаты из location если доступны
-                double latitude = 0.0;
-                double longitude = 0.0;
-                if (cityDoc.Contains("location") &&
-                    cityDoc["location"].IsBsonDocument &&
-                    cityDoc["location"].AsBsonDocument.Contains("coordinates") &&
-                    cityDoc["location"]["coordinates"].IsBsonArray)
-                {
-                    var coordinates = cityDoc["location"]["coordinates"].AsBsonArray;
-                    if (coordinates.Count >= 2)
-                    {
-                        longitude = coordinates[0].AsDouble;
-                        latitude = coordinates[1].AsDouble;
-                    }
-                }
+        //        // Извлекаем координаты из location если доступны
+        //        double latitude = 0.0;
+        //        double longitude = 0.0;
+        //        if (cityDoc.Contains("location") &&
+        //            cityDoc["location"].IsBsonDocument &&
+        //            cityDoc["location"].AsBsonDocument.Contains("coordinates") &&
+        //            cityDoc["location"]["coordinates"].IsBsonArray)
+        //        {
+        //            var coordinates = cityDoc["location"]["coordinates"].AsBsonArray;
+        //            if (coordinates.Count >= 2)
+        //            {
+        //                longitude = coordinates[0].AsDouble;
+        //                latitude = coordinates[1].AsDouble;
+        //            }
+        //        }
 
-                // Формируем ответ
-                var provinceInfo = new
-                {
-                    Name = provinceName
-                };
+        //        // Формируем ответ
+        //        var provinceInfo = new
+        //        {
+        //            Name = provinceName
+        //        };
 
-                var cityInfo = new
-                {
-                    Name = cityDoc["name"].AsString,
-                    Url = cityDoc.Contains("url") ? cityDoc["url"].AsString :
-                          (cityDoc.Contains("web") ? cityDoc["web"].AsString : string.Empty),
-                    Latitude = latitude,
-                    Longitude = longitude
-                };
+        //        var cityInfo = new
+        //        {
+        //            Name = cityDoc["name"].AsString,
+        //            Url = cityDoc.Contains("url") ? cityDoc["url"].AsString :
+        //                  (cityDoc.Contains("web") ? cityDoc["web"].AsString : string.Empty),
+        //            Latitude = latitude,
+        //            Longitude = longitude
+        //        };
 
-                var successResponse = new
-                {
-                    IsSuccess = true,
-                    Province = provinceInfo,
-                    City = cityInfo
-                };
+        //        var successResponse = new
+        //        {
+        //            IsSuccess = true,
+        //            Province = provinceInfo,
+        //            City = cityInfo
+        //        };
 
-                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
-            }
-            catch (Exception ex)
-            {
-                var errorResponse = new
-                {
-                    IsSuccess = false,
-                    Message = $"An error occurred: {ex.Message}"
-                };
-                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-            }
-        }
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        var errorResponse = new
+        //        {
+        //            IsSuccess = false,
+        //            Message = $"An error occurred: {ex.Message}"
+        //        };
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //    }
+        //}
 
         public async Task<JsonDocument> RemoveCityAsync(string cityId)
         {

@@ -231,48 +231,48 @@ namespace Guider.API.MVP.Controllers
         /// </summary>
         /// <param name="provinceName">The name of the province to retrieve cities for.</param>
         /// <returns>A list of cities in the specified province.</returns>
-        [HttpGet]
-        [Route("CitiesByProvince")]
+        //[HttpGet]
+        //[Route("CitiesByProvince")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<IActionResult> GetCitiesByProvince(string provinceName)
-        {
-            var apiResponse = new Models.ApiResponse();
+        //public async Task<IActionResult> GetCitiesByProvince(string provinceName)
+        //{
+        //    var apiResponse = new Models.ApiResponse();
 
-            try
-            {
-                if (string.IsNullOrWhiteSpace(provinceName))
-                {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "Province name cannot be null or empty." };
-                    return BadRequest(apiResponse);
-                }
+        //    try
+        //    {
+        //        if (string.IsNullOrWhiteSpace(provinceName))
+        //        {
+        //            apiResponse.IsSuccess = false;
+        //            apiResponse.StatusCode = HttpStatusCode.BadRequest;
+        //            apiResponse.ErrorMessages = new List<string> { "Province name cannot be null or empty." };
+        //            return BadRequest(apiResponse);
+        //        }
 
-                var result = await _citiesService.GetCitiesByProvinceAsync(provinceName);
-                bool isSuccess = result.RootElement.GetProperty("IsSuccess").GetBoolean();
+        //        var result = await _citiesService.GetCitiesByProvinceAsync(provinceName);
+        //        bool isSuccess = result.RootElement.GetProperty("IsSuccess").GetBoolean();
 
-                if (!isSuccess)
-                {
-                    string errorMessage = result.RootElement.GetProperty("Message").GetString();
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.NotFound;
-                    apiResponse.ErrorMessages = new List<string> { errorMessage };
-                    return NotFound(apiResponse);
-                }
+        //        if (!isSuccess)
+        //        {
+        //            string errorMessage = result.RootElement.GetProperty("Message").GetString();
+        //            apiResponse.IsSuccess = false;
+        //            apiResponse.StatusCode = HttpStatusCode.NotFound;
+        //            apiResponse.ErrorMessages = new List<string> { errorMessage };
+        //            return NotFound(apiResponse);
+        //        }
 
-                apiResponse.IsSuccess = true;
-                apiResponse.StatusCode = HttpStatusCode.OK;
-                apiResponse.Result = JsonDocument.Parse(result.RootElement.GetProperty("Cities").GetRawText());
-                return Ok(apiResponse);
-            }
-            catch (Exception ex)
-            {
-                apiResponse.IsSuccess = false;
-                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-                apiResponse.ErrorMessages = new List<string> { ex.Message };
-                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
-            }
-        }
+        //        apiResponse.IsSuccess = true;
+        //        apiResponse.StatusCode = HttpStatusCode.OK;
+        //        apiResponse.Result = JsonDocument.Parse(result.RootElement.GetProperty("Cities").GetRawText());
+        //        return Ok(apiResponse);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        apiResponse.IsSuccess = false;
+        //        apiResponse.StatusCode = HttpStatusCode.InternalServerError;
+        //        apiResponse.ErrorMessages = new List<string> { ex.Message };
+        //        return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+        //    }
+        //}
 
         /// <summary>
         /// Retrieves a city by its name and the province it belongs to.
@@ -280,61 +280,61 @@ namespace Guider.API.MVP.Controllers
         /// <param name="provinceName">The name of the province where the city is located.</param>
         /// <param name="cityName">The name of the city to retrieve.</param>
         /// <returns>The city details if found, or an appropriate error response.</returns>
-        [HttpGet]
-        [Route("CityByNameAndProvince")]
+        //[HttpGet]
+        //[Route("CityByNameAndProvince")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<IActionResult> GetCityByNameAndProvince(string provinceName, string cityName)
-        {
-            var apiResponse = new Models.ApiResponse();
-            try
-            {
-                if (string.IsNullOrWhiteSpace(provinceName))
-                {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "Province name cannot be null or empty." };
-                    return BadRequest(apiResponse);
-                }
+        //public async Task<IActionResult> GetCityByNameAndProvince(string provinceName, string cityName)
+        //{
+        //    var apiResponse = new Models.ApiResponse();
+        //    try
+        //    {
+        //        if (string.IsNullOrWhiteSpace(provinceName))
+        //        {
+        //            apiResponse.IsSuccess = false;
+        //            apiResponse.StatusCode = HttpStatusCode.BadRequest;
+        //            apiResponse.ErrorMessages = new List<string> { "Province name cannot be null or empty." };
+        //            return BadRequest(apiResponse);
+        //        }
 
-                if (string.IsNullOrWhiteSpace(cityName))
-                {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "City name cannot be null or empty." };
-                    return BadRequest(apiResponse);
-                }
+        //        if (string.IsNullOrWhiteSpace(cityName))
+        //        {
+        //            apiResponse.IsSuccess = false;
+        //            apiResponse.StatusCode = HttpStatusCode.BadRequest;
+        //            apiResponse.ErrorMessages = new List<string> { "City name cannot be null or empty." };
+        //            return BadRequest(apiResponse);
+        //        }
 
-                var result = await _citiesService.GetCityByNameAndProvinceAsync(provinceName, cityName);
-                bool isSuccess = result.RootElement.GetProperty("IsSuccess").GetBoolean();
+        //        var result = await _citiesService.GetCityByNameAndProvinceAsync(provinceName, cityName);
+        //        bool isSuccess = result.RootElement.GetProperty("IsSuccess").GetBoolean();
 
-                if (!isSuccess)
-                {
-                    string errorMessage = result.RootElement.GetProperty("Message").GetString();
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.NotFound;
-                    apiResponse.ErrorMessages = new List<string> { errorMessage };
-                    return NotFound(apiResponse);
-                }
+        //        if (!isSuccess)
+        //        {
+        //            string errorMessage = result.RootElement.GetProperty("Message").GetString();
+        //            apiResponse.IsSuccess = false;
+        //            apiResponse.StatusCode = HttpStatusCode.NotFound;
+        //            apiResponse.ErrorMessages = new List<string> { errorMessage };
+        //            return NotFound(apiResponse);
+        //        }
 
-                var cityData = new
-                {
-                    Province = JsonDocument.Parse(result.RootElement.GetProperty("Province").GetRawText()),
-                    City = JsonDocument.Parse(result.RootElement.GetProperty("City").GetRawText())
-                };
+        //        var cityData = new
+        //        {
+        //            Province = JsonDocument.Parse(result.RootElement.GetProperty("Province").GetRawText()),
+        //            City = JsonDocument.Parse(result.RootElement.GetProperty("City").GetRawText())
+        //        };
 
-                apiResponse.IsSuccess = true;
-                apiResponse.StatusCode = HttpStatusCode.OK;
-                apiResponse.Result = cityData;
-                return Ok(apiResponse);
-            }
-            catch (Exception ex)
-            {
-                apiResponse.IsSuccess = false;
-                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-                apiResponse.ErrorMessages = new List<string> { ex.Message };
-                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
-            }
-        }
+        //        apiResponse.IsSuccess = true;
+        //        apiResponse.StatusCode = HttpStatusCode.OK;
+        //        apiResponse.Result = cityData;
+        //        return Ok(apiResponse);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        apiResponse.IsSuccess = false;
+        //        apiResponse.StatusCode = HttpStatusCode.InternalServerError;
+        //        apiResponse.ErrorMessages = new List<string> { ex.Message };
+        //        return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+        //    }
+        //}
 
       
         /// <summary>
