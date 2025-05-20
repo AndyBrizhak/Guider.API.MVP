@@ -412,7 +412,7 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-        
+              
         /// <summary>
         /// Updates the details of a city by its ID.
         /// </summary>
@@ -431,55 +431,46 @@ namespace Guider.API.MVP.Controllers
         /// The cityData parameter must be a valid JSON document with the city information to update.
         /// The province field will be preserved if not specified in the update data.
         /// </remarks>
-        /// <returns>A response indicating the success or failure of the update operation.</returns>
+        /// <returns>A response indicating the success or failure of the update operation, and the updated city data.</returns>
         [HttpPut]
         [Route("cities/{cityId}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> UpdateCity(string cityId, [FromBody] JsonDocument cityData)
         {
-            var apiResponse = new Models.ApiResponse();
             try
             {
                 if (string.IsNullOrWhiteSpace(cityId))
                 {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "City ID cannot be null or empty." };
-                    return BadRequest(apiResponse);
+                    return BadRequest(new { message = "City ID cannot be null or empty." });
                 }
-
                 if (cityData == null)
                 {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "Updated city data cannot be null." };
-                    return BadRequest(apiResponse);
+                    return BadRequest(new { message = "Updated city data cannot be null." });
                 }
-
                 var resultDocument = await _citiesService.UpdateCityAsync(cityId, cityData);
-
                 if (resultDocument == null)
                 {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-                    apiResponse.ErrorMessages = new List<string> { "Service returned null result." };
-                    return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+                    return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Service returned null result." });
                 }
-
                 bool isSuccess = resultDocument.RootElement.GetProperty("IsSuccess").GetBoolean();
                 string message = resultDocument.RootElement.GetProperty("Message").GetString();
 
                 if (isSuccess)
                 {
-                    apiResponse.IsSuccess = true;
-                    apiResponse.StatusCode = HttpStatusCode.OK;
-                    apiResponse.Result = message;
-                    return Ok(apiResponse);
+                    // Get the updated city data
+                    if (resultDocument.RootElement.TryGetProperty("CityData", out JsonElement cityElement))
+                    {
+                        // Return both success message and the updated city data
+                        return Ok(cityElement);
+                    }
+                    else
+                    {
+                        return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Updated city data not found in the result." });
+                    }
                 }
                 else
                 {
                     HttpStatusCode statusCode = HttpStatusCode.BadRequest;
-
                     if (message.Contains("not found"))
                     {
                         statusCode = HttpStatusCode.NotFound;
@@ -488,27 +479,19 @@ namespace Guider.API.MVP.Controllers
                     {
                         statusCode = HttpStatusCode.BadRequest;
                     }
-
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = statusCode;
-                    apiResponse.ErrorMessages = new List<string> { message };
-
+                    var errorObj = new { message };
                     return statusCode == HttpStatusCode.NotFound
-                        ? NotFound(apiResponse)
-                        : BadRequest(apiResponse);
+                        ? NotFound(errorObj)
+                        : BadRequest(errorObj);
                 }
             }
             catch (Exception ex)
             {
-                apiResponse.IsSuccess = false;
-                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-                apiResponse.ErrorMessages = new List<string> { ex.Message };
-                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
             }
         }
 
 
-      
         /// <summary>
         /// Deletes a city by its ID.
         /// </summary>
