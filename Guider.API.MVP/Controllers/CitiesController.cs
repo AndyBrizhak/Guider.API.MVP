@@ -405,25 +405,18 @@ namespace Guider.API.MVP.Controllers
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<IActionResult> RemoveCity(string cityId)
         {
-            var apiResponse = new Models.ApiResponse();
             try
             {
                 if (string.IsNullOrWhiteSpace(cityId))
                 {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "City ID cannot be null or empty." };
-                    return BadRequest(apiResponse);
+                    return BadRequest(new { message = "City ID cannot be null or empty." });
                 }
 
                 var resultDocument = await _citiesService.RemoveCityAsync(cityId);
 
                 if (resultDocument == null)
                 {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-                    apiResponse.ErrorMessages = new List<string> { "Service returned null result." };
-                    return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+                    return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Service returned null result." });
                 }
 
                 bool isSuccess = resultDocument.RootElement.GetProperty("IsSuccess").GetBoolean();
@@ -431,10 +424,7 @@ namespace Guider.API.MVP.Controllers
 
                 if (isSuccess)
                 {
-                    apiResponse.IsSuccess = true;
-                    apiResponse.StatusCode = HttpStatusCode.OK;
-                    apiResponse.Result = message;
-                    return Ok(apiResponse);
+                    return Ok(new { message });
                 }
                 else
                 {
@@ -447,21 +437,16 @@ namespace Guider.API.MVP.Controllers
                     else
                         statusCode = HttpStatusCode.BadRequest;
 
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = statusCode;
-                    apiResponse.ErrorMessages = new List<string> { message };
+                    var errorObj = new { message };
 
                     return statusCode == HttpStatusCode.NotFound
-                        ? NotFound(apiResponse)
-                        : BadRequest(apiResponse);
+                        ? NotFound(errorObj)
+                        : BadRequest(errorObj);
                 }
             }
             catch (Exception ex)
             {
-                apiResponse.IsSuccess = false;
-                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-                apiResponse.ErrorMessages = new List<string> { ex.Message };
-                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
             }
         }
 
