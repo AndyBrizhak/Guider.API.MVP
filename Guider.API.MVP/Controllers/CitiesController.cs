@@ -226,7 +226,32 @@ namespace Guider.API.MVP.Controllers
         }
 
 
-       
+        /// <summary>
+        /// Adds a new city to the database.
+        /// </summary>
+        /// <param name="cityData"></param>
+        /// <returns></returns>
+        /// 
+        /// <remarks>
+        /// 
+        /// Example of cityData:
+        /// 
+        /// {   
+        /// 
+        ///   "name": "New City",
+        ///   
+        ///   "province": "Province Name",
+        ///   
+        ///   "latitude": 9.9281,
+        ///   
+        ///   "longitude": -84.0907
+        ///   
+        /// }
+        /// 
+        /// </remarks>
+        /// 
+        /// <returns>A response indicating the success or failure of the operation.</returns>
+        
         [HttpPost]
         [Route("cities")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
@@ -306,7 +331,26 @@ namespace Guider.API.MVP.Controllers
                 {
                     return BadRequest(new { message = "Updated city data cannot be null." });
                 }
-                var resultDocument = await _citiesService.UpdateCityAsync(cityId, cityData);
+
+                // Преобразуем JsonDocument в Dictionary<string, object> для передачи только переданных полей
+                var updateFields = new Dictionary<string, object>();
+                foreach (var prop in cityData.RootElement.EnumerateObject())
+                {
+                    updateFields[prop.Name] = prop.Value.ValueKind switch
+                    {
+                        JsonValueKind.String => prop.Value.GetString(),
+                        JsonValueKind.Number => prop.Value.TryGetInt64(out var l) ? l : prop.Value.GetDouble(),
+                        JsonValueKind.True => true,
+                        JsonValueKind.False => false,
+                        JsonValueKind.Object => JsonDocument.Parse(prop.Value.GetRawText()),
+                        JsonValueKind.Array => JsonDocument.Parse(prop.Value.GetRawText()),
+                        _ => null
+                    };
+                }
+
+                // Передаем только переданные поля в сервис
+                var updateJson = JsonDocument.Parse(JsonSerializer.Serialize(updateFields));
+                var resultDocument = await _citiesService.UpdateCityAsync(cityId, updateJson);
                 if (resultDocument == null)
                 {
                     return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Service returned null result." });
@@ -319,7 +363,7 @@ namespace Guider.API.MVP.Controllers
                     // Get the updated city data
                     if (resultDocument.RootElement.TryGetProperty("CityData", out JsonElement cityElement))
                     {
-                        // Return both success message and the updated city data
+                        // Возвращаем результат в прежнем формате
                         return Ok(cityElement);
                     }
                     else

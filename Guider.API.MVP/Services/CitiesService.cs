@@ -373,11 +373,16 @@ namespace Guider.API.MVP.Services
         {
             try
             {
-                var cityJson = cityData.RootElement.GetRawText();
-                var updatedCityBson = BsonDocument.Parse(cityJson);
+                if (!ObjectId.TryParse(cityId, out ObjectId objectId))
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "Invalid city ID format."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
 
-                // Проверяем, существует ли город с указанным идентификатором
-                var objectId = new ObjectId(cityId);
                 var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
                 var existingCity = await _citiesCollection.Find(filter).FirstOrDefaultAsync();
 
@@ -391,105 +396,103 @@ namespace Guider.API.MVP.Services
                     return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
                 }
 
-                // Сохраняем текущие значения для формирования сообщения
                 string currentCityName = existingCity.Contains("name") ? existingCity["name"].AsString : "Unknown";
                 string currentProvince = existingCity.Contains("province") ? existingCity["province"].AsString : "Unknown";
 
-                // Проверяем, меняется ли название города
-                string updatedCityName = currentCityName;
-                if (updatedCityBson.Contains("name") && updatedCityBson["name"].BsonType == BsonType.String)
-                {
-                    updatedCityName = updatedCityBson["name"].AsString;
+                var cityJson = cityData.RootElement.GetRawText();
+                var updateBson = BsonDocument.Parse(cityJson);
+                var mergedCityBson = existingCity.DeepClone().AsBsonDocument;
 
-                    // Если название меняется, проверяем, не существует ли уже город с таким названием в той же провинции
-                    if (updatedCityName != currentCityName)
+                // Only update fields that have non-empty/non-null values
+                foreach (var element in updateBson.Elements)
+                {
+                    if (element.Value.IsBsonNull)
+                        continue;
+
+                    if (element.Value.BsonType == BsonType.String)
                     {
-                        // Получаем провинцию из обновленных данных или из существующего города
-                        string provinceName = existingCity["province"].AsString;
-                        if (updatedCityBson.Contains("province") && updatedCityBson["province"].BsonType == BsonType.String)
-                        {
-                            provinceName = updatedCityBson["province"].AsString;
-                        }
-
-                        var duplicateFilter = Builders<BsonDocument>.Filter.And(
-                            Builders<BsonDocument>.Filter.Eq("name", updatedCityName),
-                            Builders<BsonDocument>.Filter.Eq("province", provinceName),
-                            Builders<BsonDocument>.Filter.Ne("_id", objectId)
-                        );
-                        var duplicateCity = await _citiesCollection.Find(duplicateFilter).FirstOrDefaultAsync();
-
-                        if (duplicateCity != null)
-                        {
-                            var errorResponse = new
-                            {
-                                IsSuccess = false,
-                                Message = $"City with name '{updatedCityName}' already exists in province '{provinceName}'."
-                            };
-                            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                        }
+                        var strVal = element.Value.AsString;
+                        if (!string.IsNullOrEmpty(strVal))
+                            mergedCityBson[element.Name] = element.Value;
+                        // else: skip updating this field
                     }
+                    else if (element.Value.BsonType == BsonType.Double || element.Value.BsonType == BsonType.Int32 || element.Value.BsonType == BsonType.Int64)
+                    {
+                        // For numbers, only update if not null (already checked above)
+                        mergedCityBson[element.Name] = element.Value;
+                    }
+                    else if (element.Value.BsonType == BsonType.Boolean)
+                    {
+                        mergedCityBson[element.Name] = element.Value;
+                    }
+                    else if (element.Value.BsonType == BsonType.Document || element.Value.BsonType == BsonType.Array)
+                    {
+                        mergedCityBson[element.Name] = element.Value;
+                    }
+                    // else: skip nulls and empty strings
                 }
 
-                // Обработка координат, если они указаны
-                if (!updatedCityBson.Contains("location") &&
-                    updatedCityBson.Contains("latitude") && updatedCityBson.Contains("longitude") &&
-                    updatedCityBson["latitude"].BsonType == BsonType.Double &&
-                    updatedCityBson["longitude"].BsonType == BsonType.Double)
+                // Handle coordinates: only update if both latitude and longitude are present and not null
+                bool hasLatitude = updateBson.Contains("latitude") && !updateBson["latitude"].IsBsonNull;
+                bool hasLongitude = updateBson.Contains("longitude") && !updateBson["longitude"].IsBsonNull;
+                bool validLat = hasLatitude && (updateBson["latitude"].IsDouble || updateBson["latitude"].IsInt32 || updateBson["latitude"].IsInt64);
+                bool validLon = hasLongitude && (updateBson["longitude"].IsDouble || updateBson["longitude"].IsInt32 || updateBson["longitude"].IsInt64);
+
+                if (validLat && validLon)
                 {
+                    double lat = updateBson["latitude"].ToDouble();
+                    double lon = updateBson["longitude"].ToDouble();
                     var location = new BsonDocument
+                    {
+                        { "type", "Point" },
+                        { "coordinates", new BsonArray { lon, lat } }
+                    };
+                    mergedCityBson["location"] = location;
+                    mergedCityBson.Remove("latitude");
+                    mergedCityBson.Remove("longitude");
+                }
+
+                // url/web logic
+                if (!mergedCityBson.Contains("url") && mergedCityBson.Contains("name"))
                 {
-                    { "type", "Point" },
-                    { "coordinates", new BsonArray
+                    string url = mergedCityBson["name"].AsString.ToLower().Replace(" ", "-");
+                    mergedCityBson["url"] = url;
+                }
+                //else if (mergedCityBson.Contains("web") && !mergedCityBson.Contains("url"))
+                //{
+                //    mergedCityBson["url"] = mergedCityBson["web"];
+                //    mergedCityBson.Remove("web");
+                //}
+
+                // Duplicate check if name or province changed
+                string updatedCityName = mergedCityBson.Contains("name") ? mergedCityBson["name"].AsString : currentCityName;
+                string updatedProvince = mergedCityBson.Contains("province") ? mergedCityBson["province"].AsString : currentProvince;
+                if ((updateBson.Contains("name") && !string.IsNullOrEmpty(updateBson["name"].AsString) && updatedCityName != currentCityName) ||
+                    (updateBson.Contains("province") && !string.IsNullOrEmpty(updateBson["province"].AsString) && updatedProvince != currentProvince))
+                {
+                    var duplicateFilter = Builders<BsonDocument>.Filter.And(
+                        Builders<BsonDocument>.Filter.Eq("name", updatedCityName),
+                        Builders<BsonDocument>.Filter.Eq("province", updatedProvince),
+                        Builders<BsonDocument>.Filter.Ne("_id", objectId)
+                    );
+                    var duplicateCity = await _citiesCollection.Find(duplicateFilter).FirstOrDefaultAsync();
+                    if (duplicateCity != null)
+                    {
+                        var errorResponse = new
                         {
-                            updatedCityBson["longitude"].AsDouble,
-                            updatedCityBson["latitude"].AsDouble
-                        }
+                            IsSuccess = false,
+                            Message = $"City with name '{updatedCityName}' already exists in province '{updatedProvince}'."
+                        };
+                        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
                     }
-                };
-                    updatedCityBson.Add("location", location);
-
-                    // Удаляем отдельные поля широты и долготы
-                    updatedCityBson.Remove("latitude");
-                    updatedCityBson.Remove("longitude");
-                }
-                else if (!updatedCityBson.Contains("location") && existingCity.Contains("location"))
-                {
-                    // Сохраняем существующие координаты, если они не указаны в запросе
-                    updatedCityBson["location"] = existingCity["location"];
                 }
 
-                // Обработка url/web полей
-                if (!updatedCityBson.Contains("url") && updatedCityBson.Contains("name"))
-                {
-                    string url = updatedCityBson["name"].AsString.ToLower().Replace(" ", "-");
-                    updatedCityBson.Add("url", url);
-                }
-                else if (updatedCityBson.Contains("web") && !updatedCityBson.Contains("url"))
-                {
-                    updatedCityBson.Add("url", updatedCityBson["web"]);
-                    updatedCityBson.Remove("web");
-                }
+                mergedCityBson["_id"] = existingCity["_id"];
 
-                // Сохраняем исходный _id
-                updatedCityBson["_id"] = existingCity["_id"];
+                await _citiesCollection.ReplaceOneAsync(filter, mergedCityBson);
 
-                // Сохраняем провинцию, если она не указана в обновляемых данных
-                if (!updatedCityBson.Contains("province") && existingCity.Contains("province"))
-                {
-                    updatedCityBson["province"] = existingCity["province"];
-                }
-
-                // Обновляем документ
-                await _citiesCollection.ReplaceOneAsync(filter, updatedCityBson);
-
-                // Определяем название провинции для сообщения
-                string updatedProvince = updatedCityBson.Contains("province") ?
-                    updatedCityBson["province"].AsString : currentProvince;
-
-                // Получаем обновленный город после обновления
                 var updatedCity = await _citiesCollection.Find(filter).FirstOrDefaultAsync();
 
-                // Извлекаем координаты, если они есть
                 double? longitude = null;
                 double? latitude = null;
                 if (updatedCity.Contains("location") &&
@@ -500,12 +503,11 @@ namespace Guider.API.MVP.Services
                     var coordinates = updatedCity["location"]["coordinates"].AsBsonArray;
                     if (coordinates.Count >= 2)
                     {
-                        longitude = coordinates[0].AsDouble;
-                        latitude = coordinates[1].AsDouble;
+                        longitude = coordinates[0].IsDouble ? coordinates[0].AsDouble : null;
+                        latitude = coordinates[1].IsDouble ? coordinates[1].AsDouble : null;
                     }
                 }
 
-                // Формируем объект в нужном формате
                 var formattedCity = new
                 {
                     id = updatedCity["_id"].AsObjectId.ToString(),
