@@ -251,45 +251,32 @@ namespace Guider.API.MVP.Services
                 var cityJson = cityData.RootElement.GetRawText();
                 var cityBson = BsonDocument.Parse(cityJson);
 
-                // Проверка обязательных полей
-                if (!cityBson.Contains("name") || cityBson["name"].BsonType != BsonType.String)
+                // Проверка обязательных полей (теперь не обязательны)
+                string cityName = cityBson.Contains("name") && cityBson["name"].BsonType == BsonType.String
+                    ? cityBson["name"].AsString
+                    : string.Empty;
+                string provinceName = cityBson.Contains("province") && cityBson["province"].BsonType == BsonType.String
+                    ? cityBson["province"].AsString
+                    : string.Empty;
+
+                // Проверка на существование города с таким же названием в провинции, если оба поля есть
+                if (!string.IsNullOrEmpty(cityName) && !string.IsNullOrEmpty(provinceName))
                 {
-                    var errorResponse = new
+                    var existingCityFilter = Builders<BsonDocument>.Filter.And(
+                        Builders<BsonDocument>.Filter.Eq("name", cityName),
+                        Builders<BsonDocument>.Filter.Eq("province", provinceName)
+                    );
+                    var existingCity = await _citiesCollection.Find(existingCityFilter).FirstOrDefaultAsync();
+
+                    if (existingCity != null)
                     {
-                        IsSuccess = false,
-                        Message = "City data must contain a 'name' field."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
-
-                if (!cityBson.Contains("province") || cityBson["province"].BsonType != BsonType.String)
-                {
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = "City data must contain a 'province' field."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
-
-                string cityName = cityBson["name"].AsString;
-                string provinceName = cityBson["province"].AsString;
-
-                // Проверка на существование города с таким же названием в провинции
-                var existingCityFilter = Builders<BsonDocument>.Filter.And(
-                    Builders<BsonDocument>.Filter.Eq("name", cityName),
-                    Builders<BsonDocument>.Filter.Eq("province", provinceName)
-                );
-                var existingCity = await _citiesCollection.Find(existingCityFilter).FirstOrDefaultAsync();
-
-                if (existingCity != null)
-                {
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = $"City '{cityName}' already exists in province '{provinceName}'."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                        var errorResponse = new
+                        {
+                            IsSuccess = false,
+                            Message = $"City '{cityName}' already exists in province '{provinceName}'."
+                        };
+                        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                    }
                 }
 
                 // Создание GeoJSON если координаты указаны
@@ -299,18 +286,16 @@ namespace Guider.API.MVP.Services
                     cityBson["longitude"].BsonType == BsonType.Double)
                 {
                     var location = new BsonDocument
-                {
-                    { "type", "Point" },
-                    { "coordinates", new BsonArray
-                        {
-                            cityBson["longitude"].AsDouble,
-                            cityBson["latitude"].AsDouble
+                    {
+                        { "type", "Point" },
+                        { "coordinates", new BsonArray
+                            {
+                                cityBson["longitude"].AsDouble,
+                                cityBson["latitude"].AsDouble
+                            }
                         }
-                    }
-                };
+                    };
                     cityBson.Add("location", location);
-
-                    // Удаляем отдельные поля широты и долготы, так как они теперь в location
                     cityBson.Remove("latitude");
                     cityBson.Remove("longitude");
                 }
@@ -344,8 +329,8 @@ namespace Guider.API.MVP.Services
                     var coordinates = addedCity["location"]["coordinates"].AsBsonArray;
                     if (coordinates.Count >= 2)
                     {
-                        longitude = coordinates[0].AsDouble;
-                        latitude = coordinates[1].AsDouble;
+                        longitude = coordinates[0].IsDouble ? coordinates[0].AsDouble : null;
+                        latitude = coordinates[1].IsDouble ? coordinates[1].AsDouble : null;
                     }
                 }
 

@@ -232,11 +232,14 @@ namespace Guider.API.MVP.Controllers
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> AddCity([FromBody] JsonDocument cityData)
         {
-            
             if (cityData == null)
             {
                 return BadRequest(new { message = "City data cannot be null." });
             }
+
+            // Позволяем создавать город даже с неполными данными (например, только name или только province)
+            // Валидация на обязательные поля не проводится здесь, сервис сам обработает логику и вернет ошибку, если нужно
+
             var resultDocument = await _citiesService.AddCityAsync(cityData);
             if (resultDocument == null)
             {
@@ -249,7 +252,6 @@ namespace Guider.API.MVP.Controllers
                 // Получаем полные данные о новом городе из поля Data
                 if (resultDocument.RootElement.TryGetProperty("Data", out JsonElement cityDataElement))
                 {
-                  
                     return Ok(cityDataElement);
                 }
                 else
@@ -268,7 +270,6 @@ namespace Guider.API.MVP.Controllers
                     ? NotFound(errorObj)
                     : BadRequest(errorObj);
             }
-            
         }
 
         /// <summary>
