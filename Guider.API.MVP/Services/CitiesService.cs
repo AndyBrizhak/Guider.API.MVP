@@ -244,7 +244,6 @@ namespace Guider.API.MVP.Services
             }
         }
 
-       
         public async Task<JsonDocument> AddCityAsync(JsonDocument cityData)
         {
             try
@@ -300,15 +299,15 @@ namespace Guider.API.MVP.Services
                     cityBson["longitude"].BsonType == BsonType.Double)
                 {
                     var location = new BsonDocument
-            {
-                { "type", "Point" },
-                { "coordinates", new BsonArray
-                    {
-                        cityBson["longitude"].AsDouble,
-                        cityBson["latitude"].AsDouble
+                {
+                    { "type", "Point" },
+                    { "coordinates", new BsonArray
+                        {
+                            cityBson["longitude"].AsDouble,
+                            cityBson["latitude"].AsDouble
+                        }
                     }
-                }
-            };
+                };
                     cityBson.Add("location", location);
 
                     // Удаляем отдельные поля широты и долготы, так как они теперь в location
@@ -334,27 +333,41 @@ namespace Guider.API.MVP.Services
                     return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
                 }
 
-                // Преобразуем BsonDocument в JSON с нужной структурой
+                // Извлекаем координаты, если они есть
+                double? longitude = null;
+                double? latitude = null;
+                if (addedCity.Contains("location") &&
+                    addedCity["location"].IsBsonDocument &&
+                    addedCity["location"].AsBsonDocument.Contains("coordinates") &&
+                    addedCity["location"]["coordinates"].IsBsonArray)
+                {
+                    var coordinates = addedCity["location"]["coordinates"].AsBsonArray;
+                    if (coordinates.Count >= 2)
+                    {
+                        longitude = coordinates[0].AsDouble;
+                        latitude = coordinates[1].AsDouble;
+                    }
+                }
+
+                // Формируем объект в нужном формате
                 var formattedCity = new
                 {
                     id = cityId.ToString(),
                     name = addedCity.Contains("name") ? addedCity["name"].AsString : string.Empty,
                     province = addedCity.Contains("province") ? addedCity["province"].AsString : string.Empty,
                     url = addedCity.Contains("url") ? addedCity["url"].AsString :
-                          (addedCity.Contains("name") ? addedCity["name"].AsString.ToLower().Replace(" ", "-") : string.Empty),
+                        (addedCity.Contains("name") ? addedCity["name"].AsString.ToLower().Replace(" ", "-") : string.Empty),
                     location = new
                     {
-                        longitude = addedCity.Contains("location") && addedCity["location"].AsBsonDocument.Contains("coordinates") ?
-                                   addedCity["location"]["coordinates"][0].AsDouble : 0,
-                        latitude = addedCity.Contains("location") && addedCity["location"].AsBsonDocument.Contains("coordinates") ?
-                                  addedCity["location"]["coordinates"][1].AsDouble : 0
+                        longitude,
+                        latitude
                     }
                 };
 
                 var successResponse = new
                 {
                     IsSuccess = true,
-                    Message = $"City '{cityName}' has been successfully added to province '{provinceName}'.",
+                    Message = $"New City has been successfully added.",
                     Data = formattedCity
                 };
 
@@ -439,26 +452,31 @@ namespace Guider.API.MVP.Services
                     updatedCityBson["longitude"].BsonType == BsonType.Double)
                 {
                     var location = new BsonDocument
-            {
-                { "type", "Point" },
-                { "coordinates", new BsonArray
-                    {
-                        updatedCityBson["longitude"].AsDouble,
-                        updatedCityBson["latitude"].AsDouble
+                {
+                    { "type", "Point" },
+                    { "coordinates", new BsonArray
+                        {
+                            updatedCityBson["longitude"].AsDouble,
+                            updatedCityBson["latitude"].AsDouble
+                        }
                     }
-                }
-            };
+                };
                     updatedCityBson.Add("location", location);
 
                     // Удаляем отдельные поля широты и долготы
                     updatedCityBson.Remove("latitude");
                     updatedCityBson.Remove("longitude");
                 }
+                else if (!updatedCityBson.Contains("location") && existingCity.Contains("location"))
+                {
+                    // Сохраняем существующие координаты, если они не указаны в запросе
+                    updatedCityBson["location"] = existingCity["location"];
+                }
 
                 // Обработка url/web полей
                 if (!updatedCityBson.Contains("url") && updatedCityBson.Contains("name"))
                 {
-                    string url = updatedCityBson["name"].AsString.ToLower().Replace(" ", "_");
+                    string url = updatedCityBson["name"].AsString.ToLower().Replace(" ", "-");
                     updatedCityBson.Add("url", url);
                 }
                 else if (updatedCityBson.Contains("web") && !updatedCityBson.Contains("url"))
@@ -486,17 +504,42 @@ namespace Guider.API.MVP.Services
                 // Получаем обновленный город после обновления
                 var updatedCity = await _citiesCollection.Find(filter).FirstOrDefaultAsync();
 
-                // Преобразуем BsonDocument в JSON
-                string updatedCityJson = updatedCity.ToJson(new MongoDB.Bson.IO.JsonWriterSettings
+                // Извлекаем координаты, если они есть
+                double? longitude = null;
+                double? latitude = null;
+                if (updatedCity.Contains("location") &&
+                    updatedCity["location"].IsBsonDocument &&
+                    updatedCity["location"].AsBsonDocument.Contains("coordinates") &&
+                    updatedCity["location"]["coordinates"].IsBsonArray)
                 {
-                    OutputMode = MongoDB.Bson.IO.JsonOutputMode.CanonicalExtendedJson
-                });
+                    var coordinates = updatedCity["location"]["coordinates"].AsBsonArray;
+                    if (coordinates.Count >= 2)
+                    {
+                        longitude = coordinates[0].AsDouble;
+                        latitude = coordinates[1].AsDouble;
+                    }
+                }
+
+                // Формируем объект в нужном формате
+                var formattedCity = new
+                {
+                    id = updatedCity["_id"].AsObjectId.ToString(),
+                    name = updatedCity.Contains("name") ? updatedCity["name"].AsString : string.Empty,
+                    province = updatedCity.Contains("province") ? updatedCity["province"].AsString : string.Empty,
+                    url = updatedCity.Contains("url") ? updatedCity["url"].AsString :
+                          (updatedCity.Contains("name") ? updatedCity["name"].AsString.ToLower().Replace(" ", "-") : string.Empty),
+                    location = new
+                    {
+                        longitude,
+                        latitude
+                    }
+                };
 
                 var successResponse = new
                 {
                     IsSuccess = true,
                     Message = $"City '{currentCityName}' has been successfully updated to '{updatedCityName}' in province '{updatedProvince}'.",
-                    CityData = JsonDocument.Parse(updatedCityJson).RootElement
+                    CityData = formattedCity
                 };
 
                 return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
@@ -520,79 +563,6 @@ namespace Guider.API.MVP.Services
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
             }
         }
-
-        //public async Task<JsonDocument> GetCityByNameAndProvinceAsync(string provinceName, string cityName)
-        //{
-        //    try
-        //    {
-        //        var filter = Builders<BsonDocument>.Filter.And(
-        //            Builders<BsonDocument>.Filter.Eq("name", cityName),
-        //            Builders<BsonDocument>.Filter.Eq("province", provinceName)
-        //        );
-
-        //        var projection = Builders<BsonDocument>.Projection.Exclude("_id");
-        //        var cityDoc = await _citiesCollection.Find(filter).Project(projection).FirstOrDefaultAsync();
-
-        //        if (cityDoc == null)
-        //        {
-        //            var errorResponse = new
-        //            {
-        //                IsSuccess = false,
-        //                Message = $"City '{cityName}' not found in province '{provinceName}'."
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //        }
-
-        //        // Извлекаем координаты из location если доступны
-        //        double latitude = 0.0;
-        //        double longitude = 0.0;
-        //        if (cityDoc.Contains("location") &&
-        //            cityDoc["location"].IsBsonDocument &&
-        //            cityDoc["location"].AsBsonDocument.Contains("coordinates") &&
-        //            cityDoc["location"]["coordinates"].IsBsonArray)
-        //        {
-        //            var coordinates = cityDoc["location"]["coordinates"].AsBsonArray;
-        //            if (coordinates.Count >= 2)
-        //            {
-        //                longitude = coordinates[0].AsDouble;
-        //                latitude = coordinates[1].AsDouble;
-        //            }
-        //        }
-
-        //        // Формируем ответ
-        //        var provinceInfo = new
-        //        {
-        //            Name = provinceName
-        //        };
-
-        //        var cityInfo = new
-        //        {
-        //            Name = cityDoc["name"].AsString,
-        //            Url = cityDoc.Contains("url") ? cityDoc["url"].AsString :
-        //                  (cityDoc.Contains("web") ? cityDoc["web"].AsString : string.Empty),
-        //            Latitude = latitude,
-        //            Longitude = longitude
-        //        };
-
-        //        var successResponse = new
-        //        {
-        //            IsSuccess = true,
-        //            Province = provinceInfo,
-        //            City = cityInfo
-        //        };
-
-        //        return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        var errorResponse = new
-        //        {
-        //            IsSuccess = false,
-        //            Message = $"An error occurred: {ex.Message}"
-        //        };
-        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //    }
-        //}
 
         public async Task<JsonDocument> RemoveCityAsync(string cityId)
         {
