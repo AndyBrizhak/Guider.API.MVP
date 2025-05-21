@@ -39,7 +39,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="_order">Sort order (ASC or DESC), default is ASC</param>
         /// <returns>A list of cities.</returns>
         [HttpGet("cities")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetCities(
             [FromQuery] string q = null,
             [FromQuery] string name = null,
@@ -170,6 +170,7 @@ namespace Guider.API.MVP.Controllers
         /// <returns>The city details if found, or an appropriate error response.</returns>
         [HttpGet]
         [Route("cities/{cityId}")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetCityById(string cityId)
         {
             try
@@ -254,7 +255,7 @@ namespace Guider.API.MVP.Controllers
         
         [HttpPost]
         [Route("cities")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> AddCity([FromBody] JsonDocument cityData)
         {
             if (cityData == null)
@@ -318,7 +319,7 @@ namespace Guider.API.MVP.Controllers
         /// <returns>A response indicating the success or failure of the update operation, and the updated city data.</returns>
         [HttpPut]
         [Route("cities/{cityId}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> UpdateCity(string cityId, [FromBody] JsonDocument cityData)
         {
             try
@@ -402,7 +403,7 @@ namespace Guider.API.MVP.Controllers
         /// <returns>A response indicating the success or failure of the delete operation.</returns>
         [HttpDelete]
         [Route("cities/{cityId}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<IActionResult> RemoveCity(string cityId)
         {
             try
