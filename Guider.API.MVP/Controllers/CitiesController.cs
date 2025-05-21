@@ -317,6 +317,7 @@ namespace Guider.API.MVP.Controllers
         /// The province field will be preserved if not specified in the update data.
         /// </remarks>
         /// <returns>A response indicating the success or failure of the update operation, and the updated city data.</returns>
+       
         [HttpPut]
         [Route("cities/{cityId}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
@@ -328,62 +329,42 @@ namespace Guider.API.MVP.Controllers
                 {
                     return BadRequest(new { message = "City ID cannot be null or empty." });
                 }
+
                 if (cityData == null)
                 {
                     return BadRequest(new { message = "Updated city data cannot be null." });
                 }
 
-                // Преобразуем JsonDocument в Dictionary<string, object> для передачи только переданных полей
-                var updateFields = new Dictionary<string, object>();
-                foreach (var prop in cityData.RootElement.EnumerateObject())
-                {
-                    updateFields[prop.Name] = prop.Value.ValueKind switch
-                    {
-                        JsonValueKind.String => prop.Value.GetString(),
-                        JsonValueKind.Number => prop.Value.TryGetInt64(out var l) ? l : prop.Value.GetDouble(),
-                        JsonValueKind.True => true,
-                        JsonValueKind.False => false,
-                        JsonValueKind.Object => JsonDocument.Parse(prop.Value.GetRawText()),
-                        JsonValueKind.Array => JsonDocument.Parse(prop.Value.GetRawText()),
-                        _ => null
-                    };
-                }
+                var resultDocument = await _citiesService.UpdateCityAsync(cityId, cityData);
 
-                // Передаем только переданные поля в сервис
-                var updateJson = JsonDocument.Parse(JsonSerializer.Serialize(updateFields));
-                var resultDocument = await _citiesService.UpdateCityAsync(cityId, updateJson);
                 if (resultDocument == null)
                 {
                     return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Service returned null result." });
                 }
+
                 bool isSuccess = resultDocument.RootElement.GetProperty("IsSuccess").GetBoolean();
                 string message = resultDocument.RootElement.GetProperty("Message").GetString();
 
                 if (isSuccess)
                 {
-                    // Get the updated city data
-                    if (resultDocument.RootElement.TryGetProperty("CityData", out JsonElement cityElement))
+                    // Получаем данные обновленного города из поля Data
+                    if (resultDocument.RootElement.TryGetProperty("Data", out JsonElement cityDataElement))
                     {
-                        // Возвращаем результат в прежнем формате
-                        return Ok(cityElement);
+                        return Ok(cityDataElement);
                     }
                     else
                     {
-                        return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Updated city data not found in the result." });
+                        return Ok(new { message });
                     }
                 }
                 else
                 {
-                    HttpStatusCode statusCode = HttpStatusCode.BadRequest;
-                    if (message.Contains("not found"))
-                    {
-                        statusCode = HttpStatusCode.NotFound;
-                    }
-                    else if (message.Contains("Invalid city ID format"))
-                    {
-                        statusCode = HttpStatusCode.BadRequest;
-                    }
+                    HttpStatusCode statusCode = message.Contains("not found")
+                        ? HttpStatusCode.NotFound
+                        : HttpStatusCode.BadRequest;
+
                     var errorObj = new { message };
+
                     return statusCode == HttpStatusCode.NotFound
                         ? NotFound(errorObj)
                         : BadRequest(errorObj);
