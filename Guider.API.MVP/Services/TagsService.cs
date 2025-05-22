@@ -265,5 +265,102 @@ namespace Guider.API.MVP.Services
                 return (null, $"An error occurred: {ex.Message}");
             }
         }
+
+        public async Task<JsonDocument> AddTagAsync(JsonDocument tagData)
+        {
+            try
+            {
+                var tagJson = tagData.RootElement.GetRawText();
+                var tagBson = BsonDocument.Parse(tagJson);
+
+                // Проверка обязательных полей
+                string nameEn = tagBson.Contains("name_en") && tagBson["name_en"].BsonType == BsonType.String
+                    ? tagBson["name_en"].AsString
+                    : string.Empty;
+                string nameSp = tagBson.Contains("name_sp") && tagBson["name_sp"].BsonType == BsonType.String
+                    ? tagBson["name_sp"].AsString
+                    : string.Empty;
+                string tagType = tagBson.Contains("type") && tagBson["type"].BsonType == BsonType.String
+                    ? tagBson["type"].AsString
+                    : string.Empty;
+
+                // Проверка на существование тега с таким же названием (английским)
+                if (!string.IsNullOrEmpty(nameEn))
+                {
+                    var existingTagFilter = Builders<BsonDocument>.Filter.Eq("name_en", nameEn);
+                    var existingTag = await _tagsCollection.Find(existingTagFilter).FirstOrDefaultAsync();
+
+                    if (existingTag != null)
+                    {
+                        var errorResponse = new
+                        {
+                            IsSuccess = false,
+                            Message = $"Tag with English name '{nameEn}' already exists."
+                        };
+                        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                    }
+                }
+
+                // Генерация URL если не указан
+                if (!tagBson.Contains("url") || string.IsNullOrEmpty(tagBson["url"].AsString))
+                {
+                    string urlBase = !string.IsNullOrEmpty(nameEn) ? nameEn : nameSp;
+                    if (!string.IsNullOrEmpty(urlBase))
+                    {
+                        string generatedUrl = urlBase.ToLower()
+                            .Replace(" ", "-")
+                            .Replace("/", "-")
+                            .Replace("-", "-");
+                        tagBson["url"] = generatedUrl;
+                    }
+                }
+
+                // Добавление тега в коллекцию
+                await _tagsCollection.InsertOneAsync(tagBson);
+
+                // Получаем только что добавленный тег из базы данных
+                var tagId = tagBson["_id"].AsObjectId;
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", tagId);
+                var addedTag = await _tagsCollection.Find(filter).FirstOrDefaultAsync();
+
+                if (addedTag == null)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "Tag was added but could not be retrieved from the database."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Формируем объект в нужном формате
+                var formattedTag = new
+                {
+                    id = tagId.ToString(),
+                    name_en = addedTag.Contains("name_en") ? addedTag["name_en"].AsString : string.Empty,
+                    name_sp = addedTag.Contains("name_sp") ? addedTag["name_sp"].AsString : string.Empty,
+                    url = addedTag.Contains("url") ? addedTag["url"].AsString : string.Empty,
+                    type = addedTag.Contains("type") ? addedTag["type"].AsString : string.Empty
+                };
+
+                var successResponse = new
+                {
+                    IsSuccess = true,
+                    Message = "New Tag has been successfully added.",
+                    Data = formattedTag
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"An error occurred: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+        }
     }
 }

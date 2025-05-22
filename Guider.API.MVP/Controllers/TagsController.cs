@@ -125,5 +125,54 @@ namespace Guider.API.MVP.Controllers
 
             return Ok(tag);
         }
+
+        [HttpPost]
+        [Route("tags")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        public async Task<IActionResult> AddTag([FromBody] JsonDocument tagData)
+        {
+            if (tagData == null)
+            {
+                return BadRequest(new { message = "Tag data cannot be null." });
+            }
+
+            // Позволяем создавать тег даже с неполными данными
+            // Валидация на обязательные поля не проводится здесь, сервис сам обработает логику и вернет ошибку, если нужно
+            var resultDocument = await _tagsService.AddTagAsync(tagData);
+
+            if (resultDocument == null)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Service returned null result." });
+            }
+
+            bool isSuccess = resultDocument.RootElement.GetProperty("IsSuccess").GetBoolean();
+            string message = resultDocument.RootElement.GetProperty("Message").GetString();
+
+            if (isSuccess)
+            {
+                // Получаем полные данные о новом теге из поля Data
+                if (resultDocument.RootElement.TryGetProperty("Data", out JsonElement tagDataElement))
+                {
+                    return Ok(tagDataElement);
+                }
+                else
+                {
+                    // Если нет данных, возвращаем только сообщение
+                    return Ok(new { message });
+                }
+            }
+            else
+            {
+                HttpStatusCode statusCode = message.Contains("not found")
+                    ? HttpStatusCode.NotFound
+                    : HttpStatusCode.BadRequest;
+
+                var errorObj = new { message };
+
+                return statusCode == HttpStatusCode.NotFound
+                    ? NotFound(errorObj)
+                    : BadRequest(errorObj);
+            }
+        }
     }
 }
