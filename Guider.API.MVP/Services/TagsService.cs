@@ -362,5 +362,133 @@ namespace Guider.API.MVP.Services
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
             }
         }
+        public async Task<JsonDocument> UpdateTagAsync(string id, JsonDocument updateData)
+        {
+            try
+            {
+                // Проверяем валидность ObjectId
+                if (!ObjectId.TryParse(id, out ObjectId objectId))
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "Invalid tag ID format"
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                var updateJson = updateData.RootElement.GetRawText();
+                var updateBson = BsonDocument.Parse(updateJson);
+
+                // Проверка на уникальность name_en
+                if (updateBson.Contains("name_en") && updateBson["name_en"].BsonType == BsonType.String)
+                {
+                    string newNameEn = updateBson["name_en"].AsString;
+                    if (!string.IsNullOrEmpty(newNameEn))
+                    {
+                        var nameEnFilter = Builders<BsonDocument>.Filter.And(
+                            Builders<BsonDocument>.Filter.Eq("name_en", newNameEn),
+                            Builders<BsonDocument>.Filter.Ne("_id", objectId)
+                        );
+                        var existingTag = await _tagsCollection.Find(nameEnFilter).FirstOrDefaultAsync();
+                        if (existingTag != null)
+                        {
+                            var errorResponse = new
+                            {
+                                IsSuccess = false,
+                                Message = $"Tag with English name '{newNameEn}' already exists."
+                            };
+                            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                        }
+                    }
+                }
+
+                // Проверка на уникальность url
+                if (updateBson.Contains("url") && updateBson["url"].BsonType == BsonType.String)
+                {
+                    string newUrl = updateBson["url"].AsString;
+                    if (!string.IsNullOrEmpty(newUrl))
+                    {
+                        var urlFilter = Builders<BsonDocument>.Filter.And(
+                            Builders<BsonDocument>.Filter.Eq("url", newUrl),
+                            Builders<BsonDocument>.Filter.Ne("_id", objectId)
+                        );
+                        var existingTag = await _tagsCollection.Find(urlFilter).FirstOrDefaultAsync();
+                        if (existingTag != null)
+                        {
+                            var errorResponse = new
+                            {
+                                IsSuccess = false,
+                                Message = $"Tag with url '{newUrl}' already exists."
+                            };
+                            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                        }
+                    }
+                }
+
+                // Формируем update definition
+                var updateDef = new List<UpdateDefinition<BsonDocument>>();
+                foreach (var element in updateBson.Elements)
+                {
+                    updateDef.Add(Builders<BsonDocument>.Update.Set(element.Name, element.Value));
+                }
+                var update = Builders<BsonDocument>.Update.Combine(updateDef);
+
+                // Обновляем документ
+                var result = await _tagsCollection.UpdateOneAsync(
+                    Builders<BsonDocument>.Filter.Eq("_id", objectId),
+                    update
+                );
+
+                if (result.MatchedCount == 0)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "Tag not found"
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Получаем обновленный документ
+                var updatedTag = await _tagsCollection.Find(Builders<BsonDocument>.Filter.Eq("_id", objectId)).FirstOrDefaultAsync();
+                if (updatedTag == null)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "Tag was updated but could not be retrieved from the database."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                var formattedTag = new
+                {
+                    id = updatedTag["_id"].ToString(),
+                    name_en = updatedTag.Contains("name_en") ? updatedTag["name_en"].AsString : string.Empty,
+                    name_sp = updatedTag.Contains("name_sp") ? updatedTag["name_sp"].AsString : string.Empty,
+                    url = updatedTag.Contains("url") ? updatedTag["url"].AsString : string.Empty,
+                    type = updatedTag.Contains("type") ? updatedTag["type"].AsString : string.Empty
+                };
+
+                var successResponse = new
+                {
+                    IsSuccess = true,
+                    Message = "Tag has been successfully updated.",
+                    Data = formattedTag
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"An error occurred: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+        }
     }
 }

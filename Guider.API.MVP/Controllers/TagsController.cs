@@ -174,5 +174,53 @@ namespace Guider.API.MVP.Controllers
                     : BadRequest(errorObj);
             }
         }
+        [HttpPut("tags/{id}")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        public async Task<IActionResult> UpdateTag(string id, [FromBody] JsonDocument updateData)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return BadRequest(new { message = "Tag ID is required." });
+            }
+
+            if (updateData == null)
+            {
+                return BadRequest(new { message = "Update data cannot be null." });
+            }
+
+            var resultDocument = await _tagsService.UpdateTagAsync(id, updateData);
+
+            if (resultDocument == null)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Service returned null result." });
+            }
+
+            bool isSuccess = resultDocument.RootElement.GetProperty("IsSuccess").GetBoolean();
+            string message = resultDocument.RootElement.GetProperty("Message").GetString();
+
+            if (isSuccess)
+            {
+                if (resultDocument.RootElement.TryGetProperty("Data", out JsonElement tagDataElement))
+                {
+                    return Ok(tagDataElement);
+                }
+                else
+                {
+                    return Ok(new { message });
+                }
+            }
+            else
+            {
+                HttpStatusCode statusCode = message.Contains("not found")
+                    ? HttpStatusCode.NotFound
+                    : HttpStatusCode.BadRequest;
+
+                var errorObj = new { message };
+
+                return statusCode == HttpStatusCode.NotFound
+                    ? NotFound(errorObj)
+                    : BadRequest(errorObj);
+            }
+        }
     }
 }
