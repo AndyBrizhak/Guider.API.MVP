@@ -87,5 +87,43 @@ namespace Guider.API.MVP.Controllers
 
             return Ok(tags);
         }
+
+        [HttpGet("tags/{id}")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        public async Task<IActionResult> GetTagById(string id)
+        {
+            // Проверяем, что ID не пустой
+            if (string.IsNullOrEmpty(id))
+            {
+                return BadRequest(new ApiResponse
+                {
+                    IsSuccess = false,
+                    ErrorMessages = new List<string> { "Tag ID is required" }
+                });
+            }
+
+            var (tag, errorMessage) = await _tagsService.GetTagByIdAsync(id);
+
+            // Проверяем на ошибки
+            if (!string.IsNullOrEmpty(errorMessage))
+            {
+                if (errorMessage == "Tag not found")
+                {
+                    return NotFound(new ApiResponse
+                    {
+                        IsSuccess = false,
+                        ErrorMessages = new List<string> { errorMessage }
+                    });
+                }
+
+                return BadRequest(new ApiResponse
+                {
+                    IsSuccess = false,
+                    ErrorMessages = new List<string> { errorMessage }
+                });
+            }
+
+            return Ok(tag);
+        }
     }
 }

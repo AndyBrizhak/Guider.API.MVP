@@ -184,5 +184,86 @@ namespace Guider.API.MVP.Services
                 return (new List<object>(), 0, $"An error occurred: {ex.Message}");
             }
         }
+
+        public async Task<(object Tag, string ErrorMessage)> GetTagByIdAsync(string id)
+        {
+            try
+            {
+                // Проверяем валидность ObjectId
+                if (!ObjectId.TryParse(id, out ObjectId objectId))
+                {
+                    return (null, "Invalid tag ID format");
+                }
+
+                // Создаем фильтр для поиска по ID
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+
+                // Выполняем поиск документа
+                var document = await _tagsCollection.Find(filter).FirstOrDefaultAsync();
+
+                if (document == null)
+                {
+                    return (null, "Tag not found");
+                }
+
+                try
+                {
+                    var jsonDoc = JsonDocument.Parse(document.ToJson());
+
+                    // Получаем ID из документа
+                    jsonDoc.RootElement.TryGetProperty("_id", out var idElement);
+                    string tagId = idElement.GetProperty("$oid").GetString();
+
+                    // Получаем английское название
+                    string nameEn = string.Empty;
+                    if (jsonDoc.RootElement.TryGetProperty("name_en", out var nameEnElement))
+                    {
+                        nameEn = nameEnElement.GetString();
+                    }
+
+                    // Получаем испанское название
+                    string nameSp = string.Empty;
+                    if (jsonDoc.RootElement.TryGetProperty("name_sp", out var nameSpElement))
+                    {
+                        nameSp = nameSpElement.GetString();
+                    }
+
+                    // Получаем URL из документа
+                    string docUrl = string.Empty;
+                    if (jsonDoc.RootElement.TryGetProperty("url", out var urlElement))
+                    {
+                        docUrl = urlElement.GetString();
+                    }
+
+                    // Получаем тип тега
+                    string tagType = string.Empty;
+                    if (jsonDoc.RootElement.TryGetProperty("type", out var typeElement))
+                    {
+                        tagType = typeElement.GetString();
+                    }
+
+                    // Формируем объект в требуемом формате
+                    var result = new
+                    {
+                        id = tagId,
+                        name_en = nameEn,
+                        name_sp = nameSp,
+                        url = docUrl,
+                        type = tagType
+                    };
+
+                    jsonDoc.Dispose();
+                    return (result, null);
+                }
+                catch (Exception ex)
+                {
+                    return (null, $"Error processing tag: {ex.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                return (null, $"An error occurred: {ex.Message}");
+            }
+        }
     }
 }
