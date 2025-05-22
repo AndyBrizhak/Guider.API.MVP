@@ -222,5 +222,20 @@ namespace Guider.API.MVP.Controllers
                     : BadRequest(errorObj);
             }
         }
+        [HttpDelete("tags/{id}")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        public async Task<IActionResult> Delete(string id)
+        {
+            var result = await _tagsService.DeleteAsync(id);
+            if (!result)
+            {
+                return NotFound(new ApiResponse { IsSuccess = false, ErrorMessages = new List<string> { "Tag not found or could not be deleted" } });
+            }
+
+            // Return the ID for react-admin compatibility
+            return Ok(new { id });
+        }
+
+
     }
 }

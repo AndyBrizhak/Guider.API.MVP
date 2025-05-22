@@ -504,5 +504,29 @@ namespace Guider.API.MVP.Services
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
             }
         }
+        public async Task<bool> DeleteAsync(string id)
+        {
+            // Validate the ID format
+            if (!ObjectId.TryParse(id, out var objectId))
+            {
+                return false;
+            }
+
+            // Check if the document exists in the collection
+            var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+            var existingDocument = await _tagsCollection.Find(filter).FirstOrDefaultAsync();
+
+            if (existingDocument == null)
+            {
+                return false;
+            }
+
+            // Perform the deletion
+            var result = await _tagsCollection.DeleteOneAsync(filter);
+
+            return result.DeletedCount > 0;
+        }
+
+
     }
 }
