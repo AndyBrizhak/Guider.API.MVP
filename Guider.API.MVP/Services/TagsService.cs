@@ -1,4 +1,6 @@
 ﻿
+
+
 using Guider.API.MVP.Data;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
@@ -19,7 +21,7 @@ namespace Guider.API.MVP.Services
                 mongoSettings.Value.Collections["Tags"]);
         }
 
-        public async Task<(List<JsonDocument> Documents, long TotalCount)> GetTagsAsync(Dictionary<string, string> filter = null)
+        public async Task<(List<object> Tags, long TotalCount, string ErrorMessage)> GetTagsAsync(Dictionary<string, string> filter = null)
         {
             try
             {
@@ -117,20 +119,69 @@ namespace Guider.API.MVP.Services
                 }
 
                 var documents = await query.ToListAsync();
-                var jsonDocuments = new List<JsonDocument>();
+                var result = new List<object>();
+
                 foreach (var document in documents)
                 {
-                    jsonDocuments.Add(JsonDocument.Parse(document.ToJson()));
+                    try
+                    {
+                        var jsonDoc = JsonDocument.Parse(document.ToJson());
+
+                        // Получаем ID из документа
+                        jsonDoc.RootElement.TryGetProperty("_id", out var idElement);
+                        string id = idElement.GetProperty("$oid").GetString();
+
+                        // Получаем английское название
+                        string nameEn = string.Empty;
+                        if (jsonDoc.RootElement.TryGetProperty("name_en", out var nameEnElement))
+                        {
+                            nameEn = nameEnElement.GetString();
+                        }
+
+                        // Получаем испанское название
+                        string nameSp = string.Empty;
+                        if (jsonDoc.RootElement.TryGetProperty("name_sp", out var nameSpElement))
+                        {
+                            nameSp = nameSpElement.GetString();
+                        }
+
+                        // Получаем URL из документа
+                        string docUrl = string.Empty;
+                        if (jsonDoc.RootElement.TryGetProperty("url", out var urlElement))
+                        {
+                            docUrl = urlElement.GetString();
+                        }
+
+                        // Получаем тип тега
+                        string tagType = string.Empty;
+                        if (jsonDoc.RootElement.TryGetProperty("type", out var typeElement))
+                        {
+                            tagType = typeElement.GetString();
+                        }
+
+                        // Формируем объект в формате для react-admin
+                        result.Add(new
+                        {
+                            id,
+                            name_en = nameEn,
+                            name_sp = nameSp,
+                            url = docUrl,
+                            type = tagType
+                        });
+
+                        jsonDoc.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        return (new List<object>(), 0, $"Error processing tag: {ex.Message}");
+                    }
                 }
 
-                return (jsonDocuments, totalCount);
+                return (result, totalCount, null);
             }
             catch (Exception ex)
             {
-                return (new List<JsonDocument>
-                {
-                    JsonDocument.Parse($"{{\"error\": \"An error occurred: {ex.Message}\"}}")
-                }, 0);
+                return (new List<object>(), 0, $"An error occurred: {ex.Message}");
             }
         }
     }
