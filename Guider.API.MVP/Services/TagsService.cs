@@ -362,6 +362,7 @@ namespace Guider.API.MVP.Services
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
             }
         }
+
         public async Task<JsonDocument> UpdateTagAsync(string id, JsonDocument updateData)
         {
             try
@@ -377,21 +378,54 @@ namespace Guider.API.MVP.Services
                     return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
                 }
 
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+                var existingTag = await _tagsCollection.Find(filter).FirstOrDefaultAsync();
+
+                if (existingTag == null)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = $"Tag with ID '{id}' not found."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Преобразуем JSON в BsonDocument
                 var updateJson = updateData.RootElement.GetRawText();
                 var updateBson = BsonDocument.Parse(updateJson);
 
+                // Создаем новый BsonDocument для обновленного тега
+                var updatedTagBson = new BsonDocument();
+
+                // Сохраняем ID существующего тега
+                updatedTagBson["_id"] = existingTag["_id"];
+
+                // Копируем поля из обновления или из существующего документа
+                updatedTagBson["name_en"] = updateBson.Contains("name_en") ? updateBson["name_en"] :
+                    (existingTag.Contains("name_en") ? existingTag["name_en"] : BsonNull.Value);
+
+                updatedTagBson["name_sp"] = updateBson.Contains("name_sp") ? updateBson["name_sp"] :
+                    (existingTag.Contains("name_sp") ? existingTag["name_sp"] : BsonNull.Value);
+
+                updatedTagBson["url"] = updateBson.Contains("url") ? updateBson["url"] :
+                    (existingTag.Contains("url") ? existingTag["url"] : BsonNull.Value);
+
+                updatedTagBson["type"] = updateBson.Contains("type") ? updateBson["type"] :
+                    (existingTag.Contains("type") ? existingTag["type"] : BsonNull.Value);
+
                 // Проверка на уникальность name_en
-                if (updateBson.Contains("name_en") && updateBson["name_en"].BsonType == BsonType.String)
+                if (updatedTagBson.Contains("name_en") && !updatedTagBson["name_en"].IsBsonNull)
                 {
-                    string newNameEn = updateBson["name_en"].AsString;
+                    string newNameEn = updatedTagBson["name_en"].AsString;
                     if (!string.IsNullOrEmpty(newNameEn))
                     {
                         var nameEnFilter = Builders<BsonDocument>.Filter.And(
                             Builders<BsonDocument>.Filter.Eq("name_en", newNameEn),
                             Builders<BsonDocument>.Filter.Ne("_id", objectId)
                         );
-                        var existingTag = await _tagsCollection.Find(nameEnFilter).FirstOrDefaultAsync();
-                        if (existingTag != null)
+                        var existingTagWithName = await _tagsCollection.Find(nameEnFilter).FirstOrDefaultAsync();
+                        if (existingTagWithName != null)
                         {
                             var errorResponse = new
                             {
@@ -404,17 +438,17 @@ namespace Guider.API.MVP.Services
                 }
 
                 // Проверка на уникальность url
-                if (updateBson.Contains("url") && updateBson["url"].BsonType == BsonType.String)
+                if (updatedTagBson.Contains("url") && !updatedTagBson["url"].IsBsonNull)
                 {
-                    string newUrl = updateBson["url"].AsString;
+                    string newUrl = updatedTagBson["url"].AsString;
                     if (!string.IsNullOrEmpty(newUrl))
                     {
                         var urlFilter = Builders<BsonDocument>.Filter.And(
                             Builders<BsonDocument>.Filter.Eq("url", newUrl),
                             Builders<BsonDocument>.Filter.Ne("_id", objectId)
                         );
-                        var existingTag = await _tagsCollection.Find(urlFilter).FirstOrDefaultAsync();
-                        if (existingTag != null)
+                        var existingTagWithUrl = await _tagsCollection.Find(urlFilter).FirstOrDefaultAsync();
+                        if (existingTagWithUrl != null)
                         {
                             var errorResponse = new
                             {
@@ -426,45 +460,16 @@ namespace Guider.API.MVP.Services
                     }
                 }
 
-                // Формируем update definition
-                var updateDef = new List<UpdateDefinition<BsonDocument>>();
-                foreach (var element in updateBson.Elements)
-                {
-                    updateDef.Add(Builders<BsonDocument>.Update.Set(element.Name, element.Value));
-                }
-                var update = Builders<BsonDocument>.Update.Combine(updateDef);
+                // Заменяем существующий документ обновленным
+                await _tagsCollection.ReplaceOneAsync(filter, updatedTagBson);
 
-                // Обновляем документ
-                var result = await _tagsCollection.UpdateOneAsync(
-                    Builders<BsonDocument>.Filter.Eq("_id", objectId),
-                    update
-                );
+                // Получаем обновленный тег из базы
+                var updatedTag = await _tagsCollection.Find(filter).FirstOrDefaultAsync();
 
-                if (result.MatchedCount == 0)
-                {
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = "Tag not found"
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
-
-                // Получаем обновленный документ
-                var updatedTag = await _tagsCollection.Find(Builders<BsonDocument>.Filter.Eq("_id", objectId)).FirstOrDefaultAsync();
-                if (updatedTag == null)
-                {
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = "Tag was updated but could not be retrieved from the database."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
-
+                // Формируем ответ в нужном формате
                 var formattedTag = new
                 {
-                    id = updatedTag["_id"].ToString(),
+                    id = updatedTag["_id"].AsObjectId.ToString(),
                     name_en = updatedTag.Contains("name_en") ? updatedTag["name_en"].AsString : string.Empty,
                     name_sp = updatedTag.Contains("name_sp") ? updatedTag["name_sp"].AsString : string.Empty,
                     url = updatedTag.Contains("url") ? updatedTag["url"].AsString : string.Empty,
@@ -479,6 +484,15 @@ namespace Guider.API.MVP.Services
                 };
 
                 return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+            }
+            catch (FormatException)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = "Invalid tag ID format."
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
             }
             catch (Exception ex)
             {
