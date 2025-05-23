@@ -498,3 +498,47 @@ $RECYCLE.BIN/
 /Guider.API.MVP/gitignore
 /Guider.API.MVP/gitattributes
 /Guider.API.MVP/wwwroot/images/negros/dumaguete
+
+# Существующие правила .gitignore...
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.staging
+*.env
+
+# Local development settings (если создадите)
+appsettings.Local.json
+appsettings.*.Local.json
+
+# User-specific files
+launchSettings.json
+
+# Logs
+logs/
+*.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.bak
+*.backup
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+/Guider.API.MVP/.gitignore
+/Guider.API.MVP/.env.local.example
+/Guider.API.MVP/kill-guider-processes.bat
+/Guider.API.MVP/setup-local-dev.bat
+/Guider.API.MVP/setup-local-dev.sh
+/Guider.API.MVP/setup_local_script.sh
