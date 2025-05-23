@@ -25,7 +25,7 @@ namespace Guider.API.MVP.Controllers
         }
 
         [HttpGet("tags")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetTags(
             [FromQuery] string q = null,
             [FromQuery] string name_en = null,
@@ -89,7 +89,7 @@ namespace Guider.API.MVP.Controllers
         }
 
         [HttpGet("tags/{id}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetTagById(string id)
         {
             // Проверяем, что ID не пустой
@@ -128,7 +128,7 @@ namespace Guider.API.MVP.Controllers
 
         [HttpPost]
         [Route("tags")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> AddTag([FromBody] JsonDocument tagData)
         {
             if (tagData == null)
@@ -175,7 +175,7 @@ namespace Guider.API.MVP.Controllers
             }
         }
         [HttpPut("tags/{id}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> UpdateTag(string id, [FromBody] JsonDocument updateData)
         {
             if (string.IsNullOrEmpty(id))

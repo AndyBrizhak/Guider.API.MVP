@@ -28,18 +28,7 @@ namespace Guider.API.MVP.Controllers
             _response = new ApiResponse();
         }
 
-        /// <summary>
-        /// Получить все документы из коллекции Places
-        /// </summary>
-        /// <returns>Список документов в формате JSON</returns>      
-        //[HttpGet]
-        //public async Task<IActionResult> GetAll()
-        //{
-        //    var places = await _placeService.GetAllAsync();
-        //    return Ok(places.ToJson());
-        //}
-
-
+      
         /// <summary>
         /// Получить по странично все документы коллекции,
         /// с размером не более 20 документов
