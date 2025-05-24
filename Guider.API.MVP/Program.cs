@@ -15,6 +15,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Guider.API.MVP.Filters;
+using Guider.API.MVP.Utility;
 
 // Загружаем .env файлы перед созданием builder
 EnvLoader.LoadEnvFiles();
@@ -244,6 +245,21 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    // Проверяем, есть ли неприменённые миграции
+    var pendingMigrations = db.Database.GetPendingMigrations();
+    if (pendingMigrations.Any())
+    {
+        Console.WriteLine("Выполняется автоматическая миграция базы данных...");
+        db.Database.Migrate();
+        Console.WriteLine("Миграция завершена.");
+    }
+}
+
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

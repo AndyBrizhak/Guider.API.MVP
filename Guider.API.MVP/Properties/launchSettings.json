@@ -44,17 +44,7 @@
       "launchBrowser": true,
       "launchUrl": "swagger",
       "applicationUrl": "https://localhost:7001;http://localhost:5001",
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "MONGODB_CONNECTION_STRING": "mongodb://admin:guideradmin@46.202.178.172:27017/test",
-        "MONGODB_DATABASE_NAME": "guider",
-        "MONGODB_PLACES_COLLECTION": "places_clear",
-        "MONGODB_CITIES_COLLECTION": "cities",
-        "MONGODB_PROVINCES_COLLECTION": "provinces",
-        "MONGODB_TAGS_COLLECTION": "tags_clear",
-        "CONNECTIONSTRINGS__POSTGRESQL": "Host=localhost;Port=5432;Database=guider_db;Username=guider_user;Password=Admin123*",
-        "API_SECRET_KEY": "D8B22C3D0E7F1A6B5C4A2E9F8D7C1B3A5F2E8D4C6B9A7F1E3D5C2B4A6F8E0D7"
-      }
+    
     },
     "Local Development": {
       "commandName": "Project",
@@ -62,17 +52,7 @@
       "launchBrowser": true,
       "launchUrl": "swagger",
       "applicationUrl": "https://localhost:7001;http://localhost:5001",
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "MONGODB_CONNECTION_STRING": "mongodb://localhost:27017",
-        "MONGODB_DATABASE_NAME": "guider_local",
-        "MONGODB_PLACES_COLLECTION": "places_clear",
-        "MONGODB_CITIES_COLLECTION": "cities",
-        "MONGODB_PROVINCES_COLLECTION": "provinces",
-        "MONGODB_TAGS_COLLECTION": "tags_clear",
-        "CONNECTIONSTRINGS__POSTGRESQL": "Host=localhost;Port=5432;Database=guider_db;Username=guider_user;Password=Admin123*",
-        "API_SECRET_KEY": "D8B22C3D0E7F1A6B5C4A2E9F8D7C1B3A5F2E8D4C6B9A7F1E3D5C2B4A6F8E0D7"
-      }
+ 
     }
   }
 }
