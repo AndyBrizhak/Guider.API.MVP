@@ -1,4 +1,6 @@
-﻿using Guider.API.MVP.Data;
+﻿
+
+using Guider.API.MVP.Data;
 using Guider.API.MVP.Models;
 using Guider.API.MVP.Models.Dto;
 using Guider.API.MVP.Utility;
@@ -23,6 +25,7 @@ namespace Guider.API.MVP.Controllers
         private string secretKey;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly IConfiguration _configuration;
 
         public AuthController(ApplicationDbContext db,
                                 IConfiguration configuration,
@@ -30,14 +33,13 @@ namespace Guider.API.MVP.Controllers
                                 UserManager<ApplicationUser> userManager)
         {
             _db = db;
+            _configuration = configuration;
             secretKey = configuration.GetValue<string>("ApiSettings:Secret") ??
                 throw new ArgumentNullException(nameof(configuration), "Secret key cannot be null");
             _response = new ApiResponse();
             _roleManager = roleManager;
             _userManager = userManager;
         }
-
-
 
         /// <summary>
         /// Authenticates a user based on the provided credentials and generates a JWT token.
@@ -112,25 +114,6 @@ namespace Guider.API.MVP.Controllers
             public string Password { get; set; }
         }
 
-
-        /// <summary>
-        /// 
-        /// Registers a new user based on the provided registration model.
-        ///
-        /// </summary>
-        /// 
-        /// <param name="requestModel">The registration request containing the following fields:
-        /// 
-        /// - username: The username of the new user.
-        /// 
-        /// - email: The email of the new user.
-        /// 
-        /// - password: The password of the new user.
-        /// 
-        /// - role: The role of the new user (optional, defaults to "user").
-        /// 
-        /// </param>
-
         [HttpPost("users")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -147,7 +130,7 @@ namespace Guider.API.MVP.Controllers
             string userName = requestModel.username;
             string email = requestModel.email;
             string password = requestModel.password;
-            string role = /*!string.IsNullOrEmpty(requestModel.data.role) ? requestModel.data.role :*/ SD.Role_User;
+            string role = SD.Role_User;
 
             // Валидация данных
             if (string.IsNullOrEmpty(userName))
@@ -197,34 +180,8 @@ namespace Guider.API.MVP.Controllers
                         await _roleManager.CreateAsync(new IdentityRole(SD.Role_Manager));
                         await _roleManager.CreateAsync(new IdentityRole(SD.Role_User));
 
-                        // Создаем пользователя супер админа, если он еще не существует
-                        var existingSuperAdmin = await _userManager.FindByNameAsync("SuperAdmin");
-                        if (existingSuperAdmin == null)
-                        {
-                            var superAdminUser = new ApplicationUser
-                            {
-                                UserName = "SuperAdmin",
-                                Email = "superadmin@gmail.com",
-                                NormalizedUserName = "SUPERADMIN",
-                                NormalizedEmail = "SUPERADMIN@GMAIL.COM",
-                                EmailConfirmed = true, // Подтверждаем email сразу для супер админа
-                                PhoneNumberConfirmed = false,
-                                TwoFactorEnabled = false,
-                                LockoutEnabled = false, // Отключаем блокировку для супер админа
-                                SecurityStamp = Guid.NewGuid().ToString()
-                            };
-
-                            var createSuperAdminResult = await _userManager.CreateAsync(superAdminUser, "superpassword");
-                            if (createSuperAdminResult.Succeeded)
-                            {
-                                await _userManager.AddToRoleAsync(superAdminUser, SD.Role_Super_Admin);
-                            }
-                            else
-                            {
-                                // Логируем ошибку создания супер админа, но не прерываем выполнение
-                                Console.WriteLine($"Failed to create SuperAdmin user: {string.Join(", ", createSuperAdminResult.Errors.Select(e => e.Description))}");
-                            }
-                        }
+                        // Создаем пользователя супер админа из переменных окружения
+                        await CreateSuperAdminFromConfig();
                     }
 
                     // Проверяем, существует ли указанная роль
@@ -245,13 +202,10 @@ namespace Guider.API.MVP.Controllers
                     // Возвращаем ответ в формате, совместимом с React Admin (CreateResult)
                     return Created("", new
                     {
-                        //data = new
-                        //{
                         id = newUser.Id,
                         username = newUser.UserName,
                         email = newUser.Email,
                         role = userRole.ToLower()
-                        //}
                     });
                 }
                 else
@@ -267,6 +221,85 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
+        /// <summary>
+        /// Создает пользователя супер админа на основе данных из конфигурации (переменные окружения или appsettings)
+        /// </summary>
+        private async Task CreateSuperAdminFromConfig()
+        {
+            try
+            {
+                // Получаем данные супер админа из конфигурации
+                var superAdminUsername = _configuration["SUPERADMIN_USERNAME"] ?? "SuperAdmin";
+                var superAdminEmail = _configuration["SUPERADMIN_EMAIL"] ?? "superadmin@example.com";
+                var superAdminPassword = _configuration["SUPERADMIN_PASSWORD"] ?? "SuperSecret123!";
+
+                // Проверяем, существует ли уже супер админ
+                var existingSuperAdmin = await _userManager.FindByNameAsync(superAdminUsername);
+                if (existingSuperAdmin != null)
+                {
+                    Console.WriteLine($"SuperAdmin user '{superAdminUsername}' already exists, skipping creation.");
+                    return;
+                }
+
+                // Дополнительная проверка по email
+                var existingSuperAdminByEmail = await _userManager.FindByEmailAsync(superAdminEmail);
+                if (existingSuperAdminByEmail != null)
+                {
+                    Console.WriteLine($"User with SuperAdmin email '{superAdminEmail}' already exists, skipping creation.");
+                    return;
+                }
+
+                // Валидация данных из конфигурации
+                if (string.IsNullOrEmpty(superAdminUsername) || string.IsNullOrEmpty(superAdminEmail) || string.IsNullOrEmpty(superAdminPassword))
+                {
+                    Console.WriteLine("⚠️  SuperAdmin configuration is incomplete. Please check SUPERADMIN_USERNAME, SUPERADMIN_EMAIL, and SUPERADMIN_PASSWORD settings.");
+                    return;
+                }
+
+                if (!new EmailAddressAttribute().IsValid(superAdminEmail))
+                {
+                    Console.WriteLine($"⚠️  SuperAdmin email '{superAdminEmail}' is not valid.");
+                    return;
+                }
+
+                if (superAdminPassword.Length < 6)
+                {
+                    Console.WriteLine("⚠️  SuperAdmin password must be at least 6 characters long.");
+                    return;
+                }
+
+                // Создаем супер админа
+                var superAdminUser = new ApplicationUser
+                {
+                    UserName = superAdminUsername,
+                    Email = superAdminEmail,
+                    NormalizedUserName = superAdminUsername.ToUpper(),
+                    NormalizedEmail = superAdminEmail.ToUpper(),
+                    EmailConfirmed = true, // Подтверждаем email сразу для супер админа
+                    PhoneNumberConfirmed = false,
+                    TwoFactorEnabled = false,
+                    LockoutEnabled = false, // Отключаем блокировку для супер админа
+                    SecurityStamp = Guid.NewGuid().ToString()
+                };
+
+                var createSuperAdminResult = await _userManager.CreateAsync(superAdminUser, superAdminPassword);
+                if (createSuperAdminResult.Succeeded)
+                {
+                    await _userManager.AddToRoleAsync(superAdminUser, SD.Role_Super_Admin);
+                    Console.WriteLine($"✅ SuperAdmin user '{superAdminUsername}' created successfully with email '{superAdminEmail}'.");
+                }
+                else
+                {
+                    var errors = string.Join(", ", createSuperAdminResult.Errors.Select(e => e.Description));
+                    Console.WriteLine($"❌ Failed to create SuperAdmin user: {errors}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error creating SuperAdmin user: {ex.Message}");
+            }
+        }
+
         public class CreateUserData
         {
             public string? username { get; set; }
@@ -274,7 +307,6 @@ namespace Guider.API.MVP.Controllers
             public string? password { get; set; }
             //public string role { get; set; }
         }
-
 
         /// <summary>
         /// Gets a paginated list of users based on the provided filters and sorting options.
@@ -464,7 +496,6 @@ namespace Guider.API.MVP.Controllers
             // Возвращаем данные в формате, ожидаемом React Admin
             return Ok(userList);
         }
-
 
         /// <summary>
         /// 
@@ -741,5 +772,3 @@ namespace Guider.API.MVP.Controllers
         }
     }
 }
-
-
