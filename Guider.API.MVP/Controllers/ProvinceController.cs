@@ -1,17 +1,24 @@
-﻿using Guider.API.MVP.Models;
+﻿
+
+using Guider.API.MVP.Models;
 using Guider.API.MVP.Services;
 using Guider.API.MVP.Utility;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Linq;
+using System.Text.Json.Nodes;
+using System;
 
 namespace Guider.API.MVP.Controllers
 {
     /// <summary>
     /// Controller for managing provinces.
     /// </summary>
-    [Route("api/[controller]")]
+    [Route("")]
     [ApiController]
     public class ProvinceController : ControllerBase
     {
@@ -26,16 +33,89 @@ namespace Guider.API.MVP.Controllers
             _provinceService = provinceService;
         }
 
+
+       
         /// <summary>
-        /// Retrieves all provinces.
+        /// Retrieves all provinces in a format compatible with react-admin.
         /// </summary>
+        /// <param name="q">Search query for filtering.</param>
+        /// <param name="name">Filter by province name.</param>
+        /// <param name="url">Filter by province URL.</param>
+        /// <param name="page">Page number for pagination (default: 1).</param>
+        /// <param name="perPage">Items per page for pagination (default: 10).</param>
         /// <returns>A list of provinces.</returns>
-        [HttpGet]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<IActionResult> GetAll()
+        [HttpGet("provinces")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        public async Task<IActionResult> GetAll(
+            [FromQuery] string q = null,
+            [FromQuery] string name = null,
+            [FromQuery] string url = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int perPage = 10)
         {
-            var provinces = await _provinceService.GetAllAsync();
-            return Ok(provinces);
+            // Создаем объект фильтра для передачи в сервис
+            var filter = new Dictionary<string, string>();
+            if (!string.IsNullOrEmpty(q))
+            {
+                filter["q"] = q;
+            }
+            if (!string.IsNullOrEmpty(name))
+            {
+                filter["name"] = name;
+            }
+            if (!string.IsNullOrEmpty(url))
+            {
+                filter["url"] = url;
+            }
+
+            // Получаем данные с пагинацией
+            var (provincesDocuments, totalCount) = await _provinceService.GetAllAsync(filter, page, perPage);
+
+            // Transform the data format to be compatible with react-admin
+            var result = new List<object>();
+            foreach (var doc in provincesDocuments)
+            {
+                try
+                {
+                    // Проверяем, есть ли поле error
+                    if (doc.RootElement.TryGetProperty("error", out _))
+                    {
+                        // Если есть ошибка, возвращаем её
+                        return BadRequest(doc);
+                    }
+                    // Получаем ID и имя из документа
+                    doc.RootElement.TryGetProperty("_id", out var idElement);
+                    string id = idElement.GetProperty("$oid").GetString();
+                    string docName = string.Empty;
+                    if (doc.RootElement.TryGetProperty("name", out var nameElement))
+                    {
+                        docName = nameElement.GetString();
+                    }
+                    // Получаем URL из документа (если есть)
+                    string docUrl = string.Empty;
+                    if (doc.RootElement.TryGetProperty("url", out var urlElement))
+                    {
+                        docUrl = urlElement.GetString();
+                    }
+                    // Формируем объект в формате для react-admin
+                    result.Add(new
+                    {
+                        id,
+                        name = docName,
+                        url = docUrl
+                    });
+                }
+                catch (Exception ex)
+                {
+                    // В случае ошибки добавляем информацию о ней
+                    return BadRequest(new ApiResponse { IsSuccess = false, ErrorMessages = new List<string> { $"Error processing province: {ex.Message}" } });
+                }
+            }
+
+            // Add total count header for react-admin pagination
+            Response.Headers.Add("X-Total-Count", totalCount.ToString());
+            Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
+            return Ok(result);
         }
 
         /// <summary>
@@ -43,15 +123,51 @@ namespace Guider.API.MVP.Controllers
         /// </summary>
         /// <param name="id">The ID of the province.</param>
         /// <returns>The province details.</returns>
-        [HttpGet("{id}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [HttpGet("provinces/{id}")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetById(string id)
         {
-            var province = await _provinceService.GetByIdAsync(id);
-            if (province == null)
-                return NotFound(new ApiResponse { IsSuccess = false, ErrorMessages = new List<string> { "Province not found" } });
+            var provinceDoc = await _provinceService.GetByIdAsync(id);
 
-            return Ok(province);
+            // Проверяем, есть ли поле error
+            if (provinceDoc.RootElement.TryGetProperty("error", out var errorElement))
+            {
+                return NotFound(new ApiResponse { IsSuccess = false, ErrorMessages = new List<string> { errorElement.GetString() } });
+            }
+
+            try
+            {
+                // Получаем ID и имя из документа
+                provinceDoc.RootElement.TryGetProperty("_id", out var idElement);
+                string docId = idElement.GetProperty("$oid").GetString();
+
+                string name = string.Empty;
+                if (provinceDoc.RootElement.TryGetProperty("name", out var nameElement))
+                {
+                    name = nameElement.GetString();
+                }
+
+                // Получаем URL из документа (если есть)
+                string url = string.Empty;
+                if (provinceDoc.RootElement.TryGetProperty("url", out var urlElement))
+                {
+                    url = urlElement.GetString();
+                }
+
+                // Формируем объект в формате для react-admin
+                var result = new
+                {
+                    id = docId,
+                    name,
+                    url
+                };
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new ApiResponse { IsSuccess = false, ErrorMessages = new List<string> { $"Error processing province: {ex.Message}" } });
+            }
         }
 
         /// <summary>
@@ -59,28 +175,164 @@ namespace Guider.API.MVP.Controllers
         /// </summary>
         /// <param name="province">The province data.</param>
         /// <returns>The created province.</returns>
-        [HttpPost]
+        [HttpPost("provinces")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<IActionResult> Create([FromBody] JsonDocument province)
+        public async Task<IActionResult> Create([FromBody] JsonElement provinceData)
         {
             if (!ModelState.IsValid)
                 return BadRequest(new ApiResponse { IsSuccess = false, ErrorMessages = new List<string> { "Invalid data" } });
 
-            await _provinceService.CreateAsync(province);
-            return Ok(province);
+            try
+            {
+                // Проверяем наличие поля name
+                if (!provinceData.TryGetProperty("name", out _))
+                {
+                    return BadRequest(new ApiResponse { IsSuccess = false, ErrorMessages = new List<string> { "Province name is required" } });
+                }
+
+                // Создаем новый JsonDocument для передачи в сервис
+                using (var ms = new MemoryStream())
+                {
+                    using (var writer = new Utf8JsonWriter(ms))
+                    {
+                        writer.WriteStartObject();
+                        writer.WriteString("name", provinceData.GetProperty("name").GetString());
+
+                        // Добавляем URL если он есть
+                        if (provinceData.TryGetProperty("url", out var urlElement))
+                        {
+                            writer.WriteString("url", urlElement.GetString());
+                        }
+
+                        writer.WriteEndObject();
+                    }
+
+                    ms.Position = 0;
+                    using var provinceDoc = JsonDocument.Parse(ms.ToArray());
+                    var createdProvinceDoc = await _provinceService.CreateAsync(provinceDoc);
+
+                    // Проверяем, есть ли поле error
+                    if (createdProvinceDoc.RootElement.TryGetProperty("error", out var errorElement))
+                    {
+                        return BadRequest(new ApiResponse { IsSuccess = false, ErrorMessages = new List<string> { errorElement.GetString() } });
+                    }
+
+                    // Получаем ID и имя из созданного документа
+                    createdProvinceDoc.RootElement.TryGetProperty("_id", out var idElement);
+                    string docId = idElement.GetProperty("$oid").GetString();
+
+                    string name = string.Empty;
+                    if (createdProvinceDoc.RootElement.TryGetProperty("name", out var nameElement))
+                    {
+                        name = nameElement.GetString();
+                    }
+
+                    // Получаем URL из документа (если есть)
+                    string url = string.Empty;
+                    if (createdProvinceDoc.RootElement.TryGetProperty("url", out var docUrlElement))
+                    {
+                        url = docUrlElement.GetString();
+                    }
+
+                    // Формируем объект в формате для react-admin
+                    var result = new
+                    {
+                        id = docId,
+                        name,
+                        url
+                    };
+
+                    return Ok(result);
+                }
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new ApiResponse { IsSuccess = false, ErrorMessages = new List<string> { $"Error creating province: {ex.Message}" } });
+            }
         }
 
         /// <summary>
         /// Updates an existing province.
         /// </summary>
-        /// <param name="updatedProvince">The updated province data.</param>
+        /// <param name="id">The ID of the province to update.</param>
+        /// <param name="provinceData">The updated province data.</param>
         /// <returns>The updated province.</returns>
-        [HttpPut()]
+        [HttpPut("provinces/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<IActionResult> Update([FromBody] JsonDocument updatedProvince)
+        public async Task<IActionResult> Update(string id, [FromBody] JsonElement provinceData)
         {
-            await _provinceService.UpdateAsync(updatedProvince);
-            return Ok(updatedProvince);
+            try
+            {
+                // Проверяем наличие поля name
+                if (!provinceData.TryGetProperty("name", out _))
+                {
+                    return BadRequest(new ApiResponse { IsSuccess = false, ErrorMessages = new List<string> { "Province name is required" } });
+                }
+
+                // Создаем новый JsonDocument для передачи в сервис
+                using (var ms = new MemoryStream())
+                {
+                    using (var writer = new Utf8JsonWriter(ms))
+                    {
+                        writer.WriteStartObject();
+                        writer.WriteString("name", provinceData.GetProperty("name").GetString());
+
+                        // Добавляем URL если он есть
+                        if (provinceData.TryGetProperty("url", out var urlElement))
+                        {
+                            writer.WriteString("url", urlElement.GetString());
+                        }
+
+                        writer.WriteEndObject();
+                    }
+
+                    ms.Position = 0;
+                    using var provinceDoc = JsonDocument.Parse(ms.ToArray());
+                    var updatedProvinceDoc = await _provinceService.UpdateAsync(id, provinceDoc);
+
+                    // Проверяем, есть ли поле error
+                    if (updatedProvinceDoc.RootElement.TryGetProperty("error", out var errorElement))
+                    {
+                        var errorMessage = errorElement.GetString();
+                        if (errorMessage.Contains("not exist"))
+                        {
+                            return NotFound(new ApiResponse { IsSuccess = false, ErrorMessages = new List<string> { errorMessage } });
+                        }
+                        return BadRequest(new ApiResponse { IsSuccess = false, ErrorMessages = new List<string> { errorMessage } });
+                    }
+
+                    // Получаем ID и имя из обновленного документа
+                    updatedProvinceDoc.RootElement.TryGetProperty("_id", out var idElement);
+                    string docId = idElement.GetProperty("$oid").GetString();
+
+                    string name = string.Empty;
+                    if (updatedProvinceDoc.RootElement.TryGetProperty("name", out var nameElement))
+                    {
+                        name = nameElement.GetString();
+                    }
+
+                    // Получаем URL из документа (если есть)
+                    string url = string.Empty;
+                    if (updatedProvinceDoc.RootElement.TryGetProperty("url", out var docUrlElement))
+                    {
+                        url = docUrlElement.GetString();
+                    }
+
+                    // Формируем объект в формате для react-admin
+                    var result = new
+                    {
+                        id = docId,
+                        name,
+                        url
+                    };
+
+                    return Ok(result);
+                }
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new ApiResponse { IsSuccess = false, ErrorMessages = new List<string> { $"Error updating province: {ex.Message}" } });
+            }
         }
 
         /// <summary>
@@ -88,12 +340,18 @@ namespace Guider.API.MVP.Controllers
         /// </summary>
         /// <param name="id">The ID of the province to delete.</param>
         /// <returns>A confirmation of deletion.</returns>
-        [HttpDelete("{id}")]
+        [HttpDelete("provinces/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<IActionResult> Delete(string id)
         {
-            await _provinceService.DeleteAsync(id);
-            return Ok();
+            var result = await _provinceService.DeleteAsync(id);
+            if (!result)
+            {
+                return NotFound(new ApiResponse { IsSuccess = false, ErrorMessages = new List<string> { "Province not found or could not be deleted" } });
+            }
+
+            // Return the ID for react-admin compatibility
+            return Ok(new { id });
         }
     }
 }

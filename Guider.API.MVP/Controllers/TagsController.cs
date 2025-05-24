@@ -1,4 +1,9 @@
-﻿using Guider.API.MVP.Services;
+﻿
+
+
+
+using Guider.API.MVP.Models;
+using Guider.API.MVP.Services;
 using Guider.API.MVP.Utility;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -8,7 +13,7 @@ using System.Text.Json;
 
 namespace Guider.API.MVP.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("")]
     [ApiController]
     public class TagsController : ControllerBase
     {
@@ -19,271 +24,218 @@ namespace Guider.API.MVP.Controllers
             _tagsService = tagsService;
         }
 
-        /// <summary>
-        /// Retrieves tags by their type.
-        /// </summary>
-        /// <param name="typeName">The name of the tag type.</param>
-        /// <returns>A list of tags matching the specified type.</returns>
-        [HttpGet]
-        [Route("GetTagsByType")]
-        public async Task<IActionResult> GetCitiesByProvince(string typeName)
+        [HttpGet("tags")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        public async Task<IActionResult> GetTags(
+            [FromQuery] string q = null,
+            [FromQuery] string name_en = null,
+            [FromQuery] string name_sp = null,
+            [FromQuery] string url = null,
+            [FromQuery] string type = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int perPage = 10,
+            [FromQuery] string _sort = "name_en",
+            [FromQuery] string _order = "ASC")
         {
-            var apiResponse = new Models.ApiResponse();
+            // Создаем объект фильтра для передачи в сервис
+            var filter = new Dictionary<string, string>();
 
-            try
+            if (!string.IsNullOrEmpty(q))
             {
-                if (string.IsNullOrWhiteSpace(typeName))
-                {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "Type name cannot be null or empty." };
-                    return BadRequest(apiResponse);
-                }
-
-                var tags = await _tagsService.GetTagsByTypeAsync(typeName);
-                if (tags == null)
-                {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.NotFound;
-                    apiResponse.ErrorMessages = new List<string> { $"No tags found for type: {typeName}." };
-                    return NotFound(apiResponse);
-                }
-
-                apiResponse.IsSuccess = true;
-                apiResponse.StatusCode = HttpStatusCode.OK;
-                apiResponse.Result = tags;
-                return Ok(apiResponse);
+                filter["q"] = q;
             }
-            catch (Exception ex)
+
+            if (!string.IsNullOrEmpty(name_en))
             {
-                apiResponse.IsSuccess = false;
-                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-                apiResponse.ErrorMessages = new List<string> { ex.Message };
-                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+                filter["name_en"] = name_en;
             }
+
+            if (!string.IsNullOrEmpty(name_sp))
+            {
+                filter["name_sp"] = name_sp;
+            }
+
+            if (!string.IsNullOrEmpty(url))
+            {
+                filter["url"] = url;
+            }
+
+            if (!string.IsNullOrEmpty(type))
+            {
+                filter["type"] = type;
+            }
+
+            // Добавляем параметры сортировки
+            filter["_sort"] = _sort;
+            filter["_order"] = _order;
+
+            // Add pagination parameters
+            filter["page"] = page.ToString();
+            filter["perPage"] = perPage.ToString();
+
+            var (tags, totalCount, errorMessage) = await _tagsService.GetTagsAsync(filter);
+
+            // Проверяем на ошибки
+            if (!string.IsNullOrEmpty(errorMessage))
+            {
+                return BadRequest(new ApiResponse { IsSuccess = false, ErrorMessages = new List<string> { errorMessage } });
+            }
+
+            // Add total count header for react-admin pagination
+            Response.Headers.Add("X-Total-Count", totalCount.ToString());
+            Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
+
+            return Ok(tags);
         }
 
-        /// <summary>
-        /// Creates a new tag for a specified type.
-        /// </summary>
-        /// <param name="typeName">The name of the tag type.</param>
-        /// <param name="newTagData">The data for the new tag in JSON format.</param>
-        /// <returns>The created tag or an error message.</returns>
+        [HttpGet("tags/{id}")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        public async Task<IActionResult> GetTagById(string id)
+        {
+            // Проверяем, что ID не пустой
+            if (string.IsNullOrEmpty(id))
+            {
+                return BadRequest(new ApiResponse
+                {
+                    IsSuccess = false,
+                    ErrorMessages = new List<string> { "Tag ID is required" }
+                });
+            }
+
+            var (tag, errorMessage) = await _tagsService.GetTagByIdAsync(id);
+
+            // Проверяем на ошибки
+            if (!string.IsNullOrEmpty(errorMessage))
+            {
+                if (errorMessage == "Tag not found")
+                {
+                    return NotFound(new ApiResponse
+                    {
+                        IsSuccess = false,
+                        ErrorMessages = new List<string> { errorMessage }
+                    });
+                }
+
+                return BadRequest(new ApiResponse
+                {
+                    IsSuccess = false,
+                    ErrorMessages = new List<string> { errorMessage }
+                });
+            }
+
+            return Ok(tag);
+        }
+
         [HttpPost]
-        [Route("CreateTag")]
+        [Route("tags")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<IActionResult> CreateTag(string typeName, [FromBody] JsonDocument newTagData)
+        public async Task<IActionResult> AddTag([FromBody] JsonDocument tagData)
         {
-            var apiResponse = new Models.ApiResponse();
-
-            try
+            if (tagData == null)
             {
-                if (string.IsNullOrWhiteSpace(typeName))
-                {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "Type name cannot be null or empty." };
-                    return BadRequest(apiResponse);
-                }
+                return BadRequest(new { message = "Tag data cannot be null." });
+            }
 
-                if (newTagData == null)
-                {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "Tag data cannot be null." };
-                    return BadRequest(apiResponse);
-                }
+            // Позволяем создавать тег даже с неполными данными
+            // Валидация на обязательные поля не проводится здесь, сервис сам обработает логику и вернет ошибку, если нужно
+            var resultDocument = await _tagsService.AddTagAsync(tagData);
 
-                var result = await _tagsService.CreateTagAsync(typeName, newTagData);
+            if (resultDocument == null)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Service returned null result." });
+            }
 
-                if (result.RootElement.GetProperty("IsSuccess").GetBoolean())
+            bool isSuccess = resultDocument.RootElement.GetProperty("IsSuccess").GetBoolean();
+            string message = resultDocument.RootElement.GetProperty("Message").GetString();
+
+            if (isSuccess)
+            {
+                // Получаем полные данные о новом теге из поля Data
+                if (resultDocument.RootElement.TryGetProperty("Data", out JsonElement tagDataElement))
                 {
-                    apiResponse.IsSuccess = true;
-                    apiResponse.StatusCode = HttpStatusCode.Created;
-                    apiResponse.Result = result;
-                    return StatusCode(StatusCodes.Status201Created, apiResponse);
+                    return Ok(tagDataElement);
                 }
                 else
                 {
-                    string errorMessage = result.RootElement.GetProperty("Message").GetString();
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { errorMessage };
-                    return BadRequest(apiResponse);
+                    // Если нет данных, возвращаем только сообщение
+                    return Ok(new { message });
                 }
             }
-            catch (Exception ex)
+            else
             {
-                apiResponse.IsSuccess = false;
-                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-                apiResponse.ErrorMessages = new List<string> { ex.Message };
-                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+                HttpStatusCode statusCode = message.Contains("not found")
+                    ? HttpStatusCode.NotFound
+                    : HttpStatusCode.BadRequest;
+
+                var errorObj = new { message };
+
+                return statusCode == HttpStatusCode.NotFound
+                    ? NotFound(errorObj)
+                    : BadRequest(errorObj);
             }
         }
-
-        /// <summary>
-        /// Updates an existing tag for a specified type.
-        /// </summary>
-        /// <param name="typeName">The name of the tag type.</param>
-        /// <param name="tagName">The name of the tag to update.</param>
-        /// <param name="updateTagData">The updated data for the tag in JSON format.</param>
-        /// <returns>The updated tag or an error message.</returns>
-        [HttpPut]
-        [Route("UpdateTag")]
+        [HttpPut("tags/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<IActionResult> UpdateTag(string typeName, string tagName, [FromBody] JsonDocument updateTagData)
+        public async Task<IActionResult> UpdateTag(string id, [FromBody] JsonDocument updateData)
         {
-            var apiResponse = new Models.ApiResponse();
-
-            try
+            if (string.IsNullOrEmpty(id))
             {
-                if (string.IsNullOrWhiteSpace(typeName))
-                {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "Type name cannot be null or empty." };
-                    return BadRequest(apiResponse);
-                }
+                return BadRequest(new { message = "Tag ID is required." });
+            }
 
-                if (string.IsNullOrWhiteSpace(tagName))
-                {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "Tag name cannot be null or empty." };
-                    return BadRequest(apiResponse);
-                }
+            if (updateData == null)
+            {
+                return BadRequest(new { message = "Update data cannot be null." });
+            }
 
-                if (updateTagData == null)
-                {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "Update data cannot be null." };
-                    return BadRequest(apiResponse);
-                }
+            var resultDocument = await _tagsService.UpdateTagAsync(id, updateData);
 
-                var result = await _tagsService.UpdateTagAsync(typeName, tagName, updateTagData);
+            if (resultDocument == null)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Service returned null result." });
+            }
 
-                if (result.RootElement.GetProperty("IsSuccess").GetBoolean())
+            bool isSuccess = resultDocument.RootElement.GetProperty("IsSuccess").GetBoolean();
+            string message = resultDocument.RootElement.GetProperty("Message").GetString();
+
+            if (isSuccess)
+            {
+                if (resultDocument.RootElement.TryGetProperty("Data", out JsonElement tagDataElement))
                 {
-                    apiResponse.IsSuccess = true;
-                    apiResponse.StatusCode = HttpStatusCode.OK;
-                    apiResponse.Result = result;
-                    return Ok(apiResponse);
+                    return Ok(tagDataElement);
                 }
                 else
                 {
-                    string errorMessage = result.RootElement.GetProperty("Message").GetString();
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { errorMessage };
-                    return BadRequest(apiResponse);
+                    return Ok(new { message });
                 }
             }
-            catch (Exception ex)
+            else
             {
-                apiResponse.IsSuccess = false;
-                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-                apiResponse.ErrorMessages = new List<string> { ex.Message };
-                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
+                HttpStatusCode statusCode = message.Contains("not found")
+                    ? HttpStatusCode.NotFound
+                    : HttpStatusCode.BadRequest;
+
+                var errorObj = new { message };
+
+                return statusCode == HttpStatusCode.NotFound
+                    ? NotFound(errorObj)
+                    : BadRequest(errorObj);
             }
         }
-
-        /// <summary>
-        /// Deletes a tag for a specified type.
-        /// </summary>
-        /// <param name="typeName">The name of the tag type.</param>
-        /// <param name="tagName">The name of the tag to delete.</param>
-        /// <returns>A success message or an error message.</returns>
-        [HttpDelete]
-        [Route("DeleteTag")]
+        [HttpDelete("tags/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
-        public async Task<IActionResult> DeleteTag(string typeName, string tagName)
+        public async Task<IActionResult> Delete(string id)
         {
-            var apiResponse = new Models.ApiResponse();
-
-            try
+            var result = await _tagsService.DeleteAsync(id);
+            if (!result)
             {
-                if (string.IsNullOrWhiteSpace(typeName))
-                {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "Type name cannot be null or empty." };
-                    return BadRequest(apiResponse);
-                }
-
-                if (string.IsNullOrWhiteSpace(tagName))
-                {
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { "Tag name cannot be null or empty." };
-                    return BadRequest(apiResponse);
-                }
-
-                var result = await _tagsService.DeleteTagAsync(typeName, tagName);
-
-                if (result.RootElement.GetProperty("IsSuccess").GetBoolean())
-                {
-                    apiResponse.IsSuccess = true;
-                    apiResponse.StatusCode = HttpStatusCode.OK;
-                    apiResponse.Result = result;
-                    return Ok(apiResponse);
-                }
-                else
-                {
-                    string errorMessage = result.RootElement.GetProperty("Message").GetString();
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { errorMessage };
-                    return BadRequest(apiResponse);
-                }
+                return NotFound(new ApiResponse { IsSuccess = false, ErrorMessages = new List<string> { "Tag not found or could not be deleted" } });
             }
-            catch (Exception ex)
-            {
-                apiResponse.IsSuccess = false;
-                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-                apiResponse.ErrorMessages = new List<string> { ex.Message };
-                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
-            }
+
+            // Return the ID for react-admin compatibility
+            return Ok(new { id });
         }
 
-        /// <summary>
-        /// Finds duplicate tags in the system.
-        /// </summary>
-        /// <returns>A list of duplicate tags or an error message.</returns>
-        [HttpGet]
-        [Route("FindDuplicateTags")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<IActionResult> FindDuplicateTags()
-        {
-            var apiResponse = new Models.ApiResponse();
 
-            try
-            {
-                var result = await _tagsService.FindDuplicateTagsAsync();
-
-                if (result.RootElement.GetProperty("IsSuccess").GetBoolean())
-                {
-                    apiResponse.IsSuccess = true;
-                    apiResponse.StatusCode = HttpStatusCode.OK;
-                    apiResponse.Result = result;
-                    return Ok(apiResponse);
-                }
-                else
-                {
-                    string errorMessage = result.RootElement.GetProperty("Message").GetString();
-                    apiResponse.IsSuccess = false;
-                    apiResponse.StatusCode = HttpStatusCode.BadRequest;
-                    apiResponse.ErrorMessages = new List<string> { errorMessage };
-                    return BadRequest(apiResponse);
-                }
-            }
-            catch (Exception ex)
-            {
-                apiResponse.IsSuccess = false;
-                apiResponse.StatusCode = HttpStatusCode.InternalServerError;
-                apiResponse.ErrorMessages = new List<string> { ex.Message };
-                return StatusCode(StatusCodes.Status500InternalServerError, apiResponse);
-            }
-        }
     }
 }

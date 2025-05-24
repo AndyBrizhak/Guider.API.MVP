@@ -1,4 +1,7 @@
-﻿using Guider.API.MVP.Data;
+﻿
+
+
+using Guider.API.MVP.Data;
 using Microsoft.Extensions.Options;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -9,6 +12,7 @@ namespace Guider.API.MVP.Services
     public class TagsService
     {
         private readonly IMongoCollection<BsonDocument> _tagsCollection;
+
         public TagsService(IOptions<MongoDbSettings> mongoSettings)
         {
             var client = new MongoClient(mongoSettings.Value.ConnectionString);
@@ -17,659 +21,333 @@ namespace Guider.API.MVP.Services
                 mongoSettings.Value.Collections["Tags"]);
         }
 
-        public async Task<JsonDocument> GetTagsByTypeAsync(string typeName)
+        public async Task<(List<object> Tags, long TotalCount, string ErrorMessage)> GetTagsAsync(Dictionary<string, string> filter = null)
         {
             try
             {
-                var filter = Builders<BsonDocument>.Filter.Eq("name_en", typeName);
-                var projection = Builders<BsonDocument>.Projection.Include("tags").Exclude("_id");
-                var result = await _tagsCollection.Find(filter).Project(projection).FirstOrDefaultAsync();
+                FilterDefinition<BsonDocument> filterDefinition = Builders<BsonDocument>.Filter.Empty;
 
-                if (result == null || !result.Contains("tags"))
+                // Применяем фильтры, если они переданы
+                if (filter != null && filter.Count > 0)
                 {
-                    var errorResponse = new
+                    var filterBuilder = Builders<BsonDocument>.Filter;
+                    var filters = new List<FilterDefinition<BsonDocument>>();
+
+                    // Обработка общего поискового запроса
+                    if (filter.TryGetValue("q", out string q) && !string.IsNullOrEmpty(q))
                     {
-                        IsSuccess = false,
-                        Message = "Type tags not found or no tags available."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
+                        // Создаем фильтр для поиска по нескольким полям
+                        var nameEnFilter = filterBuilder.Regex("name_en", new BsonRegularExpression(q, "i"));
+                        var nameSpFilter = filterBuilder.Regex("name_sp", new BsonRegularExpression(q, "i"));
+                        var urlFilter = filterBuilder.Regex("url", new BsonRegularExpression(q, "i"));
+                        var typeFilter = filterBuilder.Regex("type", new BsonRegularExpression(q, "i"));
 
-                var tags = result["tags"].AsBsonArray
-                    .Select(tag => new
-                    {
-                        NameEn = tag["name_en"].AsString,
-                        NameSp = tag["name_sp"].AsString,
-                        Web = tag["web"].AsString
-                    })
-                    .ToList();
-
-                var successResponse = new
-                {
-                    IsSuccess = true,
-                    Tags = tags
-                };
-                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
-            }
-            catch (Exception ex)
-            {
-                var errorResponse = new
-                {
-                    IsSuccess = false,
-                    Message = $"An error occurred: {ex.Message}"
-                };
-                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-            }
-        }
-
-        public async Task<JsonDocument> GetTagsByTypeAndNameAsync(string typeName, string tagName)
-        {
-            try
-            {
-                var filter = Builders<BsonDocument>.Filter.Eq("name_en", typeName) &
-                             Builders<BsonDocument>.Filter.ElemMatch("tags", Builders<BsonDocument>.Filter.Eq("name_en", tagName));
-                var projection = Builders<BsonDocument>.Projection.Include("tags").Exclude("_id");
-                var result = await _tagsCollection.Find(filter).Project(projection).FirstOrDefaultAsync();
-                if (result == null || !result.Contains("tags"))
-                {
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = "Type tags not found or no tags available."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
-                var tags = result["tags"].AsBsonArray
-                    .Where(tag => tag["name_en"] == tagName)
-                    .Select(tag => new
-                    {
-                        NameEn = tag["name_en"].AsString,
-                        NameSp = tag["name_sp"].AsString,
-                        Web = tag["web"].AsString
-                    })
-                    .ToList();
-                var successResponse = new
-                {
-                    IsSuccess = true,
-                    Tags = tags
-                };
-                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
-            }
-            catch (Exception ex)
-            {
-                var errorResponse = new
-                {
-                    IsSuccess = false,
-                    Message = $"An error occurred: {ex.Message}"
-                };
-                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-            }
-        }
-
-
-        //public async Task<JsonDocument> CreateTagAsync(string typeName, JsonDocument newTagData)
-        //{
-        //    try
-        //    {
-        //        if (string.IsNullOrWhiteSpace(typeName))
-        //        {
-        //            var errorResponse = new
-        //            {
-        //                IsSuccess = false,
-        //                Message = "Type name cannot be null or empty."
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //        }
-
-        //        if (newTagData == null || !newTagData.RootElement.TryGetProperty("name_en", out _) ||
-        //            !newTagData.RootElement.TryGetProperty("name_sp", out _) ||
-        //            !newTagData.RootElement.TryGetProperty("web", out _))
-        //        {
-        //            var errorResponse = new
-        //            {
-        //                IsSuccess = false,
-        //                Message = "Invalid tag data. Required fields: name_en, name_sp, web."
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //        }
-
-        //        // Check if the tag exists
-        //        var existingTagFilter = Builders<BsonDocument>.Filter.Eq("name_en", typeName) &
-        //                                 Builders<BsonDocument>.Filter.ElemMatch("tags", Builders<BsonDocument>.Filter.Eq("name_en", newTagData.RootElement.GetProperty("name_en").GetString()));
-        //        var existingTag = await _tagsCollection.Find(existingTagFilter).FirstOrDefaultAsync();
-        //        if (existingTag != null)
-        //        {
-        //            var errorResponse = new
-        //            {
-        //                IsSuccess = false,
-        //                Message = $"Tag '{newTagData.RootElement.GetProperty("name_en").GetString()}' already exists in type '{typeName}'."
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //        }
-
-        //        var filter = Builders<BsonDocument>.Filter.Eq("name_en", typeName);
-        //        var update = Builders<BsonDocument>.Update.Push("tags", new BsonDocument
-        //        {
-        //            { "name_en", newTagData.RootElement.GetProperty("name_en").GetString() },
-        //            { "name_sp", newTagData.RootElement.GetProperty("name_sp").GetString() },
-        //            { "web", newTagData.RootElement.GetProperty("web").GetString() }
-        //        });
-
-        //        var result = await _tagsCollection.UpdateOneAsync(filter, update);
-
-        //        if (result.ModifiedCount == 0)
-        //        {
-        //            var errorResponse = new
-        //            {
-        //                IsSuccess = false,
-        //                Message = "Failed to add the tag. Type not found or update operation failed."
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //        }
-
-        //        var successResponse = new
-        //        {
-        //            IsSuccess = true,
-        //            Message = "Tag successfully created.",
-        //            Tag = new
-        //            {
-        //                NameEn = newTagData.RootElement.GetProperty("name_en").GetString(),
-        //                NameSp = newTagData.RootElement.GetProperty("name_sp").GetString(),
-        //                Web = newTagData.RootElement.GetProperty("web").GetString()
-        //            }
-        //        };
-        //        return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        var errorResponse = new
-        //        {
-        //            IsSuccess = false,
-        //            Message = $"An error occurred: {ex.Message}"
-        //        };
-        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //    }
-        //}
-
-        public async Task<JsonDocument> CreateTagAsync(string typeName, JsonDocument newTagData)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(typeName))
-                {
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = "Type name cannot be null or empty."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
-
-                if (newTagData == null || !newTagData.RootElement.TryGetProperty("name_en", out _) ||
-                    !newTagData.RootElement.TryGetProperty("name_sp", out _) ||
-                    !newTagData.RootElement.TryGetProperty("web", out _))
-                {
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = "Invalid tag data. Required fields: name_en, name_sp, web."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
-
-                string newTagName = newTagData.RootElement.GetProperty("name_en").GetString();
-
-                // Проверка существования тега внутри своего типа
-                var existingTagFilter = Builders<BsonDocument>.Filter.Eq("name_en", typeName) &
-                                         Builders<BsonDocument>.Filter.ElemMatch("tags", Builders<BsonDocument>.Filter.Eq("name_en", newTagName));
-                var existingTag = await _tagsCollection.Find(existingTagFilter).FirstOrDefaultAsync();
-                if (existingTag != null)
-                {
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = $"Tag '{newTagName}' already exists in type '{typeName}'."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
-
-                // Новая проверка уникальности тега во всей коллекции типов
-                var globalUniquenessFilter = Builders<BsonDocument>.Filter.ElemMatch("tags",
-                                             Builders<BsonDocument>.Filter.Eq("name_en", newTagName));
-                var duplicateTagInOtherType = await _tagsCollection.Find(globalUniquenessFilter).FirstOrDefaultAsync();
-                if (duplicateTagInOtherType != null)
-                {
-                    string otherTypeName = duplicateTagInOtherType["name_en"].AsString;
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = $"Tag '{newTagName}' already exists in type '{otherTypeName}'. Tags must be globally unique."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
-
-                var filter = Builders<BsonDocument>.Filter.Eq("name_en", typeName);
-                var update = Builders<BsonDocument>.Update.Push("tags", new BsonDocument
-        {
-            { "name_en", newTagName },
-            { "name_sp", newTagData.RootElement.GetProperty("name_sp").GetString() },
-            { "web", newTagData.RootElement.GetProperty("web").GetString() }
-        });
-
-                var result = await _tagsCollection.UpdateOneAsync(filter, update);
-
-                if (result.ModifiedCount == 0)
-                {
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = "Failed to add the tag. Type not found or update operation failed."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
-
-                var successResponse = new
-                {
-                    IsSuccess = true,
-                    Message = "Tag successfully created.",
-                    Tag = new
-                    {
-                        NameEn = newTagName,
-                        NameSp = newTagData.RootElement.GetProperty("name_sp").GetString(),
-                        Web = newTagData.RootElement.GetProperty("web").GetString()
+                        // Объединяем в один фильтр OR
+                        filters.Add(filterBuilder.Or(nameEnFilter, nameSpFilter, urlFilter, typeFilter));
                     }
-                };
-                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
-            }
-            catch (Exception ex)
-            {
-                var errorResponse = new
-                {
-                    IsSuccess = false,
-                    Message = $"An error occurred: {ex.Message}"
-                };
-                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-            }
-        }
 
-        //public async Task<JsonDocument> UpdateTagAsync(string typeName, string tagName, JsonDocument updateTagData)
-        //{
-        //    try
-        //    {
-        //        if (string.IsNullOrWhiteSpace(typeName) || string.IsNullOrWhiteSpace(tagName))
-        //        {
-        //            var errorResponse = new
-        //            {
-        //                IsSuccess = false,
-        //                Message = "Type name and tag name cannot be null or empty."
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //        }
-
-        //        if (updateTagData == null || !updateTagData.RootElement.TryGetProperty("name_sp", out _) ||
-        //            !updateTagData.RootElement.TryGetProperty("web", out _))
-        //        {
-        //            var errorResponse = new
-        //            {
-        //                IsSuccess = false,
-        //                Message = "Invalid tag data. Required fields: name_sp, web."
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //        }
-
-        //        // Проверка существования тега внутри своего типа
-        //        var existingTagFilter = Builders<BsonDocument>.Filter.And(
-        //            Builders<BsonDocument>.Filter.Eq("name_en", typeName),
-        //            Builders<BsonDocument>.Filter.AnyEq("tags.name_en", tagName)
-        //        );
-
-        //        var tagExists = await _tagsCollection.Find(existingTagFilter).FirstOrDefaultAsync();
-        //        if (tagExists == null)
-        //        {
-        //            var errorResponse = new
-        //            {
-        //                IsSuccess = false,
-        //                Message = $"Tag '{tagName}' does not exist in type '{typeName}'."
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //        }
-
-        //        // Обновляем данные тега
-        //        var filter = Builders<BsonDocument>.Filter.Eq("name_en", typeName);
-        //        var update = Builders<BsonDocument>.Update.Set(
-        //            "tags.$[elem].name_sp", updateTagData.RootElement.GetProperty("name_sp").GetString())
-        //            .Set("tags.$[elem].web", updateTagData.RootElement.GetProperty("web").GetString());
-
-        //        var arrayFilters = new List<ArrayFilterDefinition>
-        //{
-        //    new BsonDocumentArrayFilterDefinition<BsonDocument>(
-        //        new BsonDocument("elem.name_en", tagName))
-        //};
-
-        //        var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
-        //        var result = await _tagsCollection.UpdateOneAsync(filter, update, updateOptions);
-
-        //        if (result.ModifiedCount == 0)
-        //        {
-        //            var errorResponse = new
-        //            {
-        //                IsSuccess = false,
-        //                Message = "Failed to update the tag. No changes were made."
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //        }
-
-        //        var successResponse = new
-        //        {
-        //            IsSuccess = true,
-        //            Message = "Tag successfully updated.",
-        //            Tag = new
-        //            {
-        //                NameEn = tagName,
-        //                NameSp = updateTagData.RootElement.GetProperty("name_sp").GetString(),
-        //                Web = updateTagData.RootElement.GetProperty("web").GetString()
-        //            }
-        //        };
-        //        return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        var errorResponse = new
-        //        {
-        //            IsSuccess = false,
-        //            Message = $"An error occurred: {ex.Message}"
-        //        };
-        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //    }
-        //}
-
-        public async Task<JsonDocument> UpdateTagAsync(string typeName, string tagName, JsonDocument updateTagData)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(typeName) || string.IsNullOrWhiteSpace(tagName))
-                {
-                    var errorResponse = new
+                    // Фильтр по английскому названию
+                    if (filter.TryGetValue("name_en", out string nameEn) && !string.IsNullOrEmpty(nameEn))
                     {
-                        IsSuccess = false,
-                        Message = "Type name and tag name cannot be null or empty."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                        filters.Add(filterBuilder.Regex("name_en", new BsonRegularExpression(nameEn, "i")));
+                    }
+
+                    // Фильтр по испанскому названию
+                    if (filter.TryGetValue("name_sp", out string nameSp) && !string.IsNullOrEmpty(nameSp))
+                    {
+                        filters.Add(filterBuilder.Regex("name_sp", new BsonRegularExpression(nameSp, "i")));
+                    }
+
+                    // Фильтр по URL слагу
+                    if (filter.TryGetValue("url", out string url) && !string.IsNullOrEmpty(url))
+                    {
+                        filters.Add(filterBuilder.Regex("url", new BsonRegularExpression(url, "i")));
+                    }
+
+                    // Фильтр по типу тега
+                    if (filter.TryGetValue("type", out string type) && !string.IsNullOrEmpty(type))
+                    {
+                        filters.Add(filterBuilder.Regex("type", new BsonRegularExpression(type, "i")));
+                    }
+
+                    // Если есть фильтры, применяем их
+                    if (filters.Count > 0)
+                    {
+                        filterDefinition = filterBuilder.And(filters);
+                    }
                 }
 
-                if (updateTagData == null || !updateTagData.RootElement.TryGetProperty("name_en", out _) ||
-                    !updateTagData.RootElement.TryGetProperty("name_sp", out _) ||
-                    !updateTagData.RootElement.TryGetProperty("web", out _))
+                // Get total count before applying pagination
+                long totalCount = await _tagsCollection.CountDocumentsAsync(filterDefinition);
+
+                // Применяем сортировку
+                string sortField = "name_en";
+                bool isDescending = false;
+                if (filter != null)
                 {
-                    var errorResponse = new
+                    if (filter.TryGetValue("_sort", out string sort) && !string.IsNullOrEmpty(sort))
                     {
-                        IsSuccess = false,
-                        Message = "Invalid tag data. Required fields: name_en, name_sp, web."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                        sortField = sort;
+                    }
+                    if (filter.TryGetValue("_order", out string order) && !string.IsNullOrEmpty(order))
+                    {
+                        isDescending = order.ToUpper() == "DESC";
+                    }
                 }
 
-                string newTagName = updateTagData.RootElement.GetProperty("name_en").GetString();
+                // Set up sort definition
+                var sortDefinition = isDescending
+                    ? Builders<BsonDocument>.Sort.Descending(sortField)
+                    : Builders<BsonDocument>.Sort.Ascending(sortField);
 
-                // Проверка существования тега внутри своего типа
-                var existingTagFilter = Builders<BsonDocument>.Filter.And(
-                    Builders<BsonDocument>.Filter.Eq("name_en", typeName),
-                    Builders<BsonDocument>.Filter.AnyEq("tags.name_en", tagName)
-                );
+                // Apply pagination if specified in the filter
+                IFindFluent<BsonDocument, BsonDocument> query = _tagsCollection.Find(filterDefinition).Sort(sortDefinition);
 
-                var tagExists = await _tagsCollection.Find(existingTagFilter).FirstOrDefaultAsync();
-                if (tagExists == null)
+                if (filter != null)
                 {
-                    var errorResponse = new
+                    // Parse pagination parameters
+                    if (filter.TryGetValue("page", out string pageStr) &&
+                        filter.TryGetValue("perPage", out string perPageStr) &&
+                        int.TryParse(pageStr, out int page) &&
+                        int.TryParse(perPageStr, out int perPage))
                     {
-                        IsSuccess = false,
-                        Message = $"Tag '{tagName}' does not exist in type '{typeName}'."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                        // Apply skip and limit for pagination
+                        // React Admin's page is 1-based, MongoDB skip is 0-based
+                        int skip = (page - 1) * perPage;
+                        query = query.Skip(skip).Limit(perPage);
+                    }
                 }
 
-                // Проверка, что новое имя тега не конфликтует с существующими тегами (если имя меняется)
-                if (tagName != newTagName)
-                {
-                    // Проверка уникальности в рамках текущего типа
-                    var sameTypeConflictFilter = Builders<BsonDocument>.Filter.And(
-                        Builders<BsonDocument>.Filter.Eq("name_en", typeName),
-                        Builders<BsonDocument>.Filter.AnyEq("tags.name_en", newTagName)
-                    );
+                var documents = await query.ToListAsync();
+                var result = new List<object>();
 
-                    var sameTypeConflict = await _tagsCollection.Find(sameTypeConflictFilter).FirstOrDefaultAsync();
-                    if (sameTypeConflict != null)
+                foreach (var document in documents)
+                {
+                    try
                     {
-                        var errorResponse = new
+                        var jsonDoc = JsonDocument.Parse(document.ToJson());
+
+                        // Получаем ID из документа
+                        jsonDoc.RootElement.TryGetProperty("_id", out var idElement);
+                        string id = idElement.GetProperty("$oid").GetString();
+
+                        // Получаем английское название
+                        string nameEn = string.Empty;
+                        if (jsonDoc.RootElement.TryGetProperty("name_en", out var nameEnElement))
                         {
-                            IsSuccess = false,
-                            Message = $"Tag '{newTagName}' already exists in type '{typeName}'."
-                        };
-                        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                    }
-
-                    // Проверка глобальной уникальности
-                    var globalConflictFilter = Builders<BsonDocument>.Filter.AnyEq("tags.name_en", newTagName);
-                    var globalConflict = await _tagsCollection.Find(globalConflictFilter).FirstOrDefaultAsync();
-                    if (globalConflict != null)
-                    {
-                        string conflictTypeName = globalConflict["name_en"].AsString;
-                        var errorResponse = new
-                        {
-                            IsSuccess = false,
-                            Message = $"Tag '{newTagName}' already exists in type '{conflictTypeName}'. Tags must be globally unique."
-                        };
-                        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                    }
-                }
-
-                // Обновляем данные тега включая name_en
-                var filter = Builders<BsonDocument>.Filter.And(
-                    Builders<BsonDocument>.Filter.Eq("name_en", typeName),
-                    Builders<BsonDocument>.Filter.AnyEq("tags.name_en", tagName)
-                );
-
-                var update = Builders<BsonDocument>.Update
-                    .Set("tags.$[elem].name_en", newTagName)
-                    .Set("tags.$[elem].name_sp", updateTagData.RootElement.GetProperty("name_sp").GetString())
-                    .Set("tags.$[elem].web", updateTagData.RootElement.GetProperty("web").GetString());
-
-                var arrayFilters = new List<ArrayFilterDefinition>
-        {
-            new BsonDocumentArrayFilterDefinition<BsonDocument>(
-                new BsonDocument("elem.name_en", tagName))
-        };
-
-                var updateOptions = new UpdateOptions { ArrayFilters = arrayFilters };
-                var result = await _tagsCollection.UpdateOneAsync(filter, update, updateOptions);
-
-                if (result.ModifiedCount == 0)
-                {
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = "Failed to update the tag. No changes were made."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
-
-                var successResponse = new
-                {
-                    IsSuccess = true,
-                    Message = "Tag successfully updated.",
-                    Tag = new
-                    {
-                        OldNameEn = tagName,
-                        NameEn = newTagName,
-                        NameSp = updateTagData.RootElement.GetProperty("name_sp").GetString(),
-                        Web = updateTagData.RootElement.GetProperty("web").GetString()
-                    }
-                };
-                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
-            }
-            catch (Exception ex)
-            {
-                var errorResponse = new
-                {
-                    IsSuccess = false,
-                    Message = $"An error occurred: {ex.Message}"
-                };
-                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-            }
-        }
-
-
-        public async Task<JsonDocument> DeleteTagAsync(string typeName, string tagName)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(typeName) || string.IsNullOrWhiteSpace(tagName))
-                {
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = "Type name and tag name cannot be null or empty."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
-
-                // Проверка существования тега внутри своего типа
-                var existingTagFilter = Builders<BsonDocument>.Filter.And(
-                    Builders<BsonDocument>.Filter.Eq("name_en", typeName),
-                    Builders<BsonDocument>.Filter.AnyEq("tags.name_en", tagName)
-                );
-
-                var tagExists = await _tagsCollection.Find(existingTagFilter).FirstOrDefaultAsync();
-                if (tagExists == null)
-                {
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = $"Tag '{tagName}' does not exist in type '{typeName}'."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
-
-                // Удаляем тег из массива tags
-                var filter = Builders<BsonDocument>.Filter.Eq("name_en", typeName);
-                var update = Builders<BsonDocument>.Update.PullFilter("tags",
-                    Builders<BsonDocument>.Filter.Eq("name_en", tagName));
-
-                var result = await _tagsCollection.UpdateOneAsync(filter, update);
-
-                if (result.ModifiedCount == 0)
-                {
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = "Failed to delete the tag. No changes were made."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
-
-                var successResponse = new
-                {
-                    IsSuccess = true,
-                    Message = $"Tag '{tagName}' was successfully deleted from type '{typeName}'.",
-                    DeletedTag = new
-                    {
-                        TypeName = typeName,
-                        TagName = tagName
-                    }
-                };
-                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
-            }
-            catch (Exception ex)
-            {
-                var errorResponse = new
-                {
-                    IsSuccess = false,
-                    Message = $"An error occurred: {ex.Message}"
-                };
-                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-            }
-        }
-
-        public async Task<JsonDocument> FindDuplicateTagsAsync()
-        {
-            try
-            {
-                // Получаем все типы тегов с их тегами
-                var allTypesTags = await _tagsCollection.Find(new BsonDocument()).ToListAsync();
-
-                // Словарь для хранения тегов с одинаковыми именами
-                Dictionary<string, List<object>> duplicateTags = new Dictionary<string, List<object>>();
-
-                // Создаем словарь, где ключ - название тега, значение - список объектов с информацией о теге и его типе
-                Dictionary<string, List<object>> tagNameMap = new Dictionary<string, List<object>>();
-
-                // Проходим по всем типам тегов
-                foreach (var typeDoc in allTypesTags)
-                {
-                    string typeName = typeDoc["name_en"].AsString;
-
-                    // Проверяем наличие тегов в типе
-                    if (!typeDoc.Contains("tags") || !typeDoc["tags"].IsBsonArray)
-                        continue;
-
-                    // Проходим по всем тегам данного типа
-                    foreach (var tag in typeDoc["tags"].AsBsonArray)
-                    {
-                        string tagNameEn = tag["name_en"].AsString;
-                        string tagNameSp = tag["name_sp"].AsString;
-                        string tagWeb = tag["web"].AsString;
-
-                        // Создаем объект с информацией о теге и его типе
-                        var tagInfo = new
-                        {
-                            TypeName = typeName,
-                            NameEn = tagNameEn,
-                            NameSp = tagNameSp,
-                            Web = tagWeb
-                        };
-
-                        // Если такого имени тега еще нет в словаре, добавляем его
-                        if (!tagNameMap.ContainsKey(tagNameEn))
-                        {
-                            tagNameMap[tagNameEn] = new List<object>();
+                            nameEn = nameEnElement.GetString();
                         }
 
-                        // Добавляем информацию о теге в список
-                        tagNameMap[tagNameEn].Add(tagInfo);
+                        // Получаем испанское название
+                        string nameSp = string.Empty;
+                        if (jsonDoc.RootElement.TryGetProperty("name_sp", out var nameSpElement))
+                        {
+                            nameSp = nameSpElement.GetString();
+                        }
+
+                        // Получаем URL из документа
+                        string docUrl = string.Empty;
+                        if (jsonDoc.RootElement.TryGetProperty("url", out var urlElement))
+                        {
+                            docUrl = urlElement.GetString();
+                        }
+
+                        // Получаем тип тега
+                        string tagType = string.Empty;
+                        if (jsonDoc.RootElement.TryGetProperty("type", out var typeElement))
+                        {
+                            tagType = typeElement.GetString();
+                        }
+
+                        // Формируем объект в формате для react-admin
+                        result.Add(new
+                        {
+                            id,
+                            name_en = nameEn,
+                            name_sp = nameSp,
+                            url = docUrl,
+                            type = tagType
+                        });
+
+                        jsonDoc.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        return (new List<object>(), 0, $"Error processing tag: {ex.Message}");
                     }
                 }
 
-                // Находим тэги с одинаковыми именами (более одного вхождения)
-                foreach (var entry in tagNameMap)
+                return (result, totalCount, null);
+            }
+            catch (Exception ex)
+            {
+                return (new List<object>(), 0, $"An error occurred: {ex.Message}");
+            }
+        }
+
+        public async Task<(object Tag, string ErrorMessage)> GetTagByIdAsync(string id)
+        {
+            try
+            {
+                // Проверяем валидность ObjectId
+                if (!ObjectId.TryParse(id, out ObjectId objectId))
                 {
-                    if (entry.Value.Count > 1)
-                    {
-                        duplicateTags[entry.Key] = entry.Value;
-                    }
+                    return (null, "Invalid tag ID format");
                 }
 
-                // Если не найдено дубликатов
-                if (duplicateTags.Count == 0)
+                // Создаем фильтр для поиска по ID
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+
+                // Выполняем поиск документа
+                var document = await _tagsCollection.Find(filter).FirstOrDefaultAsync();
+
+                if (document == null)
                 {
-                    var noDataResponse = new
+                    return (null, "Tag not found");
+                }
+
+                try
+                {
+                    var jsonDoc = JsonDocument.Parse(document.ToJson());
+
+                    // Получаем ID из документа
+                    jsonDoc.RootElement.TryGetProperty("_id", out var idElement);
+                    string tagId = idElement.GetProperty("$oid").GetString();
+
+                    // Получаем английское название
+                    string nameEn = string.Empty;
+                    if (jsonDoc.RootElement.TryGetProperty("name_en", out var nameEnElement))
                     {
-                        IsSuccess = true,
-                        Message = "No duplicate tag names found across all tag types.",
-                        DuplicateTags = new object[] { }
+                        nameEn = nameEnElement.GetString();
+                    }
+
+                    // Получаем испанское название
+                    string nameSp = string.Empty;
+                    if (jsonDoc.RootElement.TryGetProperty("name_sp", out var nameSpElement))
+                    {
+                        nameSp = nameSpElement.GetString();
+                    }
+
+                    // Получаем URL из документа
+                    string docUrl = string.Empty;
+                    if (jsonDoc.RootElement.TryGetProperty("url", out var urlElement))
+                    {
+                        docUrl = urlElement.GetString();
+                    }
+
+                    // Получаем тип тега
+                    string tagType = string.Empty;
+                    if (jsonDoc.RootElement.TryGetProperty("type", out var typeElement))
+                    {
+                        tagType = typeElement.GetString();
+                    }
+
+                    // Формируем объект в требуемом формате
+                    var result = new
+                    {
+                        id = tagId,
+                        name_en = nameEn,
+                        name_sp = nameSp,
+                        url = docUrl,
+                        type = tagType
                     };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(noDataResponse));
+
+                    jsonDoc.Dispose();
+                    return (result, null);
+                }
+                catch (Exception ex)
+                {
+                    return (null, $"Error processing tag: {ex.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                return (null, $"An error occurred: {ex.Message}");
+            }
+        }
+
+        public async Task<JsonDocument> AddTagAsync(JsonDocument tagData)
+        {
+            try
+            {
+                var tagJson = tagData.RootElement.GetRawText();
+                var tagBson = BsonDocument.Parse(tagJson);
+
+                // Проверка обязательных полей
+                string nameEn = tagBson.Contains("name_en") && tagBson["name_en"].BsonType == BsonType.String
+                    ? tagBson["name_en"].AsString
+                    : string.Empty;
+                string nameSp = tagBson.Contains("name_sp") && tagBson["name_sp"].BsonType == BsonType.String
+                    ? tagBson["name_sp"].AsString
+                    : string.Empty;
+                string tagType = tagBson.Contains("type") && tagBson["type"].BsonType == BsonType.String
+                    ? tagBson["type"].AsString
+                    : string.Empty;
+
+                // Проверка на существование тега с таким же названием (английским)
+                if (!string.IsNullOrEmpty(nameEn))
+                {
+                    var existingTagFilter = Builders<BsonDocument>.Filter.Eq("name_en", nameEn);
+                    var existingTag = await _tagsCollection.Find(existingTagFilter).FirstOrDefaultAsync();
+
+                    if (existingTag != null)
+                    {
+                        var errorResponse = new
+                        {
+                            IsSuccess = false,
+                            Message = $"Tag with English name '{nameEn}' already exists."
+                        };
+                        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                    }
                 }
 
-                // Формируем результат
+                // Генерация URL если не указан
+                if (!tagBson.Contains("url") || string.IsNullOrEmpty(tagBson["url"].AsString))
+                {
+                    string urlBase = !string.IsNullOrEmpty(nameEn) ? nameEn : nameSp;
+                    if (!string.IsNullOrEmpty(urlBase))
+                    {
+                        string generatedUrl = urlBase.ToLower()
+                            .Replace(" ", "-")
+                            .Replace("/", "-")
+                            .Replace("-", "-");
+                        tagBson["url"] = generatedUrl;
+                    }
+                }
+
+                // Добавление тега в коллекцию
+                await _tagsCollection.InsertOneAsync(tagBson);
+
+                // Получаем только что добавленный тег из базы данных
+                var tagId = tagBson["_id"].AsObjectId;
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", tagId);
+                var addedTag = await _tagsCollection.Find(filter).FirstOrDefaultAsync();
+
+                if (addedTag == null)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "Tag was added but could not be retrieved from the database."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Формируем объект в нужном формате
+                var formattedTag = new
+                {
+                    id = tagId.ToString(),
+                    name_en = addedTag.Contains("name_en") ? addedTag["name_en"].AsString : string.Empty,
+                    name_sp = addedTag.Contains("name_sp") ? addedTag["name_sp"].AsString : string.Empty,
+                    url = addedTag.Contains("url") ? addedTag["url"].AsString : string.Empty,
+                    type = addedTag.Contains("type") ? addedTag["type"].AsString : string.Empty
+                };
+
                 var successResponse = new
                 {
                     IsSuccess = true,
-                    Message = $"Found {duplicateTags.Count} tags with duplicate names across types.",
-                    DuplicateTags = duplicateTags.Select(kv => new
-                    {
-                        TagName = kv.Key,
-                        Occurrences = kv.Value
-                    }).ToList()
+                    Message = "New Tag has been successfully added.",
+                    Data = formattedTag
                 };
 
                 return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
@@ -684,5 +362,171 @@ namespace Guider.API.MVP.Services
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
             }
         }
+
+        public async Task<JsonDocument> UpdateTagAsync(string id, JsonDocument updateData)
+        {
+            try
+            {
+                // Проверяем валидность ObjectId
+                if (!ObjectId.TryParse(id, out ObjectId objectId))
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "Invalid tag ID format"
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+                var existingTag = await _tagsCollection.Find(filter).FirstOrDefaultAsync();
+
+                if (existingTag == null)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = $"Tag with ID '{id}' not found."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Преобразуем JSON в BsonDocument
+                var updateJson = updateData.RootElement.GetRawText();
+                var updateBson = BsonDocument.Parse(updateJson);
+
+                // Создаем новый BsonDocument для обновленного тега
+                var updatedTagBson = new BsonDocument();
+
+                // Сохраняем ID существующего тега
+                updatedTagBson["_id"] = existingTag["_id"];
+
+                // Копируем поля из обновления или из существующего документа
+                updatedTagBson["name_en"] = updateBson.Contains("name_en") ? updateBson["name_en"] :
+                    (existingTag.Contains("name_en") ? existingTag["name_en"] : BsonNull.Value);
+
+                updatedTagBson["name_sp"] = updateBson.Contains("name_sp") ? updateBson["name_sp"] :
+                    (existingTag.Contains("name_sp") ? existingTag["name_sp"] : BsonNull.Value);
+
+                updatedTagBson["url"] = updateBson.Contains("url") ? updateBson["url"] :
+                    (existingTag.Contains("url") ? existingTag["url"] : BsonNull.Value);
+
+                updatedTagBson["type"] = updateBson.Contains("type") ? updateBson["type"] :
+                    (existingTag.Contains("type") ? existingTag["type"] : BsonNull.Value);
+
+                // Проверка на уникальность name_en
+                if (updatedTagBson.Contains("name_en") && !updatedTagBson["name_en"].IsBsonNull)
+                {
+                    string newNameEn = updatedTagBson["name_en"].AsString;
+                    if (!string.IsNullOrEmpty(newNameEn))
+                    {
+                        var nameEnFilter = Builders<BsonDocument>.Filter.And(
+                            Builders<BsonDocument>.Filter.Eq("name_en", newNameEn),
+                            Builders<BsonDocument>.Filter.Ne("_id", objectId)
+                        );
+                        var existingTagWithName = await _tagsCollection.Find(nameEnFilter).FirstOrDefaultAsync();
+                        if (existingTagWithName != null)
+                        {
+                            var errorResponse = new
+                            {
+                                IsSuccess = false,
+                                Message = $"Tag with English name '{newNameEn}' already exists."
+                            };
+                            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                        }
+                    }
+                }
+
+                // Проверка на уникальность url
+                if (updatedTagBson.Contains("url") && !updatedTagBson["url"].IsBsonNull)
+                {
+                    string newUrl = updatedTagBson["url"].AsString;
+                    if (!string.IsNullOrEmpty(newUrl))
+                    {
+                        var urlFilter = Builders<BsonDocument>.Filter.And(
+                            Builders<BsonDocument>.Filter.Eq("url", newUrl),
+                            Builders<BsonDocument>.Filter.Ne("_id", objectId)
+                        );
+                        var existingTagWithUrl = await _tagsCollection.Find(urlFilter).FirstOrDefaultAsync();
+                        if (existingTagWithUrl != null)
+                        {
+                            var errorResponse = new
+                            {
+                                IsSuccess = false,
+                                Message = $"Tag with url '{newUrl}' already exists."
+                            };
+                            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                        }
+                    }
+                }
+
+                // Заменяем существующий документ обновленным
+                await _tagsCollection.ReplaceOneAsync(filter, updatedTagBson);
+
+                // Получаем обновленный тег из базы
+                var updatedTag = await _tagsCollection.Find(filter).FirstOrDefaultAsync();
+
+                // Формируем ответ в нужном формате
+                var formattedTag = new
+                {
+                    id = updatedTag["_id"].AsObjectId.ToString(),
+                    name_en = updatedTag.Contains("name_en") ? updatedTag["name_en"].AsString : string.Empty,
+                    name_sp = updatedTag.Contains("name_sp") ? updatedTag["name_sp"].AsString : string.Empty,
+                    url = updatedTag.Contains("url") ? updatedTag["url"].AsString : string.Empty,
+                    type = updatedTag.Contains("type") ? updatedTag["type"].AsString : string.Empty
+                };
+
+                var successResponse = new
+                {
+                    IsSuccess = true,
+                    Message = "Tag has been successfully updated.",
+                    Data = formattedTag
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+            }
+            catch (FormatException)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = "Invalid tag ID format."
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"An error occurred: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+        }
+        public async Task<bool> DeleteAsync(string id)
+        {
+            // Validate the ID format
+            if (!ObjectId.TryParse(id, out var objectId))
+            {
+                return false;
+            }
+
+            // Check if the document exists in the collection
+            var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+            var existingDocument = await _tagsCollection.Find(filter).FirstOrDefaultAsync();
+
+            if (existingDocument == null)
+            {
+                return false;
+            }
+
+            // Perform the deletion
+            var result = await _tagsCollection.DeleteOneAsync(filter);
+
+            return result.DeletedCount > 0;
+        }
+
+
     }
 }
