@@ -542,3 +542,5 @@ Thumbs.db
 /Guider.API.MVP/setup-local-dev.bat
 /Guider.API.MVP/setup-local-dev.sh
 /Guider.API.MVP/setup_local_script.sh
+/Guider.API.MVP/.env .docker
+/Guider.API.MVP/readme.txt
