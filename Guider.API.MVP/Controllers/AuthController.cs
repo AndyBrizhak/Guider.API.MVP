@@ -38,7 +38,7 @@ namespace Guider.API.MVP.Controllers
         }
 
 
-       
+
         /// <summary>
         /// Authenticates a user based on the provided credentials and generates a JWT token.
         /// </summary>
@@ -196,6 +196,35 @@ namespace Guider.API.MVP.Controllers
                         await _roleManager.CreateAsync(new IdentityRole(SD.Role_Admin));
                         await _roleManager.CreateAsync(new IdentityRole(SD.Role_Manager));
                         await _roleManager.CreateAsync(new IdentityRole(SD.Role_User));
+
+                        // Создаем пользователя супер админа, если он еще не существует
+                        var existingSuperAdmin = await _userManager.FindByNameAsync("SuperAdmin");
+                        if (existingSuperAdmin == null)
+                        {
+                            var superAdminUser = new ApplicationUser
+                            {
+                                UserName = "SuperAdmin",
+                                Email = "superadmin@gmail.com",
+                                NormalizedUserName = "SUPERADMIN",
+                                NormalizedEmail = "SUPERADMIN@GMAIL.COM",
+                                EmailConfirmed = true, // Подтверждаем email сразу для супер админа
+                                PhoneNumberConfirmed = false,
+                                TwoFactorEnabled = false,
+                                LockoutEnabled = false, // Отключаем блокировку для супер админа
+                                SecurityStamp = Guid.NewGuid().ToString()
+                            };
+
+                            var createSuperAdminResult = await _userManager.CreateAsync(superAdminUser, "superpassword");
+                            if (createSuperAdminResult.Succeeded)
+                            {
+                                await _userManager.AddToRoleAsync(superAdminUser, SD.Role_Super_Admin);
+                            }
+                            else
+                            {
+                                // Логируем ошибку создания супер админа, но не прерываем выполнение
+                                Console.WriteLine($"Failed to create SuperAdmin user: {string.Join(", ", createSuperAdminResult.Errors.Select(e => e.Description))}");
+                            }
+                        }
                     }
 
                     // Проверяем, существует ли указанная роль
@@ -218,10 +247,10 @@ namespace Guider.API.MVP.Controllers
                     {
                         //data = new
                         //{
-                            id = newUser.Id,
-                            username = newUser.UserName,
-                            email = newUser.Email,
-                            role = userRole.ToLower()
+                        id = newUser.Id,
+                        username = newUser.UserName,
+                        email = newUser.Email,
+                        role = userRole.ToLower()
                         //}
                     });
                 }
@@ -541,7 +570,7 @@ namespace Guider.API.MVP.Controllers
                 return NotFound(new { message = "User not found!" });
             }
 
-            
+
             // Проверка прав доступа
             var currentUser = await _userManager.GetUserAsync(User);
             if (currentUser == null)
@@ -611,10 +640,10 @@ namespace Guider.API.MVP.Controllers
             {
                 //data = new
                 //{
-                    id = userToUpdate.Id,
-                    username = userToUpdate.UserName,
-                    email = userToUpdate.Email,
-                    role = role.ToLower()
+                id = userToUpdate.Id,
+                username = userToUpdate.UserName,
+                email = userToUpdate.Email,
+                role = role.ToLower()
                 //}
             });
         }
@@ -668,7 +697,7 @@ namespace Guider.API.MVP.Controllers
                 role = userRole.ToLower()
             };
 
-            
+
             // Проверка прав доступа
             var currentUser = await _userManager.GetUserAsync(User);
             if (currentUser == null)
@@ -712,3 +741,5 @@ namespace Guider.API.MVP.Controllers
         }
     }
 }
+
+
