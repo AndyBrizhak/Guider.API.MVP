@@ -28,16 +28,10 @@ namespace Guider.API.MVP.Controllers
             _response = new ApiResponse();
         }
 
-      
-        /// <summary>
-        /// Получить по странично все документы коллекции,
-        /// с размером не более 20 документов
-        /// </summary>
-        /// <param name="pageNumber">Номер страницы</param>
-        /// <param name="pageSize">Размер страницы, не более 20</param>
-        /// <returns></returns>
+
+        
         [HttpGet("paged")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
@@ -48,25 +42,50 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Conflict)]
-        public async Task<ActionResult<string>> GetAllPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> GetAllPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
         {
-            // Проверяем, что pageNumber больше 0
-            if (pageNumber < 1)
+            try
             {
-                pageNumber = 1; // Устанавливаем значение по умолчанию
-            }
-            // Ограничиваем максимальный размер страницы до 20
-            pageSize = Math.Min(pageSize, 20);
+                // Получаем данные из сервиса (теперь возвращается кортеж)
+                var (documents, totalCount) = await _placeService.GetAllPagedAsync(pageNumber, pageSize);
 
-            var places = await _placeService.GetAllPagedAsync(pageNumber, pageSize);
-            if (places == null || places.Count == 0)
-            {
-                _response.StatusCode = HttpStatusCode.NotFound;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add("No places found.");
-                return NotFound(_response);
+                // Проверяем наличие данных
+                if (documents == null || documents.Count == 0)
+                {
+                    return NotFound("No places found.");
+                }
+
+                // Преобразуем JsonDocument в объекты для сериализации
+                var result = new List<object>();
+                foreach (var document in documents)
+                {
+                    try
+                    {
+                        // Преобразуем JsonDocument в объект для корректной сериализации
+                        using (document)
+                        {
+                            var jsonString = document.RootElement.GetRawText();
+                            var jsonObject = System.Text.Json.JsonSerializer.Deserialize<object>(jsonString);
+                            result.Add(jsonObject);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // В случае ошибки обработки конкретного документа
+                        return BadRequest($"Error processing document: {ex.Message}");
+                    }
+                }
+
+                // Добавляем заголовки для пагинации (для react-admin)
+                Response.Headers.Add("X-Total-Count", totalCount.ToString());
+                Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
+
+                return Ok(result);
             }
-            return Ok(places.ToJson());
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
         /// <summary>
