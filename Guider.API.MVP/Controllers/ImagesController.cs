@@ -10,7 +10,7 @@ using System.Text.Json;
 
 namespace Guider.API.MVP.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("images")]
     [ApiController]
     [Consumes("multipart/form-data")]
     public class ImagesController : ControllerBase

@@ -8,6 +8,7 @@
     using MongoDB.Driver;
     using MongoDB.Driver.GeoJsonObjectModel;
     using System.Collections.Generic;
+    using System.Text;
     using System.Text.Json;
     using System.Threading.Tasks;
     public class PlaceService
@@ -35,35 +36,185 @@
         public async Task<List<BsonDocument>> GetAllAsync() =>
             await _placeCollection.Find(_ => true).ToListAsync();
 
+        
         /// <summary>
         /// Получить документы из коллекции с пагинацией
         /// </summary>
         /// <param name="pageNumber">Номер страницы</param>
         /// <param name="pageSize">Размер страницы</param>
         /// <returns></returns>
-        public async Task<List<BsonDocument>> GetAllPagedAsync(int pageNumber, int pageSize)
+        public async Task<(List<JsonDocument> Documents, long TotalCount)> GetAllPagedAsync(int pageNumber, int pageSize)
         {
-            return await _placeCollection.Find(_ => true)
-                .Skip((pageNumber - 1) * pageSize)
-                .Limit(pageSize)
-                .ToListAsync();
+            try
+            {
+                FilterDefinition<BsonDocument> filterDefinition = Builders<BsonDocument>.Filter.Empty;
+                // Get total count before applying pagination
+                long totalCount = await _placeCollection.CountDocumentsAsync(filterDefinition);
+                // Применяем сортировку по названию
+                var sortDefinition = Builders<BsonDocument>.Sort.Ascending("name");
+                // Apply pagination
+                IFindFluent<BsonDocument, BsonDocument> query = _placeCollection.Find(filterDefinition).Sort(sortDefinition);
+                // Apply skip and limit for pagination
+                int skip = (pageNumber - 1) * pageSize;
+                query = query.Skip(skip).Limit(pageSize);
+                var documents = await query.ToListAsync();
+                var jsonDocuments = new List<JsonDocument>();
+
+                foreach (var document in documents)
+                {
+                    // Преобразуем ObjectId в строку для поля id
+                    var json = document.ToJson();
+                    var originalJsonDoc = JsonDocument.Parse(json);
+
+                    // Создаем глубокую копию с модификацией прямо здесь
+                    using var stream = new MemoryStream();
+                    using var writer = new Utf8JsonWriter(stream);
+
+                    writer.WriteStartObject();
+
+                    string idValue = null;
+                    var otherProperties = new List<JsonProperty>();
+
+                    // Собираем все свойства и извлекаем id
+                    foreach (var property in originalJsonDoc.RootElement.EnumerateObject())
+                    {
+                        if (property.Name == "_id")
+                        {
+                            // Извлекаем значение ObjectId
+                            if (property.Value.TryGetProperty("$oid", out var oidElement))
+                            {
+                                idValue = oidElement.GetString();
+                            }
+                        }
+                        else
+                        {
+                            otherProperties.Add(property);
+                        }
+                    }
+
+                    // Записываем id первым, если он найден
+                    if (!string.IsNullOrEmpty(idValue))
+                    {
+                        writer.WriteString("id", idValue);
+                    }
+
+                    // Записываем остальные свойства
+                    foreach (var property in otherProperties)
+                    {
+                        property.WriteTo(writer);
+                    }
+
+                    writer.WriteEndObject();
+                    writer.Flush();
+
+                    var modifiedJson = Encoding.UTF8.GetString(stream.ToArray());
+                    jsonDocuments.Add(JsonDocument.Parse(modifiedJson));
+
+                    // Освобождаем ресурсы исходного документа
+                    originalJsonDoc.Dispose();
+                }
+
+                return (jsonDocuments, totalCount);
+            }
+            catch (Exception ex)
+            {
+                return (new List<JsonDocument>
+                {
+                    JsonDocument.Parse($"{{\"error\": \"An error occurred: {ex.Message}\"}}")
+                }, 0);
+            }
         }
 
-               
+        
         /// <summary>
         /// Получить объект по идентификатору
         /// </summary>
         /// <param name="id"></param>
         /// <returns></returns>
-        public async Task<BsonDocument?> GetByIdAsync(string id)
+        public async Task<JsonDocument> GetByIdAsync(string id)
         {
-            if (!ObjectId.TryParse(id, out var objectId))
+            try
             {
-                return null; 
-            }
+                // Convert string ID to MongoDB ObjectId
+                if (!ObjectId.TryParse(id, out ObjectId objectId))
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "Invalid object ID format."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
 
-            var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
-            return await _placeCollection.Find(filter).FirstOrDefaultAsync();
+                // Create filter by ObjectId and execute query
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+                var place = await _placeCollection.Find(filter).FirstOrDefaultAsync();
+
+                if (place == null)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = $"Object with ID '{id}' not found."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Extract coordinates if available
+                double latitude = 0.0;
+                double longitude = 0.0;
+                if (place.Contains("location") &&
+                    place["location"].IsBsonDocument &&
+                    place["location"].AsBsonDocument.Contains("coordinates") &&
+                    place["location"]["coordinates"].IsBsonArray)
+                {
+                    var coordinates = place["location"]["coordinates"].AsBsonArray;
+                    if (coordinates.Count >= 2)
+                    {
+                        longitude = coordinates[0].AsDouble;
+                        latitude = coordinates[1].AsDouble;
+                    }
+                }
+
+                // Create a copy of the place document without the _id field for cleaner response
+                var placeCopy = place.DeepClone().AsBsonDocument;
+                placeCopy.Remove("_id");
+
+                // If location exists but we also want to expose latitude and longitude directly
+                if (placeCopy.Contains("location") && !placeCopy.Contains("latitude") && !placeCopy.Contains("longitude"))
+                {
+                    placeCopy["latitude"] = latitude;
+                    placeCopy["longitude"] = longitude;
+                }
+
+                // Формируем корректный JSON для успешного ответа
+                var responseDoc = new BsonDocument
+        {
+            { "IsSuccess", true },
+            { "Place", placeCopy },
+            { "Id", id }
+        };
+
+                return JsonDocument.Parse(responseDoc.ToJson());
+            }
+            catch (FormatException)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = "Invalid object ID format."
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"An error occurred: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
         }
 
         /// <summary>

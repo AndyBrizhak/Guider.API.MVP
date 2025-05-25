@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 
 namespace Guider.API.MVP.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("places")]
     [ApiController]
     public class PlaceController : ControllerBase
     {
@@ -28,16 +28,10 @@ namespace Guider.API.MVP.Controllers
             _response = new ApiResponse();
         }
 
-      
-        /// <summary>
-        /// Получить по странично все документы коллекции,
-        /// с размером не более 20 документов
-        /// </summary>
-        /// <param name="pageNumber">Номер страницы</param>
-        /// <param name="pageSize">Размер страницы, не более 20</param>
-        /// <returns></returns>
-        [HttpGet("paged")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+
+        
+        [HttpGet]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
@@ -48,63 +42,95 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Conflict)]
-        public async Task<ActionResult<string>> GetAllPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> GetAllPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
         {
-            // Проверяем, что pageNumber больше 0
-            if (pageNumber < 1)
+            try
             {
-                pageNumber = 1; // Устанавливаем значение по умолчанию
-            }
-            // Ограничиваем максимальный размер страницы до 20
-            pageSize = Math.Min(pageSize, 20);
+                // Получаем данные из сервиса (теперь возвращается кортеж)
+                var (documents, totalCount) = await _placeService.GetAllPagedAsync(pageNumber, pageSize);
 
-            var places = await _placeService.GetAllPagedAsync(pageNumber, pageSize);
-            if (places == null || places.Count == 0)
-            {
-                _response.StatusCode = HttpStatusCode.NotFound;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add("No places found.");
-                return NotFound(_response);
-            }
-            return Ok(places.ToJson());
-        }
+                // Проверяем наличие данных
+                if (documents == null || documents.Count == 0)
+                {
+                    return NotFound("No places found.");
+                }
 
-        /// <summary>
-        /// Получить документ по ID
-        /// </summary>
-        /// <param name="id">Идентификатор документа</param>
-        /// <returns>Документ в формате JSON</returns>
-        [HttpGet("{id}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        [ProducesResponseType(typeof(ApiResponse), (int) HttpStatusCode.OK)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Conflict)]
-        public async Task<ActionResult<string>> GetById(string id)
-        {
-            var place = await _placeService.GetByIdAsync(id);
-            //if (place == null) return NotFound();
-            //var placeJson = place.ToJson();
-            //return Ok(placeJson);
-            if (place == null)
-            {
-                _response.StatusCode = HttpStatusCode.NotFound;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add($"Place with id {id} not found.");
-                return NotFound(_response);
+                // Преобразуем JsonDocument в объекты для сериализации
+                var result = new List<object>();
+                foreach (var document in documents)
+                {
+                    try
+                    {
+                        // Преобразуем JsonDocument в объект для корректной сериализации
+                        using (document)
+                        {
+                            var jsonString = document.RootElement.GetRawText();
+                            var jsonObject = System.Text.Json.JsonSerializer.Deserialize<object>(jsonString);
+                            result.Add(jsonObject);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // В случае ошибки обработки конкретного документа
+                        return BadRequest($"Error processing document: {ex.Message}");
+                    }
+                }
+
+                // Добавляем заголовки для пагинации (для react-admin)
+                Response.Headers.Add("X-Total-Count", totalCount.ToString());
+                Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
+
+                return Ok(result);
             }
-            //_response.Result = place.ToJson();
-            //_response.StatusCode = HttpStatusCode.OK;
-            return Ok(place.ToJson());
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
 
         
+        [HttpGet("{id}")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.NotFound)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.InternalServerError)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.Unauthorized)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.Forbidden)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.ServiceUnavailable)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.GatewayTimeout)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.RequestTimeout)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.Conflict)]
+        public async Task<ActionResult<JsonDocument>> GetById(string id)
+        {
+            var result = await _placeService.GetByIdAsync(id);
+
+            // Проверяем IsSuccess в полученном JsonDocument
+            if (result.RootElement.TryGetProperty("IsSuccess", out var isSuccessElement) &&
+                isSuccessElement.GetBoolean() == false)
+            {
+                // Если объект не найден или произошла ошибка, возвращаем соответствующий статус
+                if (result.RootElement.TryGetProperty("Message", out var messageElement))
+                {
+                    var message = messageElement.GetString();
+                    if (message != null && message.Contains("not found"))
+                    {
+                        return NotFound(result);
+                    }
+                    else if (message != null && message.Contains("Invalid") && message.Contains("format"))
+                    {
+                        return BadRequest(result);
+                    }
+                }
+
+                // Для других ошибок возвращаем Internal Server Error
+                return StatusCode((int)HttpStatusCode.InternalServerError, result);
+            }
+
+            return Ok(result);
+        }
+
+
 
         /// <summary>
         /// Получить документ по web и ID из заголовка
@@ -112,7 +138,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="web">Веб параметр</param>
         /// <param name="id">Идентификатор документа</param>
         /// <returns>Документ в формате JSON</returns>
-        [HttpGet("place/id")]
+        [HttpGet("name/id")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
@@ -405,7 +431,7 @@ namespace Guider.API.MVP.Controllers
         /// </summary>  
         /// <param name="jsonDocument">JSON-документ, представляющий данные для создания нового объекта.</param>  
         /// <returns>Созданный объект в формате JSON, обернутый в ApiResponse.</returns>  
-        [HttpPost("create")]
+        [HttpPost]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Create([FromBody] JsonDocument jsonDocument)
         {
@@ -501,7 +527,7 @@ namespace Guider.API.MVP.Controllers
         /// 
         /// <returns>Обновленный объект в формате JSON, обернутый в ApiResponse.</returns>
         /// 
-        [HttpPut("update/{id}")]
+        [HttpPut("{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Update(string id, [FromBody] JsonDocument jsonDocument)
         {
