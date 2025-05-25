@@ -125,22 +125,96 @@
             }
         }
 
-
-
+        
         /// <summary>
         /// Получить объект по идентификатору
         /// </summary>
         /// <param name="id"></param>
         /// <returns></returns>
-        public async Task<BsonDocument?> GetByIdAsync(string id)
+        public async Task<JsonDocument> GetByIdAsync(string id)
         {
-            if (!ObjectId.TryParse(id, out var objectId))
+            try
             {
-                return null; 
-            }
+                // Convert string ID to MongoDB ObjectId
+                if (!ObjectId.TryParse(id, out ObjectId objectId))
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "Invalid object ID format."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
 
-            var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
-            return await _placeCollection.Find(filter).FirstOrDefaultAsync();
+                // Create filter by ObjectId and execute query
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+                var place = await _placeCollection.Find(filter).FirstOrDefaultAsync();
+
+                if (place == null)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = $"Object with ID '{id}' not found."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Extract coordinates if available
+                double latitude = 0.0;
+                double longitude = 0.0;
+                if (place.Contains("location") &&
+                    place["location"].IsBsonDocument &&
+                    place["location"].AsBsonDocument.Contains("coordinates") &&
+                    place["location"]["coordinates"].IsBsonArray)
+                {
+                    var coordinates = place["location"]["coordinates"].AsBsonArray;
+                    if (coordinates.Count >= 2)
+                    {
+                        longitude = coordinates[0].AsDouble;
+                        latitude = coordinates[1].AsDouble;
+                    }
+                }
+
+                // Create a copy of the place document without the _id field for cleaner response
+                var placeCopy = place.DeepClone().AsBsonDocument;
+                placeCopy.Remove("_id");
+
+                // If location exists but we also want to expose latitude and longitude directly
+                if (placeCopy.Contains("location") && !placeCopy.Contains("latitude") && !placeCopy.Contains("longitude"))
+                {
+                    placeCopy["latitude"] = latitude;
+                    placeCopy["longitude"] = longitude;
+                }
+
+                // Формируем корректный JSON для успешного ответа
+                var responseDoc = new BsonDocument
+        {
+            { "IsSuccess", true },
+            { "Place", placeCopy },
+            { "Id", id }
+        };
+
+                return JsonDocument.Parse(responseDoc.ToJson());
+            }
+            catch (FormatException)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = "Invalid object ID format."
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"An error occurred: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
         }
 
         /// <summary>

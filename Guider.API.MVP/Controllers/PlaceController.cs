@@ -88,42 +88,49 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-        /// <summary>
-        /// Получить документ по ID
-        /// </summary>
-        /// <param name="id">Идентификатор документа</param>
-        /// <returns>Документ в формате JSON</returns>
+        
         [HttpGet("{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        [ProducesResponseType(typeof(ApiResponse), (int) HttpStatusCode.OK)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Conflict)]
-        public async Task<ActionResult<string>> GetById(string id)
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.OK)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.NotFound)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.BadRequest)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.InternalServerError)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.Unauthorized)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.Forbidden)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.ServiceUnavailable)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.GatewayTimeout)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.RequestTimeout)]
+        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.Conflict)]
+        public async Task<ActionResult<JsonDocument>> GetById(string id)
         {
-            var place = await _placeService.GetByIdAsync(id);
-            //if (place == null) return NotFound();
-            //var placeJson = place.ToJson();
-            //return Ok(placeJson);
-            if (place == null)
+            var result = await _placeService.GetByIdAsync(id);
+
+            // Проверяем IsSuccess в полученном JsonDocument
+            if (result.RootElement.TryGetProperty("IsSuccess", out var isSuccessElement) &&
+                isSuccessElement.GetBoolean() == false)
             {
-                _response.StatusCode = HttpStatusCode.NotFound;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add($"Place with id {id} not found.");
-                return NotFound(_response);
+                // Если объект не найден или произошла ошибка, возвращаем соответствующий статус
+                if (result.RootElement.TryGetProperty("Message", out var messageElement))
+                {
+                    var message = messageElement.GetString();
+                    if (message != null && message.Contains("not found"))
+                    {
+                        return NotFound(result);
+                    }
+                    else if (message != null && message.Contains("Invalid") && message.Contains("format"))
+                    {
+                        return BadRequest(result);
+                    }
+                }
+
+                // Для других ошибок возвращаем Internal Server Error
+                return StatusCode((int)HttpStatusCode.InternalServerError, result);
             }
-            //_response.Result = place.ToJson();
-            //_response.StatusCode = HttpStatusCode.OK;
-            return Ok(place.ToJson());
+
+            return Ok(result);
         }
 
-        
+
 
         /// <summary>
         /// Получить документ по web и ID из заголовка
