@@ -1,156 +1,77 @@
-# Guider API MVP
+# Guider.API.MVP
 
-## Описание проекта
+## Описание
 
-Guider API MVP - это API для работы с коллекцией мест (Places) в базе данных MongoDB. API предоставляет возможности для получения, создания, обновления и удаления документов, а также для выполнения гео-поиска с использованием различных фильтров.
+Guider.API.MVP — это серверное приложение на ASP.NET Core (.NET 8), реализующее REST API для работы с пользователями, ролями, городами, провинциями, тегами и другими сущностями. Проект поддерживает аутентификацию через JWT и интеграцию с MongoDB и PostgreSQL.
 
-## Функциональные возможности
+---
 
-- Получение всех документов из коллекции Places
-- Получение документа по ID
-- Получение документа по веб-параметру
-- Получение документа по ID из заголовка
-- Гео-поиск ближайших мест
-- Гео-поиск ближайших мест с центром и лимитом
-- Гео-поиск по категории и тегам
-- Гео-поиск с текстовым поиском по всем текстовым полям
+## Быстрый старт (локально)
 
-## Установка и настройка
+1. **Клонируйте репозиторий:**
+  git clone <URL-репозитория> cd Guider.API.MVP
 
-1. Клонируйте репозиторий:
-   
+2. **Создайте файл переменных окружения `.env.local` (для локальной разработки):**
+   Отредактируйте значения переменных под вашу среду.
+    cp .env.example .env.local
 
-```
-   git clone https://gitlab.com/yourusername/guider-api-mvp.git
-   
+3. **Запустите проект:**
+  dotnet run --project Guider.API.MVP
 
-```
+  
+---
 
-2. Перейдите в директорию проекта:
-   
+## Запуск в Docker
 
-```
-   cd guider-api-mvp
-   
+### 1. Подготовьте файл переменных окружения
 
-```
+Создайте файл `.env.docker` в корне проекта со следующим содержимым:
+MONGODB_CONNECTION_STRING=mongodb://mongo_user:prod_password@mongo_host:27017/prod_db MONGODB_DATABASE_NAME=guider_prod MONGODB_PLACES_COLLECTION=places MONGODB_CITIES_COLLECTION=cities MONGODB_PROVINCES_COLLECTION=provinces MONGODB_TAGS_COLLECTION=tags CONNECTIONSTRINGS__POSTGRESQL=Host=prod-db-host;Port=5432;Database=guider_prod;Username=prod_user;Password=ProdSecret! API_SECRET_KEY=YOUR_PROD_SECRET_KEY ASPNETCORE_ENVIRONMENT=Production ASPNETCORE_URLS=http://+:80
+SUPERADMIN_USERNAME=SuperAdmin SUPERADMIN_EMAIL=superadmin@example.com SUPERADMIN_PASSWORD=SuperSecret123!
 
-3. Настройте параметры подключения к MongoDB в файле `appsettings.Development.json`:
-   
+**Не коммитьте этот файл в репозиторий!**
 
-```
-   {
-     "Logging": {
-       "LogLevel": {
-         "Default": "Information",
-         "Microsoft.AspNetCore": "Warning"
-       }
-     },
-     "MongoDBSettings": {
-       "ConnectionString": "*******",
-       "DatabaseName": "guider",
-       "CollectionName": "places_clear"
-     }
-   }
-   
+### 2. Сборка Docker-образа
+docker build -t guider-api .
 
-```
 
-4. Запустите проект:
-   
+### 3. Запуск контейнера
+docker run --env-file .env.docker -p 80:80 guider-api
 
-```
-   dotnet run
-   
 
-```
+---
 
-## Использование
+## Переменные окружения
 
-### Получение всех документов
+- **MONGODB_CONNECTION_STRING** — строка подключения к MongoDB
+- **MONGODB_DATABASE_NAME** — имя базы данных MongoDB
+- **MONGODB_PLACES_COLLECTION** и др. — имена коллекций MongoDB
+- **CONNECTIONSTRINGS__POSTGRESQL** — строка подключения к PostgreSQL
+- **API_SECRET_KEY** — секретный ключ для JWT
+- **ASPNETCORE_ENVIRONMENT** — окружение ASP.NET (Production/Development)
+- **ASPNETCORE_URLS** — адреса, на которых слушает приложение
+- **SUPERADMIN_USERNAME**, **SUPERADMIN_EMAIL**, **SUPERADMIN_PASSWORD** — данные для автоматического создания первого пользователя с ролью superadmin
 
+---
 
+## Автоматическая инициализация
 
-```
-.....
+- При первом запуске контейнера:
+  - Применяются все миграции к базе данных PostgreSQL.
+  - Создаются все необходимые роли.
+  - Создаётся первый пользователь с ролью `superadmin` (данные берутся из переменных окружения).
 
+---
 
-```
+## Swagger
 
-### Получение документа по ID
+После запуска API доступна документация Swagger по адресу:  
+`http://localhost/swagger`
 
-
-
-```
-GET /api/place/{id}
-
-
-```
-
-### Получение документа по веб-параметру
-
-
-
-```
-......
-
-
-```
-
-### Получение документа по web и ID из заголовка
-
-
-
-```
-GET /api/place/id?web={web}&id={id}
-
-
-```
-
-### Гео-поиск ближайших мест
-
-
-
-```
-GET /api/place/geonear
-Headers:
-  X-Latitude: {lat}
-  X-Longitude: {lng}
-  X-Max-Distance: {maxDistance}
-
-
-```
-
-### ......
-
-
-
-```
-.......
-
-
-```
-
-### ......
-
-
-
-```
-........
-
-
-```
-
-### ......
-
-
-
-```
-......
-
-
-```
+---
 
 ## Лицензия
 
-Этот проект лицензирован под лицензией MIT. Подробности см. в файле LICENSE.
+MIT 
+
+      
