@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 
 namespace Guider.API.MVP.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("places")]
     [ApiController]
     public class PlaceController : ControllerBase
     {
@@ -30,7 +30,7 @@ namespace Guider.API.MVP.Controllers
 
 
         
-        [HttpGet("paged")]
+        [HttpGet]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
@@ -131,7 +131,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="web">Веб параметр</param>
         /// <param name="id">Идентификатор документа</param>
         /// <returns>Документ в формате JSON</returns>
-        [HttpGet("place/id")]
+        [HttpGet("name/id")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
@@ -424,7 +424,7 @@ namespace Guider.API.MVP.Controllers
         /// </summary>  
         /// <param name="jsonDocument">JSON-документ, представляющий данные для создания нового объекта.</param>  
         /// <returns>Созданный объект в формате JSON, обернутый в ApiResponse.</returns>  
-        [HttpPost("create")]
+        [HttpPost]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Create([FromBody] JsonDocument jsonDocument)
         {
@@ -520,7 +520,7 @@ namespace Guider.API.MVP.Controllers
         /// 
         /// <returns>Обновленный объект в формате JSON, обернутый в ApiResponse.</returns>
         /// 
-        [HttpPut("update/{id}")]
+        [HttpPut("{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Update(string id, [FromBody] JsonDocument jsonDocument)
         {
