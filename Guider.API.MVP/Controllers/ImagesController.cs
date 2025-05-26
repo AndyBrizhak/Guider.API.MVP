@@ -613,81 +613,154 @@ namespace Guider.API.MVP.Controllers
         //    }
         //}
 
+        
         /// <summary>
-        /// Удаление изображения
+        /// Удаление изображения по ID
         /// </summary>
-        /// <param name="request">Запрос на удаление изображения</param>
-        /// <returns>Объект ApiResponse с результатом операции удаления</returns>
-        [HttpDelete("delete")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public IActionResult DeleteImage([FromQuery] ImageDeleteRequest request)
+        /// <param name="id">Идентификатор изображения</param>
+        /// <returns>JSON объект с информацией об удаленном изображении</returns>
+        [HttpDelete("{id}")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        public async Task<IActionResult> DeleteImageById(string id)
         {
-            var response = new ApiResponse();
-            if (request == null ||
-                string.IsNullOrEmpty(request.Province) ||
-                string.IsNullOrEmpty(request.Place) ||
-                string.IsNullOrEmpty(request.ImageName))
+            if (string.IsNullOrEmpty(id))
             {
-                response.IsSuccess = false;
-                response.StatusCode = HttpStatusCode.BadRequest;
-                response.ErrorMessages.Add("Отсутствуют необходимые параметры для удаления изображения");
-                return BadRequest(response);
+                return BadRequest(new
+                {
+                    error = "Некорректный параметр",
+                    message = "ID изображения не может быть пустым"
+                });
             }
 
             try
             {
-                // Вызываем метод сервиса с разбитыми параметрами
-                var jsonResult = _imageService.DeleteImage(
-                    request.Province,
-                    request.City,
-                    request.Place,
-                    request.ImageName);
+                // Сначала получаем информацию об изображении для возврата после удаления
+                var imageInfoResult = await _imageService.GetImageByIdAsync(id);
 
-                // Проверяем, успешно ли выполнена операция
-                if (jsonResult.RootElement.TryGetProperty("Success", out var successElement) &&
-                    successElement.GetBoolean() == false)
+                // Проверяем, что изображение существует
+                if (imageInfoResult.RootElement.TryGetProperty("Success", out var infoSuccessElement) &&
+                    infoSuccessElement.GetBoolean() == false)
                 {
-                    // Операция не успешна, извлекаем сообщение об ошибке
-                    response.IsSuccess = false;
-                    response.StatusCode = HttpStatusCode.BadRequest;
-                    if (jsonResult.RootElement.TryGetProperty("Message", out var message))
+                    string errorMessage = "Неизвестная ошибка при поиске изображения";
+                    if (imageInfoResult.RootElement.TryGetProperty("Message", out var infoMessageElement))
                     {
-                        response.ErrorMessages.Add(message.GetString());
+                        errorMessage = infoMessageElement.GetString() ?? errorMessage;
                     }
-                    else
+
+                    if (errorMessage.Contains("не найдено") || errorMessage.Contains("not found"))
                     {
-                        response.ErrorMessages.Add("Неизвестная ошибка при удалении изображения");
+                        return NotFound(new
+                        {
+                            error = "Изображение не найдено",
+                            message = errorMessage
+                        });
                     }
-                    return BadRequest(response);
+
+                    if (errorMessage.Contains("Неверный формат ID"))
+                    {
+                        return BadRequest(new
+                        {
+                            error = "Некорректный ID",
+                            message = errorMessage
+                        });
+                    }
+
+                    return BadRequest(new
+                    {
+                        error = "Ошибка поиска изображения",
+                        message = errorMessage
+                    });
                 }
 
-                // Операция успешна
-                response.StatusCode = HttpStatusCode.OK;
-                if (jsonResult.RootElement.TryGetProperty("Message", out var messageElement))
+                // Извлекаем информацию об изображении перед удалением
+                if (!imageInfoResult.RootElement.TryGetProperty("ImageInfo", out var imageInfoElement))
                 {
-                    response.Result = new { Message = messageElement.GetString() };
-                }
-                else
-                {
-                    response.Result = new { Message = "Изображение успешно удалено" };
+                    return StatusCode(500, new
+                    {
+                        error = "Внутренняя ошибка",
+                        message = "Не удалось получить информацию об изображении перед удалением"
+                    });
                 }
 
-                return Ok(response);
+                // Сохраняем информацию об изображении для возврата
+                var deletedImageInfo = new
+                {
+                    id = imageInfoElement.GetProperty("Id").GetString(),
+                    province = imageInfoElement.GetProperty("Province").GetString(),
+                    city = imageInfoElement.TryGetProperty("City", out var cityProp) && cityProp.ValueKind != JsonValueKind.Null
+                        ? cityProp.GetString() : null,
+                    place = imageInfoElement.GetProperty("Place").GetString(),
+                    imageName = imageInfoElement.GetProperty("ImageName").GetString(),
+                    originalFileName = imageInfoElement.GetProperty("OriginalFileName").GetString(),
+                    fileSize = imageInfoElement.GetProperty("FileSize").GetInt64(),
+                    contentType = imageInfoElement.GetProperty("ContentType").GetString(),
+                    extension = imageInfoElement.GetProperty("Extension").GetString(),
+                    uploadDate = imageInfoElement.GetProperty("UploadDate").GetDateTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                    deletedDate = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+                };
+
+                // Выполняем удаление
+                var deleteResult = await _imageService.DeleteImageByIdAsync(id);
+
+                // Проверяем результат удаления
+                if (deleteResult.RootElement.TryGetProperty("Success", out var deleteSuccessElement) &&
+                    deleteSuccessElement.GetBoolean() == false)
+                {
+                    string errorMessage = "Неизвестная ошибка при удалении изображения";
+                    if (deleteResult.RootElement.TryGetProperty("Message", out var deleteMessageElement))
+                    {
+                        errorMessage = deleteMessageElement.GetString() ?? errorMessage;
+                    }
+
+                    return BadRequest(new
+                    {
+                        error = "Ошибка удаления изображения",
+                        message = errorMessage
+                    });
+                }
+
+                // Возвращаем информацию об удаленном изображении (совместимо с react-admin)
+                return Ok(deletedImageInfo);
             }
             catch (ArgumentException ex)
             {
-                response.IsSuccess = false;
-                response.StatusCode = HttpStatusCode.BadRequest;
-                response.ErrorMessages.Add(ex.Message);
-                return BadRequest(response);
+                return BadRequest(new
+                {
+                    error = "Некорректные входные данные",
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return StatusCode(403, new
+                {
+                    error = "Доступ запрещен",
+                    message = "У вас нет прав для удаления этого изображения"
+                });
+            }
+            catch (IOException ex)
+            {
+                return StatusCode(500, new
+                {
+                    error = "Ошибка файловой системы",
+                    message = $"Не удалось удалить файл: {ex.Message}"
+                });
+            }
+            catch (JsonException ex)
+            {
+                return StatusCode(500, new
+                {
+                    error = "Ошибка обработки данных",
+                    message = $"Ошибка при обработке ответа сервиса: {ex.Message}"
+                });
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.StatusCode = HttpStatusCode.InternalServerError;
-                response.ErrorMessages.Add("Внутренняя ошибка сервера при удалении изображения");
-                response.ErrorMessages.Add(ex.Message);
-                return StatusCode(500, response);
+                return StatusCode(500, new
+                {
+                    error = "Внутренняя ошибка сервера",
+                    message = "Произошла непредвиденная ошибка при удалении изображения"
+                });
             }
         }
 

@@ -1384,67 +1384,67 @@ namespace Guider.API.MVP.Services
             }
         }
 
-        public JsonDocument DeleteImage(string province, string? city, string place, string imageName)
-        {
-            if (string.IsNullOrEmpty(province) || string.IsNullOrEmpty(place) || string.IsNullOrEmpty(imageName))
-            {
-                return CreateJsonResponse(false, "Параметры запроса не могут быть пустыми");
-            }
+        //public JsonDocument DeleteImage(string province, string? city, string place, string imageName)
+        //{
+        //    if (string.IsNullOrEmpty(province) || string.IsNullOrEmpty(place) || string.IsNullOrEmpty(imageName))
+        //    {
+        //        return CreateJsonResponse(false, "Параметры запроса не могут быть пустыми");
+        //    }
 
-            try
-            {
-                // Ищем запись в MongoDB
-                var filter = Builders<BsonDocument>.Filter.And(
-                    Builders<BsonDocument>.Filter.Eq("Province", province),
-                    Builders<BsonDocument>.Filter.Eq("Place", place),
-                    Builders<BsonDocument>.Filter.Eq("ImageName", imageName),
-                    Builders<BsonDocument>.Filter.Eq("IsActive", true)
-                );
+        //    try
+        //    {
+        //        // Ищем запись в MongoDB
+        //        var filter = Builders<BsonDocument>.Filter.And(
+        //            Builders<BsonDocument>.Filter.Eq("Province", province),
+        //            Builders<BsonDocument>.Filter.Eq("Place", place),
+        //            Builders<BsonDocument>.Filter.Eq("ImageName", imageName),
+        //            Builders<BsonDocument>.Filter.Eq("IsActive", true)
+        //        );
 
-                if (!string.IsNullOrEmpty(city))
-                {
-                    filter = Builders<BsonDocument>.Filter.And(filter,
-                        Builders<BsonDocument>.Filter.Eq("City", city));
-                }
-                else
-                {
-                    filter = Builders<BsonDocument>.Filter.And(filter,
-                        Builders<BsonDocument>.Filter.Or(
-                            Builders<BsonDocument>.Filter.Eq("City", BsonNull.Value),
-                            Builders<BsonDocument>.Filter.Not(Builders<BsonDocument>.Filter.Exists("City"))
-                        ));
-                }
+        //        if (!string.IsNullOrEmpty(city))
+        //        {
+        //            filter = Builders<BsonDocument>.Filter.And(filter,
+        //                Builders<BsonDocument>.Filter.Eq("City", city));
+        //        }
+        //        else
+        //        {
+        //            filter = Builders<BsonDocument>.Filter.And(filter,
+        //                Builders<BsonDocument>.Filter.Or(
+        //                    Builders<BsonDocument>.Filter.Eq("City", BsonNull.Value),
+        //                    Builders<BsonDocument>.Filter.Not(Builders<BsonDocument>.Filter.Exists("City"))
+        //                ));
+        //        }
 
-                var imageRecord = _imageCollection.Find(filter).FirstOrDefault();
+        //        var imageRecord = _imageCollection.Find(filter).FirstOrDefault();
 
-                if (imageRecord == null)
-                {
-                    return CreateJsonResponse(false, "Изображение не найдено в базе данных");
-                }
+        //        if (imageRecord == null)
+        //        {
+        //            return CreateJsonResponse(false, "Изображение не найдено в базе данных");
+        //        }
 
-                string filePath = imageRecord["FilePath"].AsString;
-                string absolutePath = Path.Combine(_baseImagePath, filePath);
+        //        string filePath = imageRecord["FilePath"].AsString;
+        //        string absolutePath = Path.Combine(_baseImagePath, filePath);
 
-                // Удаляем файл с диска, если он существует
-                if (File.Exists(absolutePath))
-                {
-                    File.Delete(absolutePath);
-                }
+        //        // Удаляем файл с диска, если он существует
+        //        if (File.Exists(absolutePath))
+        //        {
+        //            File.Delete(absolutePath);
+        //        }
 
-                // Помечаем запись как неактивную в MongoDB
-                var update = Builders<BsonDocument>.Update
-                    .Set("IsActive", false)
-                    .Set("DeletedDate", DateTime.UtcNow);
+        //        // Помечаем запись как неактивную в MongoDB
+        //        var update = Builders<BsonDocument>.Update
+        //            .Set("IsActive", false)
+        //            .Set("DeletedDate", DateTime.UtcNow);
 
-                _imageCollection.UpdateOne(filter, update);
+        //        _imageCollection.UpdateOne(filter, update);
 
-                return CreateJsonResponse(true, "Изображение успешно удалено");
-            }
-            catch (Exception ex)
-            {
-                return CreateJsonResponse(false, $"Ошибка при удалении изображения: {ex.Message}");
-            }
-        }
+        //        return CreateJsonResponse(true, "Изображение успешно удалено");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return CreateJsonResponse(false, $"Ошибка при удалении изображения: {ex.Message}");
+        //    }
+        //}
 
         public async Task<JsonDocument> DeleteImageByIdAsync(string id)
         {
