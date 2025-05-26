@@ -459,12 +459,6 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-
-
-
-
-
-
         [HttpGet]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public IActionResult GetImagesList([FromQuery] int page = 1, [FromQuery] int pageSize = 20)

@@ -35,8 +35,7 @@ namespace Guider.API.MVP.Services
 
         JsonDocument GetImagesList(int page, int pageSize);
 
-        //JsonDocument DeleteImage(string province, string? city, string place, string imageName);
-
+     
         Task<JsonDocument> DeleteImageByIdAsync(string id);
 
         Task<JsonDocument> UpdateImageAsync(
