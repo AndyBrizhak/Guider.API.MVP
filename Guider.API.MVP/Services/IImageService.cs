@@ -1,18 +1,22 @@
-﻿//using System.Text.Json;
+﻿
+//using System.Text.Json;
 
 //namespace Guider.API.MVP.Services
 //{
 //    public interface IImageService
 //    {
-//        Task<JsonDocument> SaveImageAsync(string imagePath, IFormFile imageFile);
-//        JsonDocument GetImage(string fullPath);
-//        JsonDocument GetImagesList(int page, int pageSize0);
+//        Task<JsonDocument> SaveImageAsync(string province, string? city, string place, string imageName, IFormFile imageFile);
 
-//        JsonDocument DeleteImage(string fullPath);
+//        JsonDocument GetImage(string province, string? city, string place, string imageName);
 
-//        Task<JsonDocument> UpdateImageAsync(string oldImagePath, string newImagePath = null, IFormFile newImageFile = null);
+//        JsonDocument GetImagesList(int page, int pageSize);
 
-//        //Task<string> UpdateImageAsync(string imagePath, IFormFile imageFile, bool createIfNotExists = true);
+//        JsonDocument DeleteImage(string province, string? city, string place, string imageName);
+
+//        Task<JsonDocument> UpdateImageAsync(
+//            string oldProvince, string? oldCity, string oldPlace, string oldImageName,
+//            string? newProvince = null, string? newCity = null, string? newPlace = null,
+//            string? newImageName = null, IFormFile? newImageFile = null);
 //    }
 //}
 
@@ -22,13 +26,18 @@ namespace Guider.API.MVP.Services
 {
     public interface IImageService
     {
+        // Основные операции с изображениями
         Task<JsonDocument> SaveImageAsync(string province, string? city, string place, string imageName, IFormFile imageFile);
 
         JsonDocument GetImage(string province, string? city, string place, string imageName);
 
+        Task<JsonDocument> GetImageByIdAsync(string id);
+
         JsonDocument GetImagesList(int page, int pageSize);
 
         JsonDocument DeleteImage(string province, string? city, string place, string imageName);
+
+        Task<JsonDocument> DeleteImageByIdAsync(string id);
 
         Task<JsonDocument> UpdateImageAsync(
             string oldProvince, string? oldCity, string oldPlace, string oldImageName,

@@ -27,27 +27,104 @@ namespace Guider.API.MVP.Controllers
         /// </summary>  
         /// <param name="request">Запрос на загрузку изображения</param>  
         /// <returns>Объект ApiResponse с путем к сохраненному изображению или ошибками</returns>  
+        //[HttpPost("upload")]
+        ////[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //public async Task<IActionResult> UploadImage([FromForm] ImageUploadRequest request)
+        //{
+        //    var response = new ApiResponse();
+
+        //    if (request == null ||
+        //        string.IsNullOrEmpty(request.Province) ||
+        //        string.IsNullOrEmpty(request.Place) ||
+        //        string.IsNullOrEmpty(request.ImageName) ||
+        //        request.ImageFile == null)
+        //    {
+        //        response.IsSuccess = false;
+        //        response.StatusCode = HttpStatusCode.BadRequest;
+        //        response.ErrorMessages.Add("Отсутствуют необходимые параметры");
+        //        return BadRequest(response);
+        //    }
+
+        //    try
+        //    {
+        //        // Вызываем метод сервиса с разбитыми параметрами
+        //        var jsonResult = await _imageService.SaveImageAsync(
+        //            request.Province,
+        //            request.City,
+        //            request.Place,
+        //            request.ImageName,
+        //            request.ImageFile);
+
+        //        // Проверяем, успешно ли выполнена операция
+        //        if (jsonResult.RootElement.TryGetProperty("Success", out var successElement) &&
+        //            successElement.GetBoolean() == false)
+        //        {
+        //            // Операция не успешна, извлекаем сообщение об ошибке
+        //            response.IsSuccess = false;
+        //            response.StatusCode = HttpStatusCode.BadRequest;
+
+        //            if (jsonResult.RootElement.TryGetProperty("Message", out var messageElement))
+        //            {
+        //                response.ErrorMessages.Add(messageElement.GetString());
+        //            }
+        //            else
+        //            {
+        //                response.ErrorMessages.Add("Неизвестная ошибка при загрузке изображения");
+        //            }
+
+        //            return BadRequest(response);
+        //        }
+
+        //        // Операция успешна, извлекаем путь к изображению
+        //        string imagePath = "";
+        //        if (jsonResult.RootElement.TryGetProperty("Path", out var pathElement))
+        //        {
+        //            imagePath = pathElement.GetString();
+        //        }
+
+        //        response.StatusCode = HttpStatusCode.OK;
+        //        response.Result = new { Path = imagePath };
+
+        //        return Ok(response);
+        //    }
+        //    catch (ArgumentException ex)
+        //    {
+        //        response.IsSuccess = false;
+        //        response.StatusCode = HttpStatusCode.BadRequest;
+        //        response.ErrorMessages.Add(ex.Message);
+        //        return BadRequest(response);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        response.IsSuccess = false;
+        //        response.StatusCode = HttpStatusCode.InternalServerError;
+        //        response.ErrorMessages.Add("Внутренняя ошибка сервера при загрузке изображения");
+        //        response.ErrorMessages.Add(ex.Message);
+        //        return StatusCode(500, response);
+        //    }
+        //}
+
         [HttpPost("upload")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> UploadImage([FromForm] ImageUploadRequest request)
         {
-            var response = new ApiResponse();
-
+            // Проверка входных параметров
             if (request == null ||
                 string.IsNullOrEmpty(request.Province) ||
                 string.IsNullOrEmpty(request.Place) ||
                 string.IsNullOrEmpty(request.ImageName) ||
                 request.ImageFile == null)
             {
-                response.IsSuccess = false;
-                response.StatusCode = HttpStatusCode.BadRequest;
-                response.ErrorMessages.Add("Отсутствуют необходимые параметры");
-                return BadRequest(response);
+                return BadRequest(new
+                {
+                    error = "Отсутствуют необходимые параметры",
+                    message = "Province, Place, ImageName и ImageFile являются обязательными полями"
+                });
             }
 
             try
             {
-                // Вызываем метод сервиса с разбитыми параметрами
+                // Вызываем метод сервиса
                 var jsonResult = await _imageService.SaveImageAsync(
                     request.Province,
                     request.City,
@@ -55,52 +132,86 @@ namespace Guider.API.MVP.Controllers
                     request.ImageName,
                     request.ImageFile);
 
-                // Проверяем, успешно ли выполнена операция
+                // Проверяем результат операции
                 if (jsonResult.RootElement.TryGetProperty("Success", out var successElement) &&
                     successElement.GetBoolean() == false)
                 {
-                    // Операция не успешна, извлекаем сообщение об ошибке
-                    response.IsSuccess = false;
-                    response.StatusCode = HttpStatusCode.BadRequest;
+                    // Операция не успешна - возвращаем ошибку
+                    string errorMessage = "Неизвестная ошибка при загрузке изображения";
 
                     if (jsonResult.RootElement.TryGetProperty("Message", out var messageElement))
                     {
-                        response.ErrorMessages.Add(messageElement.GetString());
-                    }
-                    else
-                    {
-                        response.ErrorMessages.Add("Неизвестная ошибка при загрузке изображения");
+                        errorMessage = messageElement.GetString() ?? errorMessage;
                     }
 
-                    return BadRequest(response);
+                    return BadRequest(new
+                    {
+                        error = errorMessage,
+                        message = errorMessage
+                    });
                 }
 
-                // Операция успешна, извлекаем путь к изображению
+                // Операция успешна - извлекаем данные
                 string imagePath = "";
+                string imageId = "";
+
                 if (jsonResult.RootElement.TryGetProperty("Path", out var pathElement))
                 {
-                    imagePath = pathElement.GetString();
+                    imagePath = pathElement.GetString() ?? "";
                 }
 
-                response.StatusCode = HttpStatusCode.OK;
-                response.Result = new { Path = imagePath };
+                if (jsonResult.RootElement.TryGetProperty("Id", out var idElement))
+                {
+                    imageId = idElement.GetString() ?? "";
+                }
 
-                return Ok(response);
+                // Возвращаем успешный результат с данными изображения
+                return Ok(new
+                {
+                    id = imageId,
+                    path = imagePath,
+                    province = request.Province,
+                    city = request.City,
+                    place = request.Place,
+                    imageName = request.ImageName,
+                    originalFileName = request.ImageFile.FileName,
+                    fileSize = request.ImageFile.Length,
+                    contentType = request.ImageFile.ContentType,
+                    uploadDate = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+                    isActive = true
+                });
             }
             catch (ArgumentException ex)
             {
-                response.IsSuccess = false;
-                response.StatusCode = HttpStatusCode.BadRequest;
-                response.ErrorMessages.Add(ex.Message);
-                return BadRequest(response);
+                return BadRequest(new
+                {
+                    error = "Некорректные входные данные",
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return StatusCode(403, new
+                {
+                    error = "Доступ запрещен",
+                    message = "У вас нет прав для загрузки изображений"
+                });
+            }
+            catch (IOException ex)
+            {
+                return StatusCode(507, new
+                {
+                    error = "Ошибка файловой системы",
+                    message = $"Не удалось сохранить файл: {ex.Message}"
+                });
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.StatusCode = HttpStatusCode.InternalServerError;
-                response.ErrorMessages.Add("Внутренняя ошибка сервера при загрузке изображения");
-                response.ErrorMessages.Add(ex.Message);
-                return StatusCode(500, response);
+                return StatusCode(500, new
+                {
+                    error = "Внутренняя ошибка сервера",
+                    message = "Произошла непредвиденная ошибка при загрузке изображения"
+                });
             }
         }
 
