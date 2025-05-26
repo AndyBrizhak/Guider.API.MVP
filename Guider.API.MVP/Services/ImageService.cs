@@ -1127,7 +1127,7 @@ namespace Guider.API.MVP.Services
                     ["ContentType"] = imageFile.ContentType,
                     ["Extension"] = extension,
                     ["UploadDate"] = DateTime.UtcNow,
-                    ["IsActive"] = true
+                    //["IsActive"] = true
                 };
 
                 await _imageCollection.InsertOneAsync(imageRecord);
@@ -1172,8 +1172,8 @@ namespace Guider.API.MVP.Services
                 var filter = Builders<BsonDocument>.Filter.And(
                     Builders<BsonDocument>.Filter.Eq("Province", province),
                     Builders<BsonDocument>.Filter.Eq("Place", place),
-                    Builders<BsonDocument>.Filter.Eq("ImageName", imageName),
-                    Builders<BsonDocument>.Filter.Eq("IsActive", true)
+                    Builders<BsonDocument>.Filter.Eq("ImageName", imageName)
+                    //Builders<BsonDocument>.Filter.Eq("IsActive", true)
                 );
 
                 if (!string.IsNullOrEmpty(city))
@@ -1257,8 +1257,8 @@ namespace Guider.API.MVP.Services
                 }
 
                 var filter = Builders<BsonDocument>.Filter.And(
-                    Builders<BsonDocument>.Filter.Eq("_id", objectId),
-                    Builders<BsonDocument>.Filter.Eq("IsActive", true)
+                    Builders<BsonDocument>.Filter.Eq("_id", objectId)
+                    //Builders<BsonDocument>.Filter.Eq("IsActive", true)
                 );
 
                 var imageRecord = await _imageCollection.Find(filter).FirstOrDefaultAsync();
@@ -1337,7 +1337,7 @@ namespace Guider.API.MVP.Services
                 }
 
                 // Получаем данные из MongoDB
-                var filter = Builders<BsonDocument>.Filter.Eq("IsActive", true);
+                var filter = Builders<BsonDocument>.Filter.Empty;
                 var totalImages = _imageCollection.CountDocuments(filter);
                 var totalPages = (int)Math.Ceiling((double)totalImages / pageSize);
 
@@ -1384,7 +1384,52 @@ namespace Guider.API.MVP.Services
             }
         }
 
-            public async Task<JsonDocument> DeleteImageByIdAsync(string id)
+        //public async Task<JsonDocument> DeleteImageByIdAsync(string id)
+        //{
+        //    try
+        //    {
+        //        if (!ObjectId.TryParse(id, out var objectId))
+        //        {
+        //            return CreateJsonResponse(false, "Неверный формат ID");
+        //        }
+
+        //        var filter = Builders<BsonDocument>.Filter.And(
+        //            Builders<BsonDocument>.Filter.Eq("_id", objectId),
+        //            Builders<BsonDocument>.Filter.Eq("IsActive", true)
+        //        );
+
+        //        var imageRecord = await _imageCollection.Find(filter).FirstOrDefaultAsync();
+
+        //        if (imageRecord == null)
+        //        {
+        //            return CreateJsonResponse(false, "Изображение не найдено");
+        //        }
+
+        //        string filePath = imageRecord["FilePath"].AsString;
+        //        string absolutePath = Path.Combine(_baseImagePath, filePath);
+
+        //        // Удаляем файл с диска, если он существует
+        //        if (File.Exists(absolutePath))
+        //        {
+        //            File.Delete(absolutePath);
+        //        }
+
+        //        // Помечаем запись как неактивную в MongoDB
+        //        var update = Builders<BsonDocument>.Update
+        //            .Set("IsActive", false)
+        //            .Set("DeletedDate", DateTime.UtcNow);
+
+        //        await _imageCollection.UpdateOneAsync(filter, update);
+
+        //        return CreateJsonResponse(true, "Изображение успешно удалено");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return CreateJsonResponse(false, $"Ошибка при удалении изображения: {ex.Message}");
+        //    }
+        //}
+
+        public async Task<JsonDocument> DeleteImageByIdAsync(string id)
         {
             try
             {
@@ -1393,13 +1438,9 @@ namespace Guider.API.MVP.Services
                     return CreateJsonResponse(false, "Неверный формат ID");
                 }
 
-                var filter = Builders<BsonDocument>.Filter.And(
-                    Builders<BsonDocument>.Filter.Eq("_id", objectId),
-                    Builders<BsonDocument>.Filter.Eq("IsActive", true)
-                );
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
 
                 var imageRecord = await _imageCollection.Find(filter).FirstOrDefaultAsync();
-
                 if (imageRecord == null)
                 {
                     return CreateJsonResponse(false, "Изображение не найдено");
@@ -1414,14 +1455,15 @@ namespace Guider.API.MVP.Services
                     File.Delete(absolutePath);
                 }
 
-                // Помечаем запись как неактивную в MongoDB
-                var update = Builders<BsonDocument>.Update
-                    .Set("IsActive", false)
-                    .Set("DeletedDate", DateTime.UtcNow);
+                // Полностью удаляем запись из MongoDB
+                var deleteResult = await _imageCollection.DeleteOneAsync(filter);
 
-                await _imageCollection.UpdateOneAsync(filter, update);
+                if (deleteResult.DeletedCount == 0)
+                {
+                    return CreateJsonResponse(false, "Не удалось удалить запись из базы данных");
+                }
 
-                return CreateJsonResponse(true, "Изображение успешно удалено");
+                return CreateJsonResponse(true, "Изображение и запись успешно удалены");
             }
             catch (Exception ex)
             {

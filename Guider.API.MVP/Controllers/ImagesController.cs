@@ -97,7 +97,7 @@ namespace Guider.API.MVP.Controllers
                     fileSize = request.ImageFile.Length,
                     contentType = request.ImageFile.ContentType,
                     uploadDate = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
-                    isActive = true
+                    //isActive = true
                 });
             }
             catch (ArgumentException ex)
