@@ -23,7 +23,7 @@ namespace Guider.API.MVP.Controllers
         }
 
 
-        [HttpPost("upload")]
+        [HttpPost]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> UploadImage([FromForm] ImageUploadRequest request)
         {
@@ -142,7 +142,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="place">Название заведения</param>
         /// <param name="imageName">Имя файла изображения</param>
         /// <returns>Файл изображения</returns>  
-        [HttpGet("get")]
+        [HttpGet("get/province/city/place/name")]
         public IActionResult GetImage(
             [FromQuery] string province,
             [FromQuery] string? city,
@@ -215,70 +215,72 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-        /// <summary>
-        /// Получение списка изображений с разбивкой на страницы
-        /// </summary>
-        /// <param name="page">Номер страницы (начиная с 1)</param>
-        /// <param name="pageSize">Размер страницы (количество изображений)</param>
-        /// <returns>Список изображений с информацией о постраничной навигации</returns>
-        [HttpGet("list")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        
+
+        [HttpGet]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public IActionResult GetImagesList([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
-            var response = new ApiResponse();
-
             try
             {
                 if (page < 1 || pageSize < 1)
                 {
-                    response.IsSuccess = false;
-                    response.StatusCode = HttpStatusCode.BadRequest;
-                    response.ErrorMessages.Add("Некорректные параметры пагинации: номер страницы и размер страницы должны быть больше 0");
-                    return BadRequest(response);
+                    return BadRequest(new { message = "Некорректные параметры пагинации: номер страницы и размер страницы должны быть больше 0" });
                 }
 
                 var jsonResult = _imageService.GetImagesList(page, pageSize);
 
+                // Проверяем успешность операции в сервисе
                 if (jsonResult.RootElement.TryGetProperty("Success", out var successElement) &&
                     successElement.GetBoolean() == false)
                 {
-                    response.IsSuccess = false;
-                    response.StatusCode = HttpStatusCode.BadRequest;
+                    // Извлекаем сообщение об ошибке из ответа сервиса
+                    var errorMessage = "Неизвестная ошибка при получении списка изображений";
                     if (jsonResult.RootElement.TryGetProperty("Message", out var messageElement))
                     {
-                        response.ErrorMessages.Add(messageElement.GetString());
+                        errorMessage = messageElement.GetString();
                     }
-                    else
-                    {
-                        response.ErrorMessages.Add("Неизвестная ошибка при получении списка изображений");
-                    }
-                    return BadRequest(response);
+
+                    return BadRequest(new { message = errorMessage });
                 }
 
-                // Создаем результирующий объект с данными пагинации и списком изображений
-                var result = new
-                {
-                    TotalImages = jsonResult.RootElement.GetProperty("TotalImages").GetInt32(),
-                    TotalPages = jsonResult.RootElement.GetProperty("TotalPages").GetInt32(),
-                    CurrentPage = jsonResult.RootElement.GetProperty("CurrentPage").GetInt32(),
-                    PageSize = jsonResult.RootElement.GetProperty("PageSize").GetInt32(),
-                    Images = jsonResult.RootElement.GetProperty("Images").EnumerateArray()
-                        .Select(image => image.GetString())
-                        .ToList()
-                };
+                // Извлекаем данные из успешного ответа сервиса
+                var totalImages = jsonResult.RootElement.GetProperty("TotalImages").GetInt32();
+                var totalPages = jsonResult.RootElement.GetProperty("TotalPages").GetInt32();
+                var currentPage = jsonResult.RootElement.GetProperty("CurrentPage").GetInt32();
+                var pageSizeResult = jsonResult.RootElement.GetProperty("PageSize").GetInt32();
 
-                response.IsSuccess = true;
-                response.StatusCode = HttpStatusCode.OK;
-                response.Result = result;
+                // Правильно извлекаем массив объектов изображений
+                var images = jsonResult.RootElement.GetProperty("Images").EnumerateArray()
+                    .Select(imageElement => new
+                    {
+                        Id = imageElement.GetProperty("Id").GetString(),
+                        Province = imageElement.GetProperty("Province").GetString(),
+                        City = imageElement.TryGetProperty("City", out var cityProp) && cityProp.ValueKind != JsonValueKind.Null
+                            ? cityProp.GetString() : null,
+                        Place = imageElement.GetProperty("Place").GetString(),
+                        ImageName = imageElement.GetProperty("ImageName").GetString(),
+                        OriginalFileName = imageElement.GetProperty("OriginalFileName").GetString(),
+                        FilePath = imageElement.GetProperty("FilePath").GetString(),
+                        FileSize = imageElement.GetProperty("FileSize").GetInt64(),
+                        ContentType = imageElement.GetProperty("ContentType").GetString(),
+                        Extension = imageElement.GetProperty("Extension").GetString(),
+                        UploadDate = imageElement.GetProperty("UploadDate").GetDateTime()
+                    })
+                    .ToList();
 
-                return Ok(response);
+                // Добавляем данные пагинации в заголовки ответа
+                Response.Headers.Add("X-Total-Count", totalImages.ToString());
+                Response.Headers.Add("X-Total-Pages", totalPages.ToString());
+                Response.Headers.Add("X-Current-Page", currentPage.ToString());
+                Response.Headers.Add("X-Page-Size", pageSizeResult.ToString());
+
+                // Возвращаем только массив изображений
+                return Ok(images);
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.StatusCode = HttpStatusCode.InternalServerError;
-                response.ErrorMessages.Add($"Внутренняя ошибка сервера при получении списка изображений: {ex.Message}");
-                return StatusCode(500, response);
+                return StatusCode(500, new { message = $"Внутренняя ошибка сервера при получении списка изображений: {ex.Message}" });
             }
         }
 
