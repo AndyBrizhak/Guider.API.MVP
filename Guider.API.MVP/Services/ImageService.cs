@@ -293,77 +293,7 @@ namespace Guider.API.MVP.Services
             }
         }
 
-        public JsonDocument GetImagesList(int page, int pageSize)
-        {
-            try
-            {
-                if (page < 1)
-                {
-                    return JsonDocument.Parse(JsonSerializer.Serialize(new
-                    {
-                        Success = false,
-                        Message = "Номер страницы должен быть больше или равен 1"
-                    }));
-                }
-
-                if (pageSize < 1)
-                {
-                    return JsonDocument.Parse(JsonSerializer.Serialize(new
-                    {
-                        Success = false,
-                        Message = "Размер страницы должен быть больше или равен 1"
-                    }));
-                }
-
-                // Получаем данные из MongoDB
-                var filter = Builders<BsonDocument>.Filter.Empty;
-                var totalImages = _imageCollection.CountDocuments(filter);
-                var totalPages = (int)Math.Ceiling((double)totalImages / pageSize);
-
-                var images = _imageCollection.Find(filter)
-                    .Sort(Builders<BsonDocument>.Sort.Descending("UploadDate"))
-                    .Skip((page - 1) * pageSize)
-                    .Limit(pageSize)
-                    .ToList();
-
-                var imageList = images.Select(doc => new
-                {
-                    Id = doc["_id"].ToString(),
-                    Province = doc["Province"].AsString,
-                    City = doc.Contains("City") && !doc["City"].IsBsonNull ? doc["City"].AsString : null,
-                    Place = doc["Place"].AsString,
-                    ImageName = doc["ImageName"].AsString,
-                    OriginalFileName = doc["OriginalFileName"].AsString,
-                    FilePath = doc["FilePath"].AsString,
-                    FileSize = doc["FileSize"].AsInt64,
-                    ContentType = doc["ContentType"].AsString,
-                    Extension = doc["Extension"].AsString,
-                    UploadDate = doc["UploadDate"].ToUniversalTime()
-                }).ToList();
-
-                var result = new
-                {
-                    Success = true,
-                    TotalImages = (int)totalImages,
-                    TotalPages = totalPages,
-                    CurrentPage = page,
-                    PageSize = pageSize,
-                    Images = imageList
-                };
-
-                return JsonDocument.Parse(JsonSerializer.Serialize(result));
-            }
-            catch (Exception ex)
-            {
-                return JsonDocument.Parse(JsonSerializer.Serialize(new
-                {
-                    Success = false,
-                    Message = $"Ошибка при получении списка изображений: {ex.Message}"
-                }));
-            }
-        }
-
-       public async Task<JsonDocument> DeleteImageByIdAsync(string id)
+        public async Task<JsonDocument> DeleteImageByIdAsync(string id)
         {
             try
             {
@@ -532,6 +462,142 @@ namespace Guider.API.MVP.Services
             else
             {
                 return Path.Combine(province, city, place, imageName).Replace("\\", "/");
+            }
+        }
+
+        public async Task<JsonDocument> GetImagesAsync(Dictionary<string, string> filter = null)
+        {
+            try
+            {
+                FilterDefinition<BsonDocument> filterDefinition = Builders<BsonDocument>.Filter.Empty;
+                if (filter != null && filter.Count > 0)
+                {
+                    var filterBuilder = Builders<BsonDocument>.Filter;
+                    var filters = new List<FilterDefinition<BsonDocument>>();
+
+                    // Общий текстовый поиск по нескольким полям
+                    if (filter.TryGetValue("q", out string q) && !string.IsNullOrEmpty(q))
+                    {
+                        filters.Add(filterBuilder.Or(
+                            filterBuilder.Regex("ImageName", new BsonRegularExpression(q, "i")),
+                            filterBuilder.Regex("OriginalFileName", new BsonRegularExpression(q, "i")),
+                            filterBuilder.Regex("Province", new BsonRegularExpression(q, "i")),
+                            filterBuilder.Regex("Place", new BsonRegularExpression(q, "i"))
+                        ));
+                    }
+                    // Фильтр по названию изображения
+                    if (filter.TryGetValue("imageName", out string imageName) && !string.IsNullOrEmpty(imageName))
+                    {
+                        filters.Add(filterBuilder.Regex("ImageName", new BsonRegularExpression(imageName, "i")));
+                    }
+                    // Фильтр по провинции
+                    if (filter.TryGetValue("province", out string province) && !string.IsNullOrEmpty(province))
+                    {
+                        filters.Add(filterBuilder.Regex("Province", new BsonRegularExpression(province, "i")));
+                    }
+                    // Фильтр по месту
+                    if (filter.TryGetValue("place", out string place) && !string.IsNullOrEmpty(place))
+                    {
+                        filters.Add(filterBuilder.Regex("Place", new BsonRegularExpression(place, "i")));
+                    }
+                    // Фильтр по оригинальному имени файла
+                    if (filter.TryGetValue("originalFileName", out string originalFileName) && !string.IsNullOrEmpty(originalFileName))
+                    {
+                        filters.Add(filterBuilder.Regex("OriginalFileName", new BsonRegularExpression(originalFileName, "i")));
+                    }
+
+                    if (filters.Count > 0)
+                    {
+                        filterDefinition = filterBuilder.And(filters);
+                    }
+                }
+
+                long totalCount = await _imageCollection.CountDocumentsAsync(filterDefinition);
+
+                // Сортировка
+                string sortField = "UploadDate";
+                bool isDescending = true;
+                if (filter != null)
+                {
+                    if (filter.TryGetValue("_sort", out string sort) && !string.IsNullOrEmpty(sort))
+                    {
+                        sortField = sort;
+                    }
+                    if (filter.TryGetValue("_order", out string order) && !string.IsNullOrEmpty(order))
+                    {
+                        isDescending = order.ToUpper() == "DESC";
+                    }
+                }
+                var sortDefinition = isDescending
+                    ? Builders<BsonDocument>.Sort.Descending(sortField)
+                    : Builders<BsonDocument>.Sort.Ascending(sortField);
+
+                // Пагинация
+                IFindFluent<BsonDocument, BsonDocument> query = _imageCollection.Find(filterDefinition).Sort(sortDefinition);
+                if (filter != null)
+                {
+                    if (filter.TryGetValue("page", out string pageStr) &&
+                        filter.TryGetValue("perPage", out string perPageStr) &&
+                        int.TryParse(pageStr, out int page) &&
+                        int.TryParse(perPageStr, out int perPage))
+                    {
+                        int skip = (page - 1) * perPage;
+                        query = query.Skip(skip).Limit(perPage);
+                    }
+                }
+
+                var documents = await query.ToListAsync();
+
+                // Формирование массива изображений с корректным форматом id
+                var imagesList = new List<object>();
+                foreach (var document in documents)
+                {
+                    var jsonString = document.ToJson();
+                    var jsonDoc = JsonDocument.Parse(jsonString);
+
+                    // Преобразуем весь документ в словарь
+                    var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString);
+
+                    // Изменяем формат идентификатора
+                    if (dict.ContainsKey("_id"))
+                    {
+                        var idObj = dict["_id"] as JsonElement?;
+                        if (idObj.HasValue && idObj.Value.ValueKind == JsonValueKind.Object)
+                        {
+                            if (idObj.Value.TryGetProperty("$oid", out var oidElement))
+                            {
+                                dict["id"] = oidElement.GetString();
+                            }
+                        }
+                        dict.Remove("_id");
+                    }
+
+                    imagesList.Add(dict);
+                    jsonDoc.Dispose();
+                }
+
+                // Формирование результирующего JSON документа
+                var result = new
+                {
+                    success = true,
+                    data = new
+                    {
+                        totalCount = totalCount,
+                        images = imagesList
+                    }
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(result));
+            }
+            catch (Exception ex)
+            {
+                var errorResult = new
+                {
+                    success = false,
+                    error = $"An error occurred: {ex.Message}"
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResult));
             }
         }
     }
