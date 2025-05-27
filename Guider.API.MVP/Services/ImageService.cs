@@ -376,14 +376,25 @@ namespace Guider.API.MVP.Services
             }
         }
 
-        public async Task<JsonDocument> DeleteImageByIdAsync(string id)
+       public async Task<JsonDocument> DeleteImageByIdAsync(string id)
         {
             try
             {
                 // Проверка формата ID
                 if (!ObjectId.TryParse(id, out var objectId))
                 {
-                    return CreateJsonResponse(false, "Неверный формат ID", null);
+                    var errorResponse = new Dictionary<string, object>
+                    {
+                        ["Success"] = false,
+                        ["Message"] = "Неверный формат ID"
+                    };
+
+                    var errorJson = JsonSerializer.Serialize(errorResponse, new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    });
+
+                    return JsonDocument.Parse(errorJson);
                 }
 
                 var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
@@ -392,7 +403,18 @@ namespace Guider.API.MVP.Services
                 // Проверка существования записи
                 if (imageRecord == null)
                 {
-                    return CreateJsonResponse(false, "Изображение не найдено", null);
+                    var notFoundResponse = new Dictionary<string, object>
+                    {
+                        ["Success"] = false,
+                        ["Message"] = "Изображение не найдено"
+                    };
+
+                    var notFoundJson = JsonSerializer.Serialize(notFoundResponse, new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    });
+
+                    return JsonDocument.Parse(notFoundJson);
                 }
 
                 // Сохраняем информацию об изображении перед удалением
@@ -426,44 +448,80 @@ namespace Guider.API.MVP.Services
 
                 if (deleteResult.DeletedCount == 0)
                 {
-                    return CreateJsonResponse(false, "Не удалось удалить запись из базы данных", null);
+                    var deleteFailResponse = new Dictionary<string, object>
+                    {
+                        ["Success"] = false,
+                        ["Message"] = "Не удалось удалить запись из базы данных"
+                    };
+
+                    var deleteFailJson = JsonSerializer.Serialize(deleteFailResponse, new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    });
+
+                    return JsonDocument.Parse(deleteFailJson);
                 }
 
-                return CreateJsonResponse(true, "Изображение и запись успешно удалены", imageInfo);
+                // Успешное удаление
+                var successResponse = new Dictionary<string, object>
+                {
+                    ["Success"] = true,
+                    ["Message"] = "Изображение и запись успешно удалены",
+                    ["ImageInfo"] = imageInfo
+                };
+
+                var successJson = JsonSerializer.Serialize(successResponse, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                return JsonDocument.Parse(successJson);
             }
             catch (UnauthorizedAccessException ex)
             {
-                return CreateJsonResponse(false, $"Доступ запрещен: {ex.Message}", null);
+                var unauthorizedResponse = new Dictionary<string, object>
+                {
+                    ["Success"] = false,
+                    ["Message"] = $"Доступ запрещен: {ex.Message}"
+                };
+
+                var unauthorizedJson = JsonSerializer.Serialize(unauthorizedResponse, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                return JsonDocument.Parse(unauthorizedJson);
             }
             catch (IOException ex)
             {
-                return CreateJsonResponse(false, $"Ошибка файловой системы: {ex.Message}", null);
+                var ioResponse = new Dictionary<string, object>
+                {
+                    ["Success"] = false,
+                    ["Message"] = $"Ошибка файловой системы: {ex.Message}"
+                };
+
+                var ioJson = JsonSerializer.Serialize(ioResponse, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                return JsonDocument.Parse(ioJson);
             }
             catch (Exception ex)
             {
-                return CreateJsonResponse(false, $"Ошибка при удалении изображения: {ex.Message}", null);
+                var generalErrorResponse = new Dictionary<string, object>
+                {
+                    ["Success"] = false,
+                    ["Message"] = $"Ошибка при удалении изображения: {ex.Message}"
+                };
+
+                var generalErrorJson = JsonSerializer.Serialize(generalErrorResponse, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                return JsonDocument.Parse(generalErrorJson);
             }
-        }
-
-        private JsonDocument CreateJsonResponse(bool success, string message, object imageInfo = null)
-        {
-            var response = new Dictionary<string, object>
-            {
-                ["Success"] = success,
-                ["Message"] = message
-            };
-
-            if (imageInfo != null)
-            {
-                response["ImageInfo"] = imageInfo;
-            }
-
-            var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
-
-            return JsonDocument.Parse(json);
         }
 
         private string BuildDirectoryPath(string province, string? city, string place)
