@@ -1384,65 +1384,156 @@ namespace Guider.API.MVP.Services
             }
         }
 
-       public async Task<JsonDocument> DeleteImageByIdAsync(string id)
+        //public async Task<JsonDocument> DeleteImageByIdAsync(string id)
+        // {
+        //     try
+        //     {
+        //         if (!ObjectId.TryParse(id, out var objectId))
+        //         {
+        //             return CreateJsonResponse(false, "Неверный формат ID");
+        //         }
+
+        //         var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+
+        //         var imageRecord = await _imageCollection.Find(filter).FirstOrDefaultAsync();
+        //         if (imageRecord == null)
+        //         {
+        //             return CreateJsonResponse(false, "Изображение не найдено");
+        //         }
+
+        //         string filePath = imageRecord["FilePath"].AsString;
+        //         string absolutePath = Path.Combine(_baseImagePath, filePath);
+
+        //         // Удаляем файл с диска, если он существует
+        //         if (File.Exists(absolutePath))
+        //         {
+        //             File.Delete(absolutePath);
+        //         }
+
+        //         // Полностью удаляем запись из MongoDB
+        //         var deleteResult = await _imageCollection.DeleteOneAsync(filter);
+
+        //         if (deleteResult.DeletedCount == 0)
+        //         {
+        //             return CreateJsonResponse(false, "Не удалось удалить запись из базы данных");
+        //         }
+
+        //         return CreateJsonResponse(true, "Изображение и запись успешно удалены");
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         return CreateJsonResponse(false, $"Ошибка при удалении изображения: {ex.Message}");
+        //     }
+        // }
+
+        public async Task<JsonDocument> DeleteImageByIdAsync(string id)
         {
             try
             {
+                // Проверка формата ID
                 if (!ObjectId.TryParse(id, out var objectId))
                 {
-                    return CreateJsonResponse(false, "Неверный формат ID");
+                    return CreateJsonResponse(false, "Неверный формат ID", null);
                 }
 
                 var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
-
                 var imageRecord = await _imageCollection.Find(filter).FirstOrDefaultAsync();
+
+                // Проверка существования записи
                 if (imageRecord == null)
                 {
-                    return CreateJsonResponse(false, "Изображение не найдено");
+                    return CreateJsonResponse(false, "Изображение не найдено", null);
                 }
 
+                // Сохраняем информацию об изображении перед удалением
+                var imageInfo = new
+                {
+                    Id = imageRecord["_id"].ToString(),
+                    Province = imageRecord.GetValue("Province", "").AsString,
+                    City = imageRecord.Contains("City") && imageRecord["City"] != BsonNull.Value
+                        ? imageRecord["City"].AsString : null,
+                    Place = imageRecord.GetValue("Place", "").AsString,
+                    ImageName = imageRecord.GetValue("ImageName", "").AsString,
+                    OriginalFileName = imageRecord.GetValue("OriginalFileName", "").AsString,
+                    FileSize = imageRecord.GetValue("FileSize", 0L).AsInt64,
+                    ContentType = imageRecord.GetValue("ContentType", "").AsString,
+                    Extension = imageRecord.GetValue("Extension", "").AsString,
+                    UploadDate = imageRecord.GetValue("UploadDate", DateTime.UtcNow).ToUniversalTime(),
+                    DeletedDate = DateTime.UtcNow
+                };
+
+                // Удаляем файл с диска, если он существует
                 string filePath = imageRecord["FilePath"].AsString;
                 string absolutePath = Path.Combine(_baseImagePath, filePath);
 
-                // Удаляем файл с диска, если он существует
                 if (File.Exists(absolutePath))
                 {
                     File.Delete(absolutePath);
                 }
 
-                // Полностью удаляем запись из MongoDB
+                // Удаляем запись из MongoDB
                 var deleteResult = await _imageCollection.DeleteOneAsync(filter);
 
                 if (deleteResult.DeletedCount == 0)
                 {
-                    return CreateJsonResponse(false, "Не удалось удалить запись из базы данных");
+                    return CreateJsonResponse(false, "Не удалось удалить запись из базы данных", null);
                 }
 
-                return CreateJsonResponse(true, "Изображение и запись успешно удалены");
+                return CreateJsonResponse(true, "Изображение и запись успешно удалены", imageInfo);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return CreateJsonResponse(false, $"Доступ запрещен: {ex.Message}", null);
+            }
+            catch (IOException ex)
+            {
+                return CreateJsonResponse(false, $"Ошибка файловой системы: {ex.Message}", null);
             }
             catch (Exception ex)
             {
-                return CreateJsonResponse(false, $"Ошибка при удалении изображения: {ex.Message}");
+                return CreateJsonResponse(false, $"Ошибка при удалении изображения: {ex.Message}", null);
             }
         }
 
-       private JsonDocument CreateJsonResponse(bool success, string message)
-        {
-            var options = new JsonWriterOptions { Indented = true };
-            using var stream = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(stream, options))
-            {
-                writer.WriteStartObject();
-                writer.WriteBoolean("Success", success);
-                writer.WriteString("Message", message);
-                writer.WriteEndObject();
-            }
+        //private JsonDocument CreateJsonResponse(bool success, string message)
+        //{
+        //    var options = new JsonWriterOptions { Indented = true };
+        //    using var stream = new MemoryStream();
+        //    using (var writer = new Utf8JsonWriter(stream, options))
+        //    {
+        //        writer.WriteStartObject();
+        //        writer.WriteBoolean("Success", success);
+        //        writer.WriteString("Message", message);
+        //        writer.WriteEndObject();
+        //    }
 
-            stream.Position = 0;
-            return JsonDocument.Parse(stream);
-        }
+        //    stream.Position = 0;
+        //    return JsonDocument.Parse(stream);
+        //}
 
         // Helper methods for building paths
+
+        private JsonDocument CreateJsonResponse(bool success, string message, object imageInfo = null)
+        {
+            var response = new Dictionary<string, object>
+            {
+                ["Success"] = success,
+                ["Message"] = message
+            };
+
+            if (imageInfo != null)
+            {
+                response["ImageInfo"] = imageInfo;
+            }
+
+            var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+
+            return JsonDocument.Parse(json);
+        }
+
         private string BuildDirectoryPath(string province, string? city, string place)
         {
             if (string.IsNullOrEmpty(city))
