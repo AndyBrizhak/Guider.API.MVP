@@ -215,41 +215,14 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-        /// <summary>
-        /// Получение изображения по ID
-        /// </summary>
-        /// <param name="id">Идентификатор изображения</param>
-        /// <returns>Файл изображения с метаданными в заголовках</returns>
-        //[HttpGet("{id}")]
-        //public async Task<IActionResult> GetImageById(string id)
-        //{
-        //    var jsonResult = await _imageService.GetImageByIdAsync(id);
-
-        //    if (jsonResult.RootElement.TryGetProperty("Success", out var successElement) &&
-        //        !successElement.GetBoolean())
-        //    {
-        //        string message = jsonResult.RootElement.TryGetProperty("Message", out var msgProp)
-        //            ? msgProp.GetString() ?? "Ошибка"
-        //            : "Ошибка";
-
-        //        if (message.Contains("не найдено", StringComparison.OrdinalIgnoreCase))
-        //            return NotFound(jsonResult.RootElement.GetRawText());
-
-        //        if (message.Contains("Неверный формат ID", StringComparison.OrdinalIgnoreCase))
-        //            return BadRequest(jsonResult.RootElement.GetRawText());
-
-        //        return StatusCode(500, jsonResult.RootElement.GetRawText());
-        //    }
-
-        //    return Ok(jsonResult.RootElement.GetRawText());
-        //}
-
+        
         /// <summary>
         /// Получение метаданных изображения по ID без загрузки самого файла
         /// </summary>
         /// <param name="id">Идентификатор изображения</param>
         /// <returns>JSON объект с метаданными изображения</returns>
-        [HttpGet("{id}/info")]
+        [HttpGet("{id}")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetImageInfoById(string id)
         {
             if (string.IsNullOrEmpty(id))
@@ -299,33 +272,6 @@ namespace Guider.API.MVP.Controllers
                         message = errorMessage
                     });
                 }
-
-                // Извлекаем только метаданные изображения
-                //if (!jsonResult.RootElement.TryGetProperty("Image", out var imageInfoElement))
-                //{
-                //    return StatusCode(500, new
-                //    {
-                //        error = "Внутренняя ошибка",
-                //        message = "Метаданные изображения отсутствуют в ответе сервиса"
-                //    });
-                //}
-
-                // Возвращаем метаданные изображения
-                //return Ok(new
-                //{
-                //    id = imageInfoElement.GetProperty("Id").GetString(),
-                //    province = imageInfoElement.GetProperty("Province").GetString(),
-                //    city = imageInfoElement.TryGetProperty("City", out var cityProp) && cityProp.ValueKind != JsonValueKind.Null
-                //        ? cityProp.GetString() : null,
-                //    place = imageInfoElement.GetProperty("Place").GetString(),
-                //    imageName = imageInfoElement.GetProperty("ImageName").GetString(),
-                //    originalFileName = imageInfoElement.GetProperty("OriginalFileName").GetString(),
-                //    fileSize = imageInfoElement.GetProperty("FileSize").GetInt64(),
-                //    contentType = imageInfoElement.GetProperty("ContentType").GetString(),
-                //    extension = imageInfoElement.GetProperty("Extension").GetString(),
-                //    uploadDate = imageInfoElement.GetProperty("UploadDate").GetDateTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-                //});
-
                 return Ok(jsonResult.RootElement.GetProperty("Image"));
             }
             catch (Exception ex)
