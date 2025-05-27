@@ -526,9 +526,9 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-        
+
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         [HttpDelete("{id}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> DeleteImageById(string id)
         {
             if (string.IsNullOrEmpty(id))
@@ -558,75 +558,38 @@ namespace Guider.API.MVP.Controllers
                     // Определяем тип ошибки для правильного HTTP статуса
                     if (errorMessage.Contains("не найдено") || errorMessage.Contains("not found"))
                     {
-                        return NotFound(new
-                        {
-                            error = "Изображение не найдено",
-                            message = errorMessage
-                        });
+                        return NotFound(new { error = "Изображение не найдено", message = errorMessage });
                     }
 
                     if (errorMessage.Contains("Неверный формат ID"))
                     {
-                        return BadRequest(new
-                        {
-                            error = "Некорректный ID",
-                            message = errorMessage
-                        });
+                        return BadRequest(new { error = "Некорректный ID", message = errorMessage });
                     }
 
                     if (errorMessage.Contains("Доступ запрещен"))
                     {
-                        return StatusCode(403, new
-                        {
-                            error = "Доступ запрещен",
-                            message = errorMessage
-                        });
+                        return StatusCode(403, new { error = "Доступ запрещен", message = errorMessage });
                     }
 
                     if (errorMessage.Contains("файловой системы"))
                     {
-                        return StatusCode(500, new
-                        {
-                            error = "Ошибка файловой системы",
-                            message = errorMessage
-                        });
+                        return StatusCode(500, new { error = "Ошибка файловой системы", message = errorMessage });
                     }
 
-                    return BadRequest(new
-                    {
-                        error = "Ошибка удаления изображения",
-                        message = errorMessage
-                    });
+                    return BadRequest(new { error = "Ошибка удаления изображения", message = errorMessage });
                 }
 
-                // Успешное удаление - извлекаем информацию об удаленном изображении
-                if (!deleteResult.RootElement.TryGetProperty("ImageInfo", out var imageInfoElement))
+                // Возвращаем ImageInfo напрямую как JsonElement
+                if (deleteResult.RootElement.TryGetProperty("ImageInfo", out var imageInfoElement))
                 {
-                    return StatusCode(500, new
-                    {
-                        error = "Внутренняя ошибка",
-                        message = "Не удалось получить информацию об удаленном изображении"
-                    });
+                    return Ok(imageInfoElement);
                 }
 
-                // Формируем ответ с информацией об удаленном изображении
-                var deletedImageInfo = new
+                return StatusCode(500, new
                 {
-                    id = imageInfoElement.GetProperty("id").GetString(),
-                    province = imageInfoElement.GetProperty("province").GetString(),
-                    city = imageInfoElement.TryGetProperty("city", out var cityProp) && cityProp.ValueKind != JsonValueKind.Null
-                        ? cityProp.GetString() : null,
-                    place = imageInfoElement.GetProperty("place").GetString(),
-                    imageName = imageInfoElement.GetProperty("imageName").GetString(),
-                    originalFileName = imageInfoElement.GetProperty("originalFileName").GetString(),
-                    fileSize = imageInfoElement.GetProperty("fileSize").GetInt64(),
-                    contentType = imageInfoElement.GetProperty("contentType").GetString(),
-                    extension = imageInfoElement.GetProperty("extension").GetString(),
-                    uploadDate = imageInfoElement.GetProperty("uploadDate").GetDateTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
-                    deletedDate = imageInfoElement.GetProperty("deletedDate").GetDateTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-                };
-
-                return Ok(deletedImageInfo);
+                    error = "Внутренняя ошибка",
+                    message = "Не удалось получить информацию об удаленном изображении"
+                });
             }
             catch (JsonException ex)
             {
@@ -645,6 +608,7 @@ namespace Guider.API.MVP.Controllers
                 });
             }
         }
+
 
     }
 }
