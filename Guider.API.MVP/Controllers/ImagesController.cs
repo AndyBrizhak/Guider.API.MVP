@@ -220,152 +220,29 @@ namespace Guider.API.MVP.Controllers
         /// </summary>
         /// <param name="id">Идентификатор изображения</param>
         /// <returns>Файл изображения с метаданными в заголовках</returns>
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetImageById(string id)
-        {
-            if (string.IsNullOrEmpty(id))
-            {
-                return BadRequest(new
-                {
-                    error = "Некорректный параметр",
-                    message = "ID изображения не может быть пустым"
-                });
-            }
+        //[HttpGet("{id}")]
+        //public async Task<IActionResult> GetImageById(string id)
+        //{
+        //    var jsonResult = await _imageService.GetImageByIdAsync(id);
 
-            try
-            {
-                var jsonResult = await _imageService.GetImageByIdAsync(id);
+        //    if (jsonResult.RootElement.TryGetProperty("Success", out var successElement) &&
+        //        !successElement.GetBoolean())
+        //    {
+        //        string message = jsonResult.RootElement.TryGetProperty("Message", out var msgProp)
+        //            ? msgProp.GetString() ?? "Ошибка"
+        //            : "Ошибка";
 
-                // Проверяем успешность операции
-                if (jsonResult.RootElement.TryGetProperty("Success", out var successElement) &&
-                    successElement.GetBoolean() == false)
-                {
-                    // Извлекаем сообщение об ошибке
-                    string errorMessage = "Неизвестная ошибка при получении изображения";
-                    if (jsonResult.RootElement.TryGetProperty("Message", out var messageElement))
-                    {
-                        errorMessage = messageElement.GetString() ?? errorMessage;
-                    }
+        //        if (message.Contains("не найдено", StringComparison.OrdinalIgnoreCase))
+        //            return NotFound(jsonResult.RootElement.GetRawText());
 
-                    // Определяем статус код в зависимости от типа ошибки
-                    if (errorMessage.Contains("не найдено") || errorMessage.Contains("not found"))
-                    {
-                        return NotFound(new
-                        {
-                            error = "Изображение не найдено",
-                            message = errorMessage
-                        });
-                    }
+        //        if (message.Contains("Неверный формат ID", StringComparison.OrdinalIgnoreCase))
+        //            return BadRequest(jsonResult.RootElement.GetRawText());
 
-                    if (errorMessage.Contains("Неверный формат ID"))
-                    {
-                        return BadRequest(new
-                        {
-                            error = "Некорректный ID",
-                            message = errorMessage
-                        });
-                    }
+        //        return StatusCode(500, jsonResult.RootElement.GetRawText());
+        //    }
 
-                    return BadRequest(new
-                    {
-                        error = "Ошибка получения изображения",
-                        message = errorMessage
-                    });
-                }
-
-                // Извлекаем данные изображения
-                if (!jsonResult.RootElement.TryGetProperty("Image", out var imageElement))
-                {
-                    return StatusCode(500, new
-                    {
-                        error = "Внутренняя ошибка",
-                        message = "Данные изображения отсутствуют в ответе сервиса"
-                    });
-                }
-
-                if (!jsonResult.RootElement.TryGetProperty("ImageInfo", out var imageInfoElement))
-                {
-                    return StatusCode(500, new
-                    {
-                        error = "Внутренняя ошибка",
-                        message = "Метаданные изображения отсутствуют в ответе сервиса"
-                    });
-                }
-
-                // Получаем байты изображения
-                byte[] imageBytes = imageElement.GetBytesFromBase64();
-
-                // Извлекаем метаданные изображения
-                var imageInfo = new
-                {
-                    Id = imageInfoElement.GetProperty("Id").GetString(),
-                    Province = imageInfoElement.GetProperty("Province").GetString(),
-                    City = imageInfoElement.TryGetProperty("City", out var cityProp) && cityProp.ValueKind != JsonValueKind.Null
-                        ? cityProp.GetString() : null,
-                    Place = imageInfoElement.GetProperty("Place").GetString(),
-                    ImageName = imageInfoElement.GetProperty("ImageName").GetString(),
-                    OriginalFileName = imageInfoElement.GetProperty("OriginalFileName").GetString(),
-                    FileSize = imageInfoElement.GetProperty("FileSize").GetInt64(),
-                    ContentType = imageInfoElement.GetProperty("ContentType").GetString(),
-                    Extension = imageInfoElement.GetProperty("Extension").GetString(),
-                    UploadDate = imageInfoElement.GetProperty("UploadDate").GetDateTime()
-                };
-
-                // Добавляем метаданные в заголовки ответа
-                Response.Headers.Add("X-Image-Id", imageInfo.Id);
-                Response.Headers.Add("X-Image-Province", imageInfo.Province);
-                if (!string.IsNullOrEmpty(imageInfo.City))
-                    Response.Headers.Add("X-Image-City", imageInfo.City);
-                Response.Headers.Add("X-Image-Place", imageInfo.Place);
-                Response.Headers.Add("X-Image-Name", imageInfo.ImageName);
-                Response.Headers.Add("X-Original-Filename", imageInfo.OriginalFileName);
-                Response.Headers.Add("X-File-Size", imageInfo.FileSize.ToString());
-                Response.Headers.Add("X-Upload-Date", imageInfo.UploadDate.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
-
-                // Возвращаем файл изображения
-                return File(imageBytes, imageInfo.ContentType, imageInfo.OriginalFileName);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(new
-                {
-                    error = "Некорректные входные данные",
-                    message = ex.Message
-                });
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return StatusCode(403, new
-                {
-                    error = "Доступ запрещен",
-                    message = "У вас нет прав для получения этого изображения"
-                });
-            }
-            catch (IOException ex)
-            {
-                return StatusCode(500, new
-                {
-                    error = "Ошибка файловой системы",
-                    message = $"Не удалось прочитать файл: {ex.Message}"
-                });
-            }
-            catch (JsonException ex)
-            {
-                return StatusCode(500, new
-                {
-                    error = "Ошибка обработки данных",
-                    message = $"Ошибка при обработке ответа сервиса: {ex.Message}"
-                });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new
-                {
-                    error = "Внутренняя ошибка сервера",
-                    message = "Произошла непредвиденная ошибка при получении изображения"
-                });
-            }
-        }
+        //    return Ok(jsonResult.RootElement.GetRawText());
+        //}
 
         /// <summary>
         /// Получение метаданных изображения по ID без загрузки самого файла
@@ -424,30 +301,32 @@ namespace Guider.API.MVP.Controllers
                 }
 
                 // Извлекаем только метаданные изображения
-                if (!jsonResult.RootElement.TryGetProperty("ImageInfo", out var imageInfoElement))
-                {
-                    return StatusCode(500, new
-                    {
-                        error = "Внутренняя ошибка",
-                        message = "Метаданные изображения отсутствуют в ответе сервиса"
-                    });
-                }
+                //if (!jsonResult.RootElement.TryGetProperty("Image", out var imageInfoElement))
+                //{
+                //    return StatusCode(500, new
+                //    {
+                //        error = "Внутренняя ошибка",
+                //        message = "Метаданные изображения отсутствуют в ответе сервиса"
+                //    });
+                //}
 
                 // Возвращаем метаданные изображения
-                return Ok(new
-                {
-                    id = imageInfoElement.GetProperty("Id").GetString(),
-                    province = imageInfoElement.GetProperty("Province").GetString(),
-                    city = imageInfoElement.TryGetProperty("City", out var cityProp) && cityProp.ValueKind != JsonValueKind.Null
-                        ? cityProp.GetString() : null,
-                    place = imageInfoElement.GetProperty("Place").GetString(),
-                    imageName = imageInfoElement.GetProperty("ImageName").GetString(),
-                    originalFileName = imageInfoElement.GetProperty("OriginalFileName").GetString(),
-                    fileSize = imageInfoElement.GetProperty("FileSize").GetInt64(),
-                    contentType = imageInfoElement.GetProperty("ContentType").GetString(),
-                    extension = imageInfoElement.GetProperty("Extension").GetString(),
-                    uploadDate = imageInfoElement.GetProperty("UploadDate").GetDateTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-                });
+                //return Ok(new
+                //{
+                //    id = imageInfoElement.GetProperty("Id").GetString(),
+                //    province = imageInfoElement.GetProperty("Province").GetString(),
+                //    city = imageInfoElement.TryGetProperty("City", out var cityProp) && cityProp.ValueKind != JsonValueKind.Null
+                //        ? cityProp.GetString() : null,
+                //    place = imageInfoElement.GetProperty("Place").GetString(),
+                //    imageName = imageInfoElement.GetProperty("ImageName").GetString(),
+                //    originalFileName = imageInfoElement.GetProperty("OriginalFileName").GetString(),
+                //    fileSize = imageInfoElement.GetProperty("FileSize").GetInt64(),
+                //    contentType = imageInfoElement.GetProperty("ContentType").GetString(),
+                //    extension = imageInfoElement.GetProperty("Extension").GetString(),
+                //    uploadDate = imageInfoElement.GetProperty("UploadDate").GetDateTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+                //});
+
+                return Ok(jsonResult.RootElement.GetProperty("Image"));
             }
             catch (Exception ex)
             {

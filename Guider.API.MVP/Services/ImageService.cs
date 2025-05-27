@@ -248,11 +248,7 @@ namespace Guider.API.MVP.Services
                     }));
                 }
 
-                var filter = Builders<BsonDocument>.Filter.And(
-                    Builders<BsonDocument>.Filter.Eq("_id", objectId)
-                    //Builders<BsonDocument>.Filter.Eq("IsActive", true)
-                );
-
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
                 var imageRecord = await _imageCollection.Find(filter).FirstOrDefaultAsync();
 
                 if (imageRecord == null)
@@ -264,37 +260,28 @@ namespace Guider.API.MVP.Services
                     }));
                 }
 
-                string filePath = imageRecord["FilePath"].AsString;
-                string absolutePath = Path.Combine(_baseImagePath, filePath);
-
-                if (!File.Exists(absolutePath))
+                var imageObj = new
                 {
-                    return JsonDocument.Parse(JsonSerializer.Serialize(new
-                    {
-                        Success = false,
-                        Message = "Файл изображения не найден на диске"
-                    }));
-                }
+                    Id = imageRecord["_id"].ToString(),
+                    Province = imageRecord["Province"].AsString,
+                    City = imageRecord.Contains("City") && !imageRecord["City"].IsBsonNull ? imageRecord["City"].AsString : null,
+                    Place = imageRecord["Place"].AsString,
+                    ImageName = imageRecord["ImageName"].AsString,
+                    OriginalFileName = imageRecord["OriginalFileName"].AsString,
+                    FilePath = imageRecord["FilePath"].AsString,
+                    FileSize = imageRecord["FileSize"].AsInt64,
+                    ContentType = imageRecord["ContentType"].AsString,
+                    Extension = imageRecord["Extension"].AsString,
+                    UploadDate = imageRecord["UploadDate"].ToUniversalTime()
+                };
 
-                byte[] imageBytes = File.ReadAllBytes(absolutePath);
-                return JsonDocument.Parse(JsonSerializer.Serialize(new
+                var result = new
                 {
                     Success = true,
-                    Image = imageBytes,
-                    ImageInfo = new
-                    {
-                        Id = imageRecord["_id"].ToString(),
-                        Province = imageRecord["Province"].AsString,
-                        City = imageRecord.Contains("City") && !imageRecord["City"].IsBsonNull ? imageRecord["City"].AsString : null,
-                        Place = imageRecord["Place"].AsString,
-                        ImageName = imageRecord["ImageName"].AsString,
-                        OriginalFileName = imageRecord["OriginalFileName"].AsString,
-                        FileSize = imageRecord["FileSize"].AsInt64,
-                        ContentType = imageRecord["ContentType"].AsString,
-                        Extension = imageRecord["Extension"].AsString,
-                        UploadDate = imageRecord["UploadDate"].ToUniversalTime()
-                    }
-                }));
+                    Image = imageObj
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(result));
             }
             catch (Exception ex)
             {
