@@ -353,7 +353,7 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-        
+               
         [HttpGet]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetImages(
@@ -364,8 +364,8 @@ namespace Guider.API.MVP.Controllers
         [FromQuery] string originalFileName = null,
         [FromQuery] int page = 1,
         [FromQuery] int perPage = 10,
-        [FromQuery] string _sort = "UploadDate",
-        [FromQuery] string _order = "DESC")
+        [FromQuery] string sortField = "imageName",      // Изменено на imageName
+        [FromQuery] string sortOrder = "ASC")            // Изменено на ASC для алфавитной сортировки
         {
             var filter = new Dictionary<string, string>();
             if (!string.IsNullOrEmpty(q))
@@ -378,13 +378,13 @@ namespace Guider.API.MVP.Controllers
                 filter["place"] = place;
             if (!string.IsNullOrEmpty(originalFileName))
                 filter["originalFileName"] = originalFileName;
-            filter["_sort"] = _sort;
-            filter["_order"] = _order;
+
+            filter["_sort"] = sortField;
+            filter["_order"] = sortOrder;
             filter["page"] = page.ToString();
             filter["perPage"] = perPage.ToString();
 
             var result = await _imageService.GetImagesAsync(filter);
-
             try
             {
                 // Проверка успешности операции
@@ -394,11 +394,9 @@ namespace Guider.API.MVP.Controllers
                     var dataElement = result.RootElement.GetProperty("data");
                     var totalCount = dataElement.GetProperty("totalCount").GetInt64();
                     var imagesElement = dataElement.GetProperty("images");
-
                     // Добавление заголовка с общим количеством записей
                     Response.Headers.Add("X-Total-Count", totalCount.ToString());
                     Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
-
                     // Возврат массива изображений
                     var imagesArray = JsonSerializer.Deserialize<object[]>(imagesElement.GetRawText());
                     return Ok(imagesArray);
