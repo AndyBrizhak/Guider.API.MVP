@@ -174,7 +174,7 @@ namespace Guider.API.MVP.Services
 
                 var imageObj = new
                 {
-                    Id = imageRecord["_id"].ToString(),
+                    id = imageRecord["_id"].ToString(),
                     Province = imageRecord["Province"].AsString,
                     City = imageRecord.Contains("City") && !imageRecord["City"].IsBsonNull ? imageRecord["City"].AsString : null,
                     Place = imageRecord["Place"].AsString,

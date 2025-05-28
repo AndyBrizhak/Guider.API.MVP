@@ -16,6 +16,7 @@ using System.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Guider.API.MVP.Filters;
 using Guider.API.MVP.Utility;
+using Microsoft.AspNetCore.Http.Features;
 
 // Загружаем .env файлы перед созданием builder
 EnvLoader.LoadEnvFiles();
@@ -79,6 +80,11 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 options.SignIn.RequireConfirmedAccount = true)
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 10 * 1024 * 1024; // 10MB
+});
 
 builder.Services.Configure<IdentityOptions>(options =>
 {
