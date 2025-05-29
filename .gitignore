@@ -494,3 +494,14 @@ $RECYCLE.BIN/
 # Vim temporary swap files
 *.swp
 /Guider.API.MVP/appsettings.Development.json
+/Guider.API.MVP/.gitignore
+/Guider.API.MVP/.env .docker
+/Guider.API.MVP/.env.local.example
+/Guider.API.MVP/wwwroot/images/Negros/Dumaguete/Waterfall/waterfall.png
+/Guider.API.MVP/kill-guider-processes.bat
+/Guider.API.MVP/readme.txt
+/Guider.API.MVP/setup-local-dev.bat
+/Guider.API.MVP/setup-local-dev.sh
+/Guider.API.MVP/setup_local_script.sh
+/.gitignore
+/.gitignore
