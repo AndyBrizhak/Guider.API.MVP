@@ -1,28 +1,4 @@
-﻿//using Microsoft.AspNetCore.Http;
-
-//namespace Guider.API.MVP.Models
-//{
-//    public class ImageUploadRequest
-//    {
-//        // Province name (required)
-//        public string Province { get; set; }
-
-//        // City name (optional)
-//        public string? City { get; set; }
-
-//        // Place name (required)
-//        public string Place { get; set; }
-
-//        // Unique image name
-//        public string ImageName { get; set; }
-
-//        // Image file
-//        public IFormFile ImageFile { get; set; }
-//    }
-//}
-
-
-
+﻿
 using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
 
