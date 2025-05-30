@@ -554,3 +554,13 @@ Thumbs.db
 /Guider.API.MVP/wwwroot/images/string/string/string/string3.png
 /Guider.API.MVP/wwwroot/images/string/string/string/string5.png
 /Guider.API.MVP/wwwroot/images/string/string/string/string10.png
+/test.md
+/.gitignore
+/Guider.API.MVP/wwwroot/images/Get Tanked/Get Tanked.jpg
+/Guider.API.MVP/wwwroot/images/Guanacaste/Playa del Coco/Zi Lounge/Zi Lounge bar.jpg
+/Guider.API.MVP/wwwroot/images/Guanacaste/Playa del Coco/Zi Lounge/Zi Lounge main 2.jpg
+/Guider.API.MVP/wwwroot/images/Guanacaste/playa_del_coco/Get Tanked/Get Tanked-main.jpg
+/Guider.API.MVP/wwwroot/images/Guanacaste/playa_del_coco/Zi Lounge/Zi Lounge main 2.jpg
+/Guider.API.MVP/wwwroot/images/Guanacaste/playa_del_coco/Zi Lounge/Zi Lounge main 3.jpg
+/.gitignore
+*.jpg
