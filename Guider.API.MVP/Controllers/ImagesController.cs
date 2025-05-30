@@ -21,6 +21,40 @@ namespace Guider.API.MVP.Controllers
             _imageService = imageService;
         }
 
+        /// <summary>
+        /// Uploads an image with metadata.
+        /// </summary>
+        /// <remarks>
+        /// Expects multipart/form-data with the following fields:
+        /// - imageName (string, required): Name of the image.
+        /// - imageFile (file, required): Image file to upload.
+        /// - province (string, optional): Province name.
+        /// - city (string, optional): City name.
+        /// - place (string, optional): Place name.
+        /// - description (string, optional): Description of the image.
+        /// - tags (string, optional): Tags for the image (comma-separated).
+        ///
+        /// Returns a JSON object with the uploaded image metadata:
+        /// {
+        ///   "id": "string",
+        ///   "path": "string",
+        ///   "imageName": "string",
+        ///   "originalFileName": "string",
+        ///   "fileSize": 12345,
+        ///   "contentType": "image/jpeg",
+        ///   "uploadDate": "2024-01-01T12:00:00.000Z",
+        ///   "province": "string",
+        ///   "city": "string",
+        ///   "place": "string",
+        ///   "description": "string",
+        ///   "tags": "string"
+        /// }
+        /// </remarks>
+        /// <param name="request">Image upload request.</param>
+        /// <returns>Returns metadata of the uploaded image or error details.</returns>
+        /// <response code="200">Image uploaded successfully.</response>
+        /// <response code="400">Invalid input or unsupported file type.</response>
+        /// <response code="500">Internal server error.</response>
         [HttpPost]
         [Consumes("multipart/form-data")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
@@ -113,6 +147,18 @@ namespace Guider.API.MVP.Controllers
         }
 
         
+        /// <summary>
+        /// Получает метаданные изображения по его идентификатору.
+        /// </summary>
+        /// <remarks>
+        /// Возвращает объект с метаданными изображения, если изображение найдено.
+        /// </remarks>
+        /// <param name="id">Уникальный идентификатор изображения.</param>
+        /// <returns>Метаданные изображения или сообщение об ошибке.</returns>
+        /// <response code="200">Метаданные изображения успешно получены.</response>
+        /// <response code="400">Некорректный идентификатор изображения.</response>
+        /// <response code="404">Изображение не найдено.</response>
+        /// <response code="500">Внутренняя ошибка сервера.</response>
         [HttpGet("{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetImageInfoById(string id)
@@ -157,6 +203,18 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
+        /// <summary>
+        /// Удаляет изображение по его идентификатору.
+        /// </summary>
+        /// <remarks>
+        /// Удаляет изображение и связанные с ним метаданные по указанному идентификатору.
+        /// </remarks>
+        /// <param name="id">Уникальный идентификатор изображения.</param>
+        /// <returns>Информация об удалённом изображении или сообщение об успешном удалении.</returns>
+        /// <response code="200">Изображение успешно удалено.</response>
+        /// <response code="400">Некорректный идентификатор изображения.</response>
+        /// <response code="404">Изображение не найдено.</response>
+        /// <response code="500">Внутренняя ошибка сервера.</response>
         [HttpDelete("{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<IActionResult> DeleteImageById(string id)
@@ -206,6 +264,41 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
+
+        /// <summary>
+        /// Получает список изображений с поддержкой фильтрации, сортировки и пагинации.
+        /// </summary>
+        /// <remarks>
+        /// Позволяет получить список изображений с возможностью фильтрации по различным полям, сортировки и постраничного вывода.
+        ///
+        /// Доступные параметры запроса:
+        /// - q (string, optional): Поиск по всем полям.
+        /// - imageName (string, optional): Фильтрация по названию изображения.
+        /// - province (string, optional): Фильтрация по провинции.
+        /// - place (string, optional): Фильтрация по месту.
+        /// - description (string, optional): Фильтрация по описанию.
+        /// - tags (string, optional): Фильтрация по тегам (через запятую).
+        /// - page (int, optional): Номер страницы (по умолчанию 1).
+        /// - perPage (int, optional): Количество элементов на странице (по умолчанию 10).
+        /// - sortField (string, optional): Поле для сортировки (по умолчанию "imageName").
+        /// - sortOrder (string, optional): Направление сортировки ("ASC" или "DESC", по умолчанию "ASC").
+        ///
+        /// В заголовке ответа возвращается X-Total-Count — общее количество найденных изображений.
+        /// </remarks>
+        /// <param name="q">Поисковый запрос по всем полям.</param>
+        /// <param name="imageName">Название изображения для фильтрации.</param>
+        /// <param name="province">Провинция для фильтрации.</param>
+        /// <param name="place">Место для фильтрации.</param>
+        /// <param name="description">Описание для фильтрации.</param>
+        /// <param name="tags">Теги для фильтрации (через запятую).</param>
+        /// <param name="page">Номер страницы (по умолчанию 1).</param>
+        /// <param name="perPage">Количество элементов на странице (по умолчанию 10).</param>
+        /// <param name="sortField">Поле для сортировки (по умолчанию "imageName").</param>
+        /// <param name="sortOrder">Направление сортировки ("ASC" или "DESC", по умолчанию "ASC").</param>
+        /// <returns>Массив изображений, соответствующих фильтру, с поддержкой пагинации.</returns>
+        /// <response code="200">Список изображений успешно получен.</response>
+        /// <response code="400">Ошибка в параметрах фильтрации или сортировки.</response>
+        /// <response code="500">Внутренняя ошибка сервера.</response>
         [HttpGet]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetImages(
@@ -261,6 +354,7 @@ namespace Guider.API.MVP.Controllers
             {
                 return StatusCode(500, new { error = $"Ошибка при получении списка изображений: {ex.Message}" });
             }
+            
         }
     }
 }
