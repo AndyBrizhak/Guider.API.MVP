@@ -3,6 +3,8 @@
 
 using Guider.API.MVP.Models;
 using Guider.API.MVP.Services;
+using Guider.API.MVP.Utility;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 
@@ -21,6 +23,7 @@ namespace Guider.API.MVP.Controllers
 
         [HttpPost]
         [Consumes("multipart/form-data")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> UploadImage([FromForm] ImageUploadRequest request)
         {
             // Валидация модели
@@ -111,6 +114,7 @@ namespace Guider.API.MVP.Controllers
 
         
         [HttpGet("{id}")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetImageInfoById(string id)
         {
             if (string.IsNullOrEmpty(id))
@@ -154,6 +158,7 @@ namespace Guider.API.MVP.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<IActionResult> DeleteImageById(string id)
         {
             if (string.IsNullOrEmpty(id))
@@ -202,6 +207,7 @@ namespace Guider.API.MVP.Controllers
         }
 
         [HttpGet]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetImages(
             [FromQuery] string q = null,
             [FromQuery] string imageName = null,
