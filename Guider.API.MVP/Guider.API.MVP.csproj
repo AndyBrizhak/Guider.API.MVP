@@ -15,10 +15,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="wwwroot\images\**" />
-    <Content Remove="wwwroot\images\**" />
-    <EmbeddedResource Remove="wwwroot\images\**" />
-    <None Remove="wwwroot\images\**" />
+    <Compile Remove="wwwroot\images\Guanacaste\**" />
+    <Compile Remove="wwwroot\images\Negros\**" />
+    <Compile Remove="wwwroot\images\string\**" />
+    <Content Remove="wwwroot\images\Guanacaste\**" />
+    <Content Remove="wwwroot\images\Negros\**" />
+    <Content Remove="wwwroot\images\string\**" />
+    <EmbeddedResource Remove="wwwroot\images\Guanacaste\**" />
+    <EmbeddedResource Remove="wwwroot\images\Negros\**" />
+    <EmbeddedResource Remove="wwwroot\images\string\**" />
+    <None Remove="wwwroot\images\Guanacaste\**" />
+    <None Remove="wwwroot\images\Negros\**" />
+    <None Remove="wwwroot\images\string\**" />
   </ItemGroup>
 
   
@@ -47,7 +55,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="wwwroot\" />
+    <Folder Include="wwwroot\images\" />
   </ItemGroup>
 
 </Project>

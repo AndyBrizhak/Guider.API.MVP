@@ -1,12 +1,18 @@
 ﻿using System.Text.Json;
+using MongoDB.Driver;
+using MongoDB.Bson;
+using Microsoft.Extensions.Options;
+using Guider.API.MVP.Data;
+using System.Text.RegularExpressions;
 
 namespace Guider.API.MVP.Services
 {
     public class ImageService : IImageService
     {
         private readonly string _baseImagePath;
+        private readonly IMongoCollection<BsonDocument> _imageCollection;
 
-        public ImageService(IConfiguration configuration)
+        public ImageService(IConfiguration configuration, IOptions<MongoDbSettings> mongoSettings)
         {
             _baseImagePath = configuration["StaticFiles:ImagesPath"] ?? "wwwroot/images";
 
@@ -14,17 +20,92 @@ namespace Guider.API.MVP.Services
             {
                 Directory.CreateDirectory(_baseImagePath);
             }
+
+            // Инициализация MongoDB коллекции
+            var client = new MongoClient(mongoSettings.Value.ConnectionString);
+            var database = client.GetDatabase(mongoSettings.Value.DatabaseName);
+
+            // Получаем имя коллекции из настроек или используем значение по умолчанию
+            string collectionName = "images";
+            if (mongoSettings.Value.Collections != null && mongoSettings.Value.Collections.ContainsKey("Images"))
+            {
+                collectionName = mongoSettings.Value.Collections["Images"];
+            }
+
+            _imageCollection = database.GetCollection<BsonDocument>(collectionName);
         }
 
-        public async Task<JsonDocument> SaveImageAsync(string province, string? city, string place, string imageName, IFormFile imageFile)
+        public async Task<JsonDocument> GetImageByIdAsync(string id)
         {
-            if (string.IsNullOrEmpty(province) || string.IsNullOrEmpty(place) ||
-                string.IsNullOrEmpty(imageName) || imageFile == null || imageFile.Length == 0)
+            try
+            {
+                if (!ObjectId.TryParse(id, out var objectId))
+                {
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new
+                    {
+                        Success = false,
+                        Message = "Неверный формат ID"
+                    }));
+                }
+
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+                var imageRecord = await _imageCollection.Find(filter).FirstOrDefaultAsync();
+
+                if (imageRecord == null)
+                {
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new
+                    {
+                        Success = false,
+                        Message = "Изображение не найдено"
+                    }));
+                }
+
+                var imageObj = new
+                {
+                    id = imageRecord["_id"].ToString(),
+                    Province = imageRecord.Contains("Province") && !imageRecord["Province"].IsBsonNull ? imageRecord["Province"].AsString : null,
+                    City = imageRecord.Contains("City") && !imageRecord["City"].IsBsonNull ? imageRecord["City"].AsString : null,
+                    Place = imageRecord.Contains("Place") && !imageRecord["Place"].IsBsonNull ? imageRecord["Place"].AsString : null,
+                    ImageName = imageRecord["ImageName"].AsString,
+                    OriginalFileName = imageRecord["OriginalFileName"].AsString,
+                    FilePath = imageRecord["FilePath"].AsString,
+                    FileSize = imageRecord["FileSize"].AsInt64,
+                    ContentType = imageRecord["ContentType"].AsString,
+                    Extension = imageRecord["Extension"].AsString,
+                    Description = imageRecord.Contains("Description") && !imageRecord["Description"].IsBsonNull ? imageRecord["Description"].AsString : null,
+                    Tags = imageRecord.Contains("Tags") && !imageRecord["Tags"].IsBsonNull ? imageRecord["Tags"].AsString : null,
+                    UploadDate = imageRecord["UploadDate"].ToUniversalTime(),
+                    UpdateDate = imageRecord.Contains("UpdateDate") ? imageRecord["UpdateDate"].ToUniversalTime() : imageRecord["UploadDate"].ToUniversalTime()
+                };
+
+                var result = new
+                {
+                    Success = true,
+                    Image = imageObj
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(result));
+            }
+            catch (Exception ex)
             {
                 return JsonDocument.Parse(JsonSerializer.Serialize(new
                 {
                     Success = false,
-                    Message = "Недопустимые параметры для загрузки изображения"
+                    Message = $"Ошибка при получении изображения: {ex.Message}"
+                }));
+            }
+        }
+
+       public async Task<JsonDocument> SaveImageAsync(string imageName, IFormFile imageFile,
+            string? province = null, string? city = null, string? place = null,
+            string? description = null, string? tags = null)
+        {
+            if (string.IsNullOrEmpty(imageName) || imageFile == null || imageFile.Length == 0)
+            {
+                return JsonDocument.Parse(JsonSerializer.Serialize(new
+                {
+                    Success = false,
+                    Message = "Название изображения и файл являются обязательными параметрами"
                 }));
             }
 
@@ -49,355 +130,418 @@ namespace Guider.API.MVP.Services
                 Directory.CreateDirectory(directoryPath);
             }
 
-            // Проверка на дубликаты имен файлов
+            // Проверка на дубликаты имен файлов в MongoDB
             string imageNameWithoutExtension = Path.GetFileNameWithoutExtension(imageName);
-            string[] allFiles = Directory.GetFiles(_baseImagePath, "*.*", SearchOption.AllDirectories);
+            var duplicateFilter = Builders<BsonDocument>.Filter.Regex("ImageName",
+                new BsonRegularExpression($"^{Regex.Escape(imageNameWithoutExtension)}", "i"));
+            var existingDocument = await _imageCollection.Find(duplicateFilter).FirstOrDefaultAsync();
 
-            string duplicateFilePath = allFiles.FirstOrDefault(file =>
-                Path.GetFileNameWithoutExtension(file).Equals(imageNameWithoutExtension, StringComparison.OrdinalIgnoreCase));
-
-            if (duplicateFilePath != null)
+            if (existingDocument != null)
             {
-                string relativeDuplicatePath = duplicateFilePath.Replace(_baseImagePath, "")
-                    .TrimStart('\\', '/')
-                    .Replace("\\", "/");
-
                 return JsonDocument.Parse(JsonSerializer.Serialize(new
                 {
                     Success = false,
-                    Message = $"Файл с таким названием уже существует в папке: {relativeDuplicatePath}"
+                    Message = $"Файл с названием '{imageNameWithoutExtension}' уже существует"
                 }));
             }
 
-            // Используем проверенное расширение из загружаемого файла
-            string extension = fileExtension;
-
             // Формируем полное имя файла
             string fullImageName = string.IsNullOrEmpty(Path.GetExtension(imageName))
-                ? $"{imageName}{extension}"
+                ? $"{imageName}{fileExtension}"
                 : imageName;
 
             string fullPath = Path.Combine(directoryPath, fullImageName);
+            string relativePath = BuildRelativePath(province, city, place, fullImageName);
 
             try
             {
+                // Сохраняем файл на диск
                 using (var fileStream = new FileStream(fullPath, FileMode.Create))
                 {
                     await imageFile.CopyToAsync(fileStream);
                 }
 
-                string relativePath = BuildRelativePath(province, city, place, fullImageName);
-                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = true, Path = relativePath }));
-            }
-            catch (Exception ex)
-            {
-                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = $"Ошибка при сохранении изображения: {ex.Message}" }));
-            }
-        }
-
-        public JsonDocument GetImage(string province, string? city, string place, string imageName)
-        {
-            if (string.IsNullOrEmpty(province) || string.IsNullOrEmpty(place) || string.IsNullOrEmpty(imageName))
-            {
-                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = "Параметры запроса не могут быть пустыми" }));
-            }
-
-            string relativePath = BuildRelativePath(province, city, place, imageName);
-            string absolutePath = Path.Combine(_baseImagePath, relativePath);
-
-            if (!File.Exists(absolutePath))
-            {
-                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = $"Изображение не найдено" }));
-            }
-
-            try
-            {
-                byte[] imageBytes = File.ReadAllBytes(absolutePath);
-                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = true, Image = imageBytes }));
-            }
-            catch (Exception ex)
-            {
-                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = $"Ошибка при получении изображения: {ex.Message}" }));
-            }
-        }
-
-        public JsonDocument GetImagesList(int page, int pageSize)
-        {
-            try
-            {
-                if (page < 1)
+                // Создаем запись в MongoDB
+                var imageRecord = new BsonDocument
                 {
-                    return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = "Номер страницы должен быть больше или равен 1" }));
-                }
+                    ["Province"] = string.IsNullOrEmpty(province) ? BsonNull.Value : (BsonValue)province,
+                    ["City"] = string.IsNullOrEmpty(city) ? BsonNull.Value : (BsonValue)city,
+                    ["Place"] = string.IsNullOrEmpty(place) ? BsonNull.Value : (BsonValue)place,
+                    ["ImageName"] = fullImageName,
+                    ["OriginalFileName"] = imageFile.FileName,
+                    ["FilePath"] = relativePath,
+                    ["FileSize"] = imageFile.Length,
+                    ["ContentType"] = imageFile.ContentType,
+                    ["Extension"] = fileExtension,
+                    ["Description"] = string.IsNullOrEmpty(description) ? BsonNull.Value : (BsonValue)description,
+                    ["Tags"] = string.IsNullOrEmpty(tags) ? BsonNull.Value : (BsonValue)tags,
+                    ["UploadDate"] = DateTime.UtcNow,
+                    ["UpdateDate"] = DateTime.UtcNow
+                };
 
-                if (pageSize < 1)
-                {
-                    return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = "Размер страницы должен быть больше или равен 1" }));
-                }
+                await _imageCollection.InsertOneAsync(imageRecord);
 
-                if (!Directory.Exists(_baseImagePath))
-                {
-                    return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = "Директория с изображениями не найдена" }));
-                }
-
-                string[] imageExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
-
-                var allImages = Directory.GetFiles(_baseImagePath, "*.*", SearchOption.AllDirectories)
-                    .Where(file => imageExtensions.Contains(Path.GetExtension(file).ToLower()))
-                    .Select(file => file.Replace(_baseImagePath, "").TrimStart('\\', '/'))
-                    .ToList();
-
-                int totalImages = allImages.Count;
-                int totalPages = (int)Math.Ceiling((double)totalImages / pageSize);
-
-                // Вычисляем индексы для текущей страницы
-                int startIndex = (page - 1) * pageSize;
-
-                // Получаем только элементы для текущей страницы
-                var pagedImages = allImages
-                    .Skip(startIndex)
-                    .Take(pageSize)
-                    .ToList();
-
-                var result = new
+                return JsonDocument.Parse(JsonSerializer.Serialize(new
                 {
                     Success = true,
-                    TotalImages = totalImages,
-                    TotalPages = totalPages,
-                    CurrentPage = page,
-                    PageSize = pageSize,
-                    Images = pagedImages
+                    Path = relativePath,
+                    Id = imageRecord["_id"].ToString()
+                }));
+            }
+            catch (Exception ex)
+            {
+                // Если произошла ошибка при сохранении в MongoDB, удаляем файл
+                if (File.Exists(fullPath))
+                {
+                    try { File.Delete(fullPath); } catch { }
+                }
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(new
+                {
+                    Success = false,
+                    Message = $"Ошибка при сохранении изображения: {ex.Message}"
+                }));
+            }
+        }
+
+        public async Task<JsonDocument> DeleteImageByIdAsync(string id)
+        {
+            try
+            {
+                // Проверка формата ID
+                if (!ObjectId.TryParse(id, out var objectId))
+                {
+                    var errorResponse = new Dictionary<string, object>
+                    {
+                        ["Success"] = false,
+                        ["Message"] = "Неверный формат ID"
+                    };
+
+                    var errorJson = JsonSerializer.Serialize(errorResponse, new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    });
+
+                    return JsonDocument.Parse(errorJson);
+                }
+
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+                var imageRecord = await _imageCollection.Find(filter).FirstOrDefaultAsync();
+
+                // Проверка существования записи
+                if (imageRecord == null)
+                {
+                    var notFoundResponse = new Dictionary<string, object>
+                    {
+                        ["Success"] = false,
+                        ["Message"] = "Изображение не найдено"
+                    };
+
+                    var notFoundJson = JsonSerializer.Serialize(notFoundResponse, new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    });
+
+                    return JsonDocument.Parse(notFoundJson);
+                }
+
+                // Сохраняем информацию об изображении перед удалением
+                var imageInfo = new
+                {
+                    Id = imageRecord["_id"].ToString(),
+                    Province = imageRecord.Contains("Province") && !imageRecord["Province"].IsBsonNull ? imageRecord["Province"].AsString : null,
+                    City = imageRecord.Contains("City") && imageRecord["City"] != BsonNull.Value ? imageRecord["City"].AsString : null,
+                    Place = imageRecord.Contains("Place") && !imageRecord["Place"].IsBsonNull ? imageRecord["Place"].AsString : null,
+                    ImageName = imageRecord.GetValue("ImageName", "").AsString,
+                    OriginalFileName = imageRecord.GetValue("OriginalFileName", "").AsString,
+                    FileSize = imageRecord.GetValue("FileSize", 0L).AsInt64,
+                    ContentType = imageRecord.GetValue("ContentType", "").AsString,
+                    Extension = imageRecord.GetValue("Extension", "").AsString,
+                    Description = imageRecord.Contains("Description") && !imageRecord["Description"].IsBsonNull ? imageRecord["Description"].AsString : null,
+                    Tags = imageRecord.Contains("Tags") && !imageRecord["Tags"].IsBsonNull ? imageRecord["Tags"].AsString : null,
+                    UploadDate = imageRecord.GetValue("UploadDate", DateTime.UtcNow).ToUniversalTime(),
+                    UpdateDate = imageRecord.Contains("UpdateDate") ? imageRecord["UpdateDate"].ToUniversalTime() : imageRecord["UploadDate"].ToUniversalTime(),
+                    DeletedDate = DateTime.UtcNow
+                };
+
+                // Удаляем файл с диска, если он существует
+                string filePath = imageRecord["FilePath"].AsString;
+                string absolutePath = Path.Combine(_baseImagePath, filePath);
+
+                if (File.Exists(absolutePath))
+                {
+                    File.Delete(absolutePath);
+                }
+
+                // Удаляем запись из MongoDB
+                var deleteResult = await _imageCollection.DeleteOneAsync(filter);
+
+                if (deleteResult.DeletedCount == 0)
+                {
+                    var deleteFailResponse = new Dictionary<string, object>
+                    {
+                        ["Success"] = false,
+                        ["Message"] = "Не удалось удалить запись из базы данных"
+                    };
+
+                    var deleteFailJson = JsonSerializer.Serialize(deleteFailResponse, new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                    });
+
+                    return JsonDocument.Parse(deleteFailJson);
+                }
+
+                // Успешное удаление
+                var successResponse = new Dictionary<string, object>
+                {
+                    ["Success"] = true,
+                    ["Message"] = "Изображение и запись успешно удалены",
+                    ["ImageInfo"] = imageInfo
+                };
+
+                var successJson = JsonSerializer.Serialize(successResponse, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                return JsonDocument.Parse(successJson);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                var unauthorizedResponse = new Dictionary<string, object>
+                {
+                    ["Success"] = false,
+                    ["Message"] = $"Доступ запрещен: {ex.Message}"
+                };
+
+                var unauthorizedJson = JsonSerializer.Serialize(unauthorizedResponse, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                return JsonDocument.Parse(unauthorizedJson);
+            }
+            catch (IOException ex)
+            {
+                var ioResponse = new Dictionary<string, object>
+                {
+                    ["Success"] = false,
+                    ["Message"] = $"Ошибка файловой системы: {ex.Message}"
+                };
+
+                var ioJson = JsonSerializer.Serialize(ioResponse, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                return JsonDocument.Parse(ioJson);
+            }
+            catch (Exception ex)
+            {
+                var generalErrorResponse = new Dictionary<string, object>
+                {
+                    ["Success"] = false,
+                    ["Message"] = $"Ошибка при удалении изображения: {ex.Message}"
+                };
+
+                var generalErrorJson = JsonSerializer.Serialize(generalErrorResponse, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                return JsonDocument.Parse(generalErrorJson);
+            }
+        }
+
+        private string BuildDirectoryPath(string? province, string? city, string? place)
+        {
+            var pathParts = new List<string> { _baseImagePath };
+
+            if (!string.IsNullOrEmpty(province))
+                pathParts.Add(province);
+
+            if (!string.IsNullOrEmpty(city))
+                pathParts.Add(city);
+
+            if (!string.IsNullOrEmpty(place))
+                pathParts.Add(place);
+
+            return Path.Combine(pathParts.ToArray());
+        }
+
+        private string BuildRelativePath(string? province, string? city, string? place, string imageName)
+        {
+            var pathParts = new List<string>();
+
+            if (!string.IsNullOrEmpty(province))
+                pathParts.Add(province);
+
+            if (!string.IsNullOrEmpty(city))
+                pathParts.Add(city);
+
+            if (!string.IsNullOrEmpty(place))
+                pathParts.Add(place);
+
+            pathParts.Add(imageName);
+
+            return Path.Combine(pathParts.ToArray()).Replace("\\", "/");
+        }
+
+        public async Task<JsonDocument> GetImagesAsync(Dictionary<string, string> filter = null)
+        {
+            try
+            {
+                FilterDefinition<BsonDocument> filterDefinition = Builders<BsonDocument>.Filter.Empty;
+                if (filter != null && filter.Count > 0)
+                {
+                    var filterBuilder = Builders<BsonDocument>.Filter;
+                    var filters = new List<FilterDefinition<BsonDocument>>();
+
+                    // Общий текстовый поиск по нескольким полям
+                    if (filter.TryGetValue("q", out string q) && !string.IsNullOrEmpty(q))
+                    {
+                        filters.Add(filterBuilder.Or(
+                            filterBuilder.Regex("ImageName", new BsonRegularExpression(q, "i")),
+                            filterBuilder.Regex("OriginalFileName", new BsonRegularExpression(q, "i")),
+                            filterBuilder.Regex("Province", new BsonRegularExpression(q, "i")),
+                            filterBuilder.Regex("Place", new BsonRegularExpression(q, "i")),
+                            filterBuilder.Regex("Description", new BsonRegularExpression(q, "i")),
+                            filterBuilder.Regex("Tags", new BsonRegularExpression(q, "i"))
+                        ));
+                    }
+
+                    // Фильтр по названию изображения
+                    if (filter.TryGetValue("imageName", out string imageName) && !string.IsNullOrEmpty(imageName))
+                    {
+                        filters.Add(filterBuilder.Regex("ImageName", new BsonRegularExpression(imageName, "i")));
+                    }
+
+                    // Фильтр по провинции
+                    if (filter.TryGetValue("province", out string province) && !string.IsNullOrEmpty(province))
+                    {
+                        filters.Add(filterBuilder.Regex("Province", new BsonRegularExpression(province, "i")));
+                    }
+
+                    // Фильтр по месту
+                    if (filter.TryGetValue("place", out string place) && !string.IsNullOrEmpty(place))
+                    {
+                        filters.Add(filterBuilder.Regex("Place", new BsonRegularExpression(place, "i")));
+                    }
+
+                    // Фильтр по описанию
+                    if (filter.TryGetValue("description", out string description) && !string.IsNullOrEmpty(description))
+                    {
+                        filters.Add(filterBuilder.Regex("Description", new BsonRegularExpression(description, "i")));
+                    }
+
+                    // Фильтр по тегам
+                    if (filter.TryGetValue("tags", out string tags) && !string.IsNullOrEmpty(tags))
+                    {
+                        filters.Add(filterBuilder.Regex("Tags", new BsonRegularExpression(tags, "i")));
+                    }
+
+                    // Фильтр по оригинальному имени файла
+                    if (filter.TryGetValue("originalFileName", out string originalFileName) && !string.IsNullOrEmpty(originalFileName))
+                    {
+                        filters.Add(filterBuilder.Regex("OriginalFileName", new BsonRegularExpression(originalFileName, "i")));
+                    }
+
+                    if (filters.Count > 0)
+                    {
+                        filterDefinition = filterBuilder.And(filters);
+                    }
+                }
+
+                long totalCount = await _imageCollection.CountDocumentsAsync(filterDefinition);
+
+                // Сортировка
+                string sortField = "UploadDate";
+                bool isDescending = true;
+                if (filter != null)
+                {
+                    if (filter.TryGetValue("_sort", out string sort) && !string.IsNullOrEmpty(sort))
+                    {
+                        sortField = sort;
+                    }
+                    if (filter.TryGetValue("_order", out string order) && !string.IsNullOrEmpty(order))
+                    {
+                        isDescending = order.ToUpper() == "DESC";
+                    }
+                }
+                var sortDefinition = isDescending
+                    ? Builders<BsonDocument>.Sort.Descending(sortField)
+                    : Builders<BsonDocument>.Sort.Ascending(sortField);
+
+                // Пагинация
+                IFindFluent<BsonDocument, BsonDocument> query = _imageCollection.Find(filterDefinition).Sort(sortDefinition);
+                if (filter != null)
+                {
+                    if (filter.TryGetValue("page", out string pageStr) &&
+                        filter.TryGetValue("perPage", out string perPageStr) &&
+                        int.TryParse(pageStr, out int page) &&
+                        int.TryParse(perPageStr, out int perPage))
+                    {
+                        int skip = (page - 1) * perPage;
+                        query = query.Skip(skip).Limit(perPage);
+                    }
+                }
+
+                var documents = await query.ToListAsync();
+
+                // Формирование массива изображений с корректным форматом id
+                var imagesList = new List<object>();
+                foreach (var document in documents)
+                {
+                    var jsonString = document.ToJson();
+                    var jsonDoc = JsonDocument.Parse(jsonString);
+
+                    // Преобразуем весь документ в словарь
+                    var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString);
+
+                    // Изменяем формат идентификатора
+                    if (dict.ContainsKey("_id"))
+                    {
+                        var idObj = dict["_id"] as JsonElement?;
+                        if (idObj.HasValue && idObj.Value.ValueKind == JsonValueKind.Object)
+                        {
+                            if (idObj.Value.TryGetProperty("$oid", out var oidElement))
+                            {
+                                dict["id"] = oidElement.GetString();
+                            }
+                        }
+                        dict.Remove("_id");
+                    }
+
+                    imagesList.Add(dict);
+                    jsonDoc.Dispose();
+                }
+
+                // Формирование результирующего JSON документа
+                var result = new
+                {
+                    success = true,
+                    data = new
+                    {
+                        totalCount = totalCount,
+                        images = imagesList
+                    }
                 };
 
                 return JsonDocument.Parse(JsonSerializer.Serialize(result));
             }
             catch (Exception ex)
             {
-                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = false, Message = $"Ошибка при получении списка изображений: {ex.Message}" }));
+                var errorResult = new
+                {
+                    success = false,
+                    error = $"An error occurred: {ex.Message}"
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResult));
             }
         }
 
-        public JsonDocument DeleteImage(string province, string? city, string place, string imageName)
-        {
-            if (string.IsNullOrEmpty(province) || string.IsNullOrEmpty(place) || string.IsNullOrEmpty(imageName))
-            {
-                return CreateJsonResponse(false, "Параметры запроса не могут быть пустыми");
-            }
 
-            string relativePath = BuildRelativePath(province, city, place, imageName);
-            string absolutePath = Path.Combine(_baseImagePath, relativePath);
-
-            if (!File.Exists(absolutePath))
-            {
-                return CreateJsonResponse(false, $"Файл не существует");
-            }
-
-            try
-            {
-                File.Delete(absolutePath);
-                return CreateJsonResponse(true, $"Файл успешно удален");
-            }
-            catch (Exception ex)
-            {
-                return CreateJsonResponse(false, $"Ошибка при удалении изображения: {ex.Message}");
-            }
-        }
-
-        public async Task<JsonDocument> UpdateImageAsync(
-            string oldProvince, string? oldCity, string oldPlace, string oldImageName,
-            string? newProvince = null, string? newCity = null, string? newPlace = null,
-            string? newImageName = null, IFormFile? newImageFile = null)
-        {
-            try
-            {
-                // Проверка параметров
-                if (string.IsNullOrEmpty(oldProvince) || string.IsNullOrEmpty(oldPlace) || string.IsNullOrEmpty(oldImageName))
-                {
-                    return CreateJsonResponse(false, "Путь к исходному изображению не может быть пустым");
-                }
-
-                // Если ничего не меняется, нечего обновлять
-                if (newImageFile == null &&
-                    string.IsNullOrEmpty(newProvince) &&
-                    string.IsNullOrEmpty(newCity) &&
-                    string.IsNullOrEmpty(newPlace) &&
-                    string.IsNullOrEmpty(newImageName))
-                {
-                    return CreateJsonResponse(false, "Для обновления необходимо указать хотя бы один новый параметр");
-                }
-
-                // Проверка существования старого файла
-                string oldRelativePath = BuildRelativePath(oldProvince, oldCity, oldPlace, oldImageName);
-                string oldAbsolutePath = Path.Combine(_baseImagePath, oldRelativePath);
-
-                if (!File.Exists(oldAbsolutePath))
-                {
-                    return CreateJsonResponse(false, $"Исходное изображение не найдено");
-                }
-
-                // Использовать новые значения, если они указаны, иначе старые
-                string provinceToUse = newProvince ?? oldProvince;
-                string? cityToUse = newCity ?? oldCity;
-                string placeToUse = newPlace ?? oldPlace;
-                string imageNameToUse = newImageName ?? oldImageName;
-
-                // Определение директории для сохранения
-                string newDirectoryPath = BuildDirectoryPath(provinceToUse, cityToUse, placeToUse);
-
-                // Создание директории, если она не существует
-                if (!Directory.Exists(newDirectoryPath))
-                {
-                    Directory.CreateDirectory(newDirectoryPath);
-                }
-
-                // Проверка на дубликаты, только если меняется путь
-                if ((newProvince != null || newCity != null || newPlace != null || newImageName != null) &&
-                    (newProvince != oldProvince || newCity != oldCity || newPlace != oldPlace || newImageName != oldImageName))
-                {
-                    string imageNameWithoutExtension = Path.GetFileNameWithoutExtension(imageNameToUse);
-                    string[] allFiles = Directory.GetFiles(_baseImagePath, "*.*", SearchOption.AllDirectories);
-
-                    string duplicateFilePath = allFiles.FirstOrDefault(file =>
-                        Path.GetFileNameWithoutExtension(file).Equals(imageNameWithoutExtension, StringComparison.OrdinalIgnoreCase) &&
-                        file != oldAbsolutePath);  // Исключаем текущий файл из проверки
-
-                    if (duplicateFilePath != null)
-                    {
-                        string relativeDuplicatePath = duplicateFilePath.Replace(_baseImagePath, "")
-                            .TrimStart('\\', '/')
-                            .Replace("\\", "/");
-
-                        return CreateJsonResponse(false, $"Файл с таким названием уже существует в папке: {relativeDuplicatePath}");
-                    }
-                }
-
-                // Определение расширения файла
-                string extension;
-
-                if (newImageFile != null)
-                {
-                    // Проверка допустимых расширений
-                    string[] validExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
-                    extension = Path.GetExtension(newImageFile.FileName).ToLower();
-
-                    if (string.IsNullOrEmpty(extension))
-                    {
-                        extension = ".jpg"; // По умолчанию
-                    }
-                    else if (!validExtensions.Contains(extension))
-                    {
-                        return CreateJsonResponse(false, $"Недопустимое расширение файла: {extension}. Допустимые расширения: {string.Join(", ", validExtensions)}");
-                    }
-                }
-                else
-                {
-                    // Если нет нового файла, используем расширение старого
-                    extension = Path.GetExtension(oldImageName);
-                }
-
-                // Формирование имени файла с расширением
-                string fullImageName = string.IsNullOrEmpty(Path.GetExtension(imageNameToUse))
-                    ? $"{imageNameToUse}{extension}"
-                    : imageNameToUse;
-
-                string newAbsolutePath = Path.Combine(newDirectoryPath, fullImageName);
-
-                // Формирование относительного пути
-                string newRelativePath = BuildRelativePath(provinceToUse, cityToUse, placeToUse, fullImageName);
-
-                // Проверка, не указывает ли новый путь на старый файл
-                if (newAbsolutePath == oldAbsolutePath && newImageFile == null)
-                {
-                    return CreateJsonResponse(false, "Новый путь совпадает со старым, а новый файл не загружен. Нечего обновлять.");
-                }
-
-                // Обновление файла 
-                if (newImageFile != null)
-                {
-                    // Если это тот же путь, удаляем старый файл
-                    if (File.Exists(newAbsolutePath) && newAbsolutePath != oldAbsolutePath)
-                    {
-                        File.Delete(newAbsolutePath);
-                    }
-
-                    // Сохраняем новый файл
-                    using (var fileStream = new FileStream(newAbsolutePath, FileMode.Create))
-                    {
-                        await newImageFile.CopyToAsync(fileStream);
-                    }
-
-                    // Если путь изменился, удаляем старый файл
-                    if (newAbsolutePath != oldAbsolutePath)
-                    {
-                        File.Delete(oldAbsolutePath);
-                    }
-                }
-                else
-                {
-                    // Если путь изменился, но файл тот же - перемещаем файл
-                    if (newAbsolutePath != oldAbsolutePath)
-                    {
-                        // Если файл уже существует по новому пути, удаляем его
-                        if (File.Exists(newAbsolutePath))
-                        {
-                            File.Delete(newAbsolutePath);
-                        }
-
-                        // Копируем старый файл в новое место
-                        File.Copy(oldAbsolutePath, newAbsolutePath);
-
-                        // Удаляем старый файл
-                        File.Delete(oldAbsolutePath);
-                    }
-                }
-
-                return JsonDocument.Parse(JsonSerializer.Serialize(new { Success = true, Path = newRelativePath }));
-            }
-            catch (Exception ex)
-            {
-                return CreateJsonResponse(false, $"Ошибка при обновлении изображения: {ex.Message}");
-            }
-        }
-
-        private JsonDocument CreateJsonResponse(bool success, string message)
-        {
-            var options = new JsonWriterOptions { Indented = true };
-            using var stream = new MemoryStream();
-            using (var writer = new Utf8JsonWriter(stream, options))
-            {
-                writer.WriteStartObject();
-                writer.WriteBoolean("Success", success);
-                writer.WriteString("Message", message);
-                writer.WriteEndObject();
-            }
-
-            stream.Position = 0;
-            return JsonDocument.Parse(stream);
-        }
-
-        // Helper methods for building paths
-        private string BuildDirectoryPath(string province, string? city, string place)
-        {
-            if (string.IsNullOrEmpty(city))
-            {
-                return Path.Combine(_baseImagePath, province, place);
-            }
-            else
-            {
-                return Path.Combine(_baseImagePath, province, city, place);
-            }
-        }
-
-        private string BuildRelativePath(string province, string? city, string place, string imageName)
-        {
-            if (string.IsNullOrEmpty(city))
-            {
-                return Path.Combine(province, place, imageName).Replace("\\", "/");
-            }
-            else
-            {
-                return Path.Combine(province, city, place, imageName).Replace("\\", "/");
-            }
-        }
     }
 }

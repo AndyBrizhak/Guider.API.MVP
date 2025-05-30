@@ -24,6 +24,22 @@ namespace Guider.API.MVP.Controllers
             _tagsService = tagsService;
         }
 
+
+        /// <summary>
+        /// Retrieves a paginated and filtered list of tags.
+        /// </summary>
+        /// <param name="q">Search query for tag name or description (optional).</param>
+        /// <param name="name_en">Filter by English tag name (optional).</param>
+        /// <param name="name_sp">Filter by Spanish tag name (optional).</param>
+        /// <param name="url">Filter by tag URL (optional).</param>
+        /// <param name="type">Filter by tag type (optional).</param>
+        /// <param name="page">Page number for pagination (default: 1).</param>
+        /// <param name="perPage">Number of items per page (default: 10).</param>
+        /// <param name="_sort">Field to sort by (default: name_en).</param>
+        /// <param name="_order">Sort order: ASC or DESC (default: ASC).</param>
+        /// <returns>Returns a list of tags and sets the X-Total-Count header for pagination.</returns>
+        /// <response code="200">Returns the list of tags.</response>
+        /// <response code="400">If an error occurs or invalid parameters are provided.</response>
         [HttpGet("tags")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetTags(
@@ -88,6 +104,16 @@ namespace Guider.API.MVP.Controllers
             return Ok(tags);
         }
 
+
+
+        /// <summary>
+        /// Retrieves a tag by its unique identifier.
+        /// </summary>
+        /// <param name="id">The unique identifier of the tag.</param>
+        /// <returns>Returns the tag object if found.</returns>
+        /// <response code="200">Returns the tag object.</response>
+        /// <response code="400">If the tag ID is missing or invalid.</response>
+        /// <response code="404">If the tag is not found.</response>
         [HttpGet("tags/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetTagById(string id)
@@ -126,6 +152,24 @@ namespace Guider.API.MVP.Controllers
             return Ok(tag);
         }
 
+        /// <summary>
+        /// Creates a new tag.
+        /// </summary>
+        /// <param name="tagData">The JSON object containing tag data.</param>
+        /// <remarks>
+        /// Expected JSON format:
+        /// {
+        ///   "name_en": "string",         // English name of the tag (optional)
+        ///   "name_sp": "string",         // Spanish name of the tag (optional)
+        ///   "description": "string",     // Description of the tag (optional)
+        ///   "url": "string",             // URL for the tag (optional)
+        ///   "type": "string"             // Type/category of the tag (optional)
+        /// }
+        /// </remarks>
+        /// <returns>Returns the created tag object or an error message.</returns>
+        /// <response code="200">Returns the created tag object or a success message.</response>
+        /// <response code="400">If the tag data is invalid or incomplete.</response>
+        /// <response code="500">If an internal server error occurs.</response>
         [HttpPost]
         [Route("tags")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
@@ -174,6 +218,30 @@ namespace Guider.API.MVP.Controllers
                     : BadRequest(errorObj);
             }
         }
+
+
+        /// <summary>
+        /// Updates an existing tag by its unique identifier.
+        /// </summary>
+        /// <param name="id">The unique identifier of the tag.</param>
+        /// <param name="updateData">
+        /// The JSON object containing tag fields to update.
+        /// <br/>
+        /// Expected JSON format:
+        /// <code>
+        /// {
+        ///   "name_en": "string",         // English name of the tag (optional)
+        ///   "name_sp": "string",         // Spanish name of the tag (optional)
+        ///   "description": "string",     // Description of the tag (optional)
+        ///   "url": "string",             // URL for the tag (optional)
+        ///   "type": "string"             // Type/category of the tag (optional)
+        /// }
+        /// </code>
+        /// </param>
+        /// <returns>Returns the updated tag object or an error message.</returns>
+        /// <response code="200">Returns the updated tag object or a success message.</response>
+        /// <response code="400">If the tag data is invalid or incomplete.</response>
+        /// <response code="404">If the tag is not found.</response>
         [HttpPut("tags/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> UpdateTag(string id, [FromBody] JsonDocument updateData)
@@ -222,6 +290,15 @@ namespace Guider.API.MVP.Controllers
                     : BadRequest(errorObj);
             }
         }
+
+
+        /// <summary>
+        /// Deletes a tag by its unique identifier.
+        /// </summary>
+        /// <param name="id">The unique identifier of the tag to delete.</param>
+        /// <returns>Returns the deleted tag's ID if successful, or an error message if not found.</returns>
+        /// <response code="200">Returns the ID of the deleted tag.</response>
+        /// <response code="404">If the tag is not found or could not be deleted.</response>
         [HttpDelete("tags/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<IActionResult> Delete(string id)

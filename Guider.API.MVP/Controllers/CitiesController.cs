@@ -228,7 +228,7 @@ namespace Guider.API.MVP.Controllers
 
 
         /// <summary>
-        /// Adds a new city to the database.
+        /// Adds a new city with geo.
         /// </summary>
         /// <param name="cityData"></param>
         /// <returns></returns>
@@ -252,7 +252,6 @@ namespace Guider.API.MVP.Controllers
         /// </remarks>
         /// 
         /// <returns>A response indicating the success or failure of the operation.</returns>
-        
         [HttpPost]
         [Route("cities")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
@@ -317,7 +316,6 @@ namespace Guider.API.MVP.Controllers
         /// The province field will be preserved if not specified in the update data.
         /// </remarks>
         /// <returns>A response indicating the success or failure of the update operation, and the updated city data.</returns>
-       
         [HttpPut]
         [Route("cities/{cityId}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
@@ -431,8 +429,7 @@ namespace Guider.API.MVP.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
             }
         }
-
-        
+       
     }
 
     // Extension method to help combine JSON objects

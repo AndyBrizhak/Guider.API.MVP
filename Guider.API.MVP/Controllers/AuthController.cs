@@ -104,7 +104,6 @@ namespace Guider.API.MVP.Controllers
             });
         }
 
-        // Добавьте этот класс для приема данных от React Admin
         public class LoginRequest
         {
             [JsonPropertyName("username")]
@@ -114,6 +113,42 @@ namespace Guider.API.MVP.Controllers
             public string Password { get; set; }
         }
 
+        /// <summary>
+        /// Creates a new user account.
+        /// </summary>
+        /// <remarks>
+        /// Sample request:
+        ///
+        ///     POST /users
+        ///     {
+        ///         "username": "newuser",
+        ///         "email": "newuser@example.com",
+        ///         "password": "Password123!"
+        ///     }
+        ///
+        /// </remarks>
+        /// <param name="requestModel">
+        /// The user creation data. Example:
+        /// <br/>
+        /// {<br/>
+        /// &nbsp;&nbsp;"username": "newuser",<br/>
+        /// &nbsp;&nbsp;"email": "newuser@example.com",<br/>
+        /// &nbsp;&nbsp;"password": "Password123!"<br/>
+        /// }
+        /// </param>
+        /// <returns>
+        /// Returns the created user's details in the following format:
+        /// <br/>
+        /// {<br/>
+        /// &nbsp;&nbsp;"id": "string",<br/>
+        /// &nbsp;&nbsp;"username": "newuser",<br/>
+        /// &nbsp;&nbsp;"email": "newuser@example.com",<br/>
+        /// &nbsp;&nbsp;"role": "user"<br/>
+        /// }
+        /// </returns>
+        /// <response code="201">User created successfully</response>
+        /// <response code="400">Validation error or user already exists</response>
+        /// <response code="500">Internal server error</response>
         [HttpPost("users")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
