@@ -30,6 +30,12 @@ namespace Guider.API.MVP.Controllers
 
 
         
+        /// <summary>
+        /// Получить список мест с пагинацией.
+        /// </summary>
+        /// <param name="pageNumber">Номер страницы (по умолчанию 1).</param>
+        /// <param name="pageSize">Размер страницы (по умолчанию 20).</param>
+        /// <returns>Список мест в формате JSON с заголовками пагинации.</returns>
         [HttpGet]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
@@ -89,6 +95,11 @@ namespace Guider.API.MVP.Controllers
         }
 
         
+        /// <summary>
+        /// Получить место по идентификатору.
+        /// </summary>
+        /// <param name="id">Уникальный идентификатор места.</param>
+        /// <returns>Документ места в формате JSON. Возвращает 200 OK, если найден, 404 Not Found, если не найден, 400 Bad Request при ошибке формата, 500 Internal Server Error при других ошибках.</returns>
         [HttpGet("{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.OK)]
@@ -374,10 +385,10 @@ namespace Guider.API.MVP.Controllers
 
 
         /// <summary>
-        /// Получить доступные теги для фильтрации мест.
-        /// 
+        /// Получить доступные теги, которые еще не выбраны и которые содержатся во описании 
+        /// бизнеосв в выбранной категории.
         /// Этот метод позволяет получить список доступных тегов, которые можно использовать
-        /// для фильтрации мест. Теги могут быть отфильтрованы по категории или с учетом
+        /// для фильтрации мест. Теги могут быть отфильтрованы по категории и/или с учетом
         /// уже выбранных тегов. Если категория не указана, возвращаются теги для всех категорий.
         /// 
         /// Пример использования:
@@ -516,17 +527,12 @@ namespace Guider.API.MVP.Controllers
                 
         /// <summary>
         /// Обновление существующего документа в коллекции Places.
-        /// 
         /// Доступно только для авторизованных пользователей с ролями Super Admin, Admin или Manager.
-        /// 
         /// В параметрах должны передаваться идентификатор объекта и валидный JSON-документ с данными.
         /// </summary>
-        /// 
         /// <param name="id">Строка с уникальным идентификатором объекта</param>
         /// <param name="jsonDocument">JSON-документ, представляющий данные для обновления существующего объекта.</param>
-        /// 
         /// <returns>Обновленный объект в формате JSON, обернутый в ApiResponse.</returns>
-        /// 
         [HttpPut("{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Update(string id, [FromBody] JsonDocument jsonDocument)
@@ -639,15 +645,10 @@ namespace Guider.API.MVP.Controllers
 
 
         /// <summary>
-        /// 
         /// Удаление документа из коллекции Places.
-        /// 
         /// Доступно только для авторизованных пользователей с ролями Super Admin или Admin.
-        /// 
         /// </summary>
-        /// 
         /// <param name="id">Идентификатор документа, который нужно удалить.</param>
-        /// 
         /// <returns>Статус операции удаления в формате JSON, обернутый в ApiResponse.</returns>
         [HttpDelete("{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
