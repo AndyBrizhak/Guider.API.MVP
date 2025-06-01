@@ -891,48 +891,7 @@
         }
 
 
-        ///// <summary>
-        ///// Гео с выводом отсортированного списка с id, distance, name, img_link
-        ///// </summary>
-        ///// <param name="lat"></param>
-        ///// <param name="lng"></param>
-        ///// <param name="maxDistanceMeters"></param>
-        ///// <returns></returns>
-        //public async Task<List<BsonDocument>> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters)
-        //{
-        //    var pipeline = new[]
-        //    {
-        //    new BsonDocument("$geoNear", new BsonDocument
-        //    {
-        //        { "near", new BsonDocument
-        //            {
-        //                { "type", "Point" },
-        //                { "coordinates", new BsonArray { lng, lat } }
-        //            }
-        //        },
-        //        { "distanceField", "distance" },
-        //        { "maxDistance", maxDistanceMeters },
-        //        { "spherical", true }
-        //    }),
-        //    new BsonDocument("$project", new BsonDocument
-        //    {
-        //        { "_id", 1 },
-        //        { "distance", 1 },
-        //        { "name", 1 },
-        //        { "img_link", new BsonDocument
-        //            {
-        //                { "$arrayElemAt", new BsonArray { "$img_link", 0 } } // Первая ссылка на изображение
-        //            }
-        //        },
-        //        {
-        //            "url", 1
-        //        }
-        //    })
-        //};
-
-        //    var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
-        //    return result;
-        //}
+      
 
         /// <summary>
         /// Гео с выводом отсортированного списка с id, distance, name, img_link
@@ -970,8 +929,8 @@
             {
                 "url", 1
             }
-        })
-    };
+            })
+            };
             var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
             return result;
         }
