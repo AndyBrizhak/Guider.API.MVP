@@ -29,72 +29,123 @@ namespace Guider.API.MVP.Controllers
         }
 
 
-        
+
         /// <summary>
         /// Получить список мест с пагинацией.
         /// </summary>
         /// <param name="pageNumber">Номер страницы (по умолчанию 1).</param>
         /// <param name="pageSize">Размер страницы (по умолчанию 20).</param>
         /// <returns>Список мест в формате JSON с заголовками пагинации.</returns>
+        //[HttpGet]
+        ////[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
+        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Conflict)]
+        //public async Task<IActionResult> GetAllPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+        //{
+        //    try
+        //    {
+        //        // Получаем данные из сервиса (теперь возвращается кортеж)
+        //        var (documents, totalCount) = await _placeService.GetAllPagedAsync(pageNumber, pageSize);
+
+        //        // Проверяем наличие данных
+        //        if (documents == null || documents.Count == 0)
+        //        {
+        //            return NotFound("No places found.");
+        //        }
+
+        //        // Преобразуем JsonDocument в объекты для сериализации
+        //        var result = new List<object>();
+        //        foreach (var document in documents)
+        //        {
+        //            try
+        //            {
+        //                // Преобразуем JsonDocument в объект для корректной сериализации
+        //                using (document)
+        //                {
+        //                    var jsonString = document.RootElement.GetRawText();
+        //                    var jsonObject = System.Text.Json.JsonSerializer.Deserialize<object>(jsonString);
+        //                    result.Add(jsonObject);
+        //                }
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                // В случае ошибки обработки конкретного документа
+        //                return BadRequest($"Error processing document: {ex.Message}");
+        //            }
+        //        }
+
+        //        // Добавляем заголовки для пагинации (для react-admin)
+        //        Response.Headers.Add("X-Total-Count", totalCount.ToString());
+        //        Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
+
+        //        return Ok(result);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, $"Internal server error: {ex.Message}");
+        //    }
+        //}
+
         [HttpGet]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Conflict)]
-        public async Task<IActionResult> GetAllPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+        public async Task<IActionResult> GetPlaces(
+        [FromQuery] string q = null,
+        [FromQuery] string province = null,
+        [FromQuery] string city = null,
+        [FromQuery] string name = null,
+        [FromQuery] string url = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int perPage = 20,
+        [FromQuery] string sortField = "name",
+        [FromQuery] string sortOrder = "ASC")
         {
+            var filter = new Dictionary<string, string>();
+            if (!string.IsNullOrEmpty(q)) filter["q"] = q;
+            if (!string.IsNullOrEmpty(province)) filter["province"] = province;
+            if (!string.IsNullOrEmpty(city)) filter["city"] = city;
+            if (!string.IsNullOrEmpty(name)) filter["name"] = name;
+            if (!string.IsNullOrEmpty(url)) filter["url"] = url;
+            filter["_sort"] = sortField;
+            filter["_order"] = sortOrder;
+            filter["page"] = page.ToString();
+            filter["perPage"] = perPage.ToString();
+
             try
             {
-                // Получаем данные из сервиса (теперь возвращается кортеж)
-                var (documents, totalCount) = await _placeService.GetAllPagedAsync(pageNumber, pageSize);
-
-                // Проверяем наличие данных
-                if (documents == null || documents.Count == 0)
+                var result = await _placeService.GetPlacesAsync(filter);
+                if (result.RootElement.TryGetProperty("success", out var successElement) &&
+                    successElement.GetBoolean())
                 {
-                    return NotFound("No places found.");
-                }
+                    var dataElement = result.RootElement.GetProperty("data");
+                    var totalCount = dataElement.GetProperty("totalCount").GetInt64();
+                    var placesElement = dataElement.GetProperty("places");
 
-                // Преобразуем JsonDocument в объекты для сериализации
-                var result = new List<object>();
-                foreach (var document in documents)
+                    Response.Headers.Add("X-Total-Count", totalCount.ToString());
+                    Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
+
+                    var placesArray = JsonSerializer.Deserialize<object[]>(placesElement.GetRawText());
+                    return Ok(placesArray);
+                }
+                else
                 {
-                    try
-                    {
-                        // Преобразуем JsonDocument в объект для корректной сериализации
-                        using (document)
-                        {
-                            var jsonString = document.RootElement.GetRawText();
-                            var jsonObject = System.Text.Json.JsonSerializer.Deserialize<object>(jsonString);
-                            result.Add(jsonObject);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        // В случае ошибки обработки конкретного документа
-                        return BadRequest($"Error processing document: {ex.Message}");
-                    }
+                    var errorMessage = result.RootElement.GetProperty("error").GetString();
+                    return BadRequest(new { error = errorMessage });
                 }
-
-                // Добавляем заголовки для пагинации (для react-admin)
-                Response.Headers.Add("X-Total-Count", totalCount.ToString());
-                Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
-
-                return Ok(result);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new { error = $"Ошибка при получении списка мест: {ex.Message}" });
             }
         }
 
-        
         /// <summary>
         /// Получить место по идентификатору.
         /// </summary>

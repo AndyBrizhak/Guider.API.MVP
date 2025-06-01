@@ -35,7 +35,7 @@
             await _placeCollection.Find(_ => true).ToListAsync();
 
 
-        
+
         /// Получить документы из коллекции с пагинацией
         /// <param name="pageNumber">Номер страницы</param>
         /// <param name="pageSize">Размер страницы</param>
@@ -122,57 +122,197 @@
         //    }
         //}
 
-        public async Task<(List<JsonDocument> Documents, long TotalCount)> GetAllPagedAsync(int pageNumber, int pageSize)
+        //public async Task<(List<JsonDocument> Documents, long TotalCount)> GetAllPagedAsync(int pageNumber, int pageSize)
+        //{
+        //    try
+        //    {
+        //        FilterDefinition<BsonDocument> filterDefinition = Builders<BsonDocument>.Filter.Empty;
+
+        //        // Get total count before applying pagination
+        //        long totalCount = await _placeCollection.CountDocumentsAsync(filterDefinition);
+
+        //        // Применяем сортировку по названию
+        //        var sortDefinition = Builders<BsonDocument>.Sort.Ascending("name");
+
+        //        // Apply pagination
+        //        IFindFluent<BsonDocument, BsonDocument> query = _placeCollection.Find(filterDefinition).Sort(sortDefinition);
+
+        //        // Apply skip and limit for pagination
+        //        int skip = (pageNumber - 1) * pageSize;
+        //        query = query.Skip(skip).Limit(pageSize);
+
+        //        var documents = await query.ToListAsync();
+        //        var jsonDocuments = new List<JsonDocument>();
+
+        //        foreach (var document in documents)
+        //        {
+        //            try
+        //            {
+        //                var processedDocument = ProcessDocument(document);
+        //                jsonDocuments.Add(processedDocument);
+        //            }
+        //            catch (Exception docEx)
+        //            {
+        //                // Логируем ошибку обработки конкретного документа, но продолжаем обработку остальных
+        //                // _logger?.LogWarning($"Error processing document {document.GetValue("_id", "unknown")}: {docEx.Message}");
+
+        //                // Добавляем документ с ошибкой для отладки
+        //                var errorDoc = JsonDocument.Parse($"{{\"id\": \"{GetDocumentId(document)}\", \"error\": \"Document processing failed: {docEx.Message}\"}}");
+        //                jsonDocuments.Add(errorDoc);
+        //            }
+        //        }
+
+        //        return (jsonDocuments, totalCount);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return (new List<JsonDocument>
+        //        {
+        //            JsonDocument.Parse($"{{\"error\": \"An error occurred: {ex.Message}\"}}")
+        //        }, 0);
+        //    }
+        //}
+
+        public async Task<JsonDocument> GetPlacesAsync(Dictionary<string, string> filter = null)
         {
             try
             {
                 FilterDefinition<BsonDocument> filterDefinition = Builders<BsonDocument>.Filter.Empty;
-
-                // Get total count before applying pagination
-                long totalCount = await _placeCollection.CountDocumentsAsync(filterDefinition);
-
-                // Применяем сортировку по названию
-                var sortDefinition = Builders<BsonDocument>.Sort.Ascending("name");
-
-                // Apply pagination
-                IFindFluent<BsonDocument, BsonDocument> query = _placeCollection.Find(filterDefinition).Sort(sortDefinition);
-
-                // Apply skip and limit for pagination
-                int skip = (pageNumber - 1) * pageSize;
-                query = query.Skip(skip).Limit(pageSize);
-
-                var documents = await query.ToListAsync();
-                var jsonDocuments = new List<JsonDocument>();
-
-                foreach (var document in documents)
+                if (filter != null && filter.Count > 0)
                 {
-                    try
-                    {
-                        var processedDocument = ProcessDocument(document);
-                        jsonDocuments.Add(processedDocument);
-                    }
-                    catch (Exception docEx)
-                    {
-                        // Логируем ошибку обработки конкретного документа, но продолжаем обработку остальных
-                        // _logger?.LogWarning($"Error processing document {document.GetValue("_id", "unknown")}: {docEx.Message}");
+                    var filterBuilder = Builders<BsonDocument>.Filter;
+                    var filters = new List<FilterDefinition<BsonDocument>>();
 
-                        // Добавляем документ с ошибкой для отладки
-                        var errorDoc = JsonDocument.Parse($"{{\"id\": \"{GetDocumentId(document)}\", \"error\": \"Document processing failed: {docEx.Message}\"}}");
-                        jsonDocuments.Add(errorDoc);
+                    // Общий текстовый поиск по нескольким полям
+                    if (filter.TryGetValue("q", out string q) && !string.IsNullOrEmpty(q))
+                    {
+                        filters.Add(filterBuilder.Or(
+                            filterBuilder.Regex("name", new BsonRegularExpression(q, "i")),
+                            filterBuilder.Regex("province", new BsonRegularExpression(q, "i")),
+                            filterBuilder.Regex("city", new BsonRegularExpression(q, "i")),
+                            filterBuilder.Regex("url", new BsonRegularExpression(q, "i"))
+                        ));
+                    }
+
+                    // Фильтр по провинции
+                    if (filter.TryGetValue("province", out string province) && !string.IsNullOrEmpty(province))
+                    {
+                        filters.Add(filterBuilder.Regex("province", new BsonRegularExpression(province, "i")));
+                    }
+
+                    // Фильтр по городу
+                    if (filter.TryGetValue("city", out string city) && !string.IsNullOrEmpty(city))
+                    {
+                        filters.Add(filterBuilder.Regex("city", new BsonRegularExpression(city, "i")));
+                    }
+
+                    // Фильтр по названию заведения
+                    if (filter.TryGetValue("name", out string name) && !string.IsNullOrEmpty(name))
+                    {
+                        filters.Add(filterBuilder.Regex("name", new BsonRegularExpression(name, "i")));
+                    }
+
+                    // Фильтр по URL
+                    if (filter.TryGetValue("url", out string url) && !string.IsNullOrEmpty(url))
+                    {
+                        filters.Add(filterBuilder.Regex("url", new BsonRegularExpression(url, "i")));
+                    }
+
+                    if (filters.Count > 0)
+                    {
+                        filterDefinition = filterBuilder.And(filters);
                     }
                 }
 
-                return (jsonDocuments, totalCount);
+                long totalCount = await _placeCollection.CountDocumentsAsync(filterDefinition);
+
+                // Сортировка
+                string sortField = "name";
+                bool isDescending = false;
+                if (filter != null)
+                {
+                    if (filter.TryGetValue("_sort", out string sort) && !string.IsNullOrEmpty(sort))
+                    {
+                        sortField = sort;
+                    }
+                    if (filter.TryGetValue("_order", out string order) && !string.IsNullOrEmpty(order))
+                    {
+                        isDescending = order.ToUpper() == "DESC";
+                    }
+                }
+
+                var sortDefinition = isDescending
+                    ? Builders<BsonDocument>.Sort.Descending(sortField)
+                    : Builders<BsonDocument>.Sort.Ascending(sortField);
+
+                // Пагинация
+                IFindFluent<BsonDocument, BsonDocument> query = _placeCollection.Find(filterDefinition).Sort(sortDefinition);
+                if (filter != null)
+                {
+                    if (filter.TryGetValue("page", out string pageStr) &&
+                        filter.TryGetValue("perPage", out string perPageStr) &&
+                        int.TryParse(pageStr, out int page) &&
+                        int.TryParse(perPageStr, out int perPage))
+                    {
+                        int skip = (page - 1) * perPage;
+                        query = query.Skip(skip).Limit(perPage);
+                    }
+                }
+
+                var documents = await query.ToListAsync();
+
+                // Формирование массива мест с корректным форматом id
+                var placesList = new List<object>();
+                foreach (var document in documents)
+                {
+                    var jsonString = document.ToJson();
+                    var jsonDoc = JsonDocument.Parse(jsonString);
+
+                    // Преобразуем весь документ в словарь
+                    var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString);
+
+                    // Изменяем формат идентификатора
+                    if (dict.ContainsKey("_id"))
+                    {
+                        var idObj = dict["_id"] as JsonElement?;
+                        if (idObj.HasValue && idObj.Value.ValueKind == JsonValueKind.Object)
+                        {
+                            if (idObj.Value.TryGetProperty("$oid", out var oidElement))
+                            {
+                                dict["id"] = oidElement.GetString();
+                            }
+                        }
+                        dict.Remove("_id");
+                    }
+
+                    placesList.Add(dict);
+                    jsonDoc.Dispose();
+                }
+
+                // Формирование результирующего JSON документа
+                var result = new
+                {
+                    success = true,
+                    data = new
+                    {
+                        totalCount = totalCount,
+                        places = placesList
+                    }
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(result));
             }
             catch (Exception ex)
             {
-                return (new List<JsonDocument>
+                var errorResult = new
                 {
-                    JsonDocument.Parse($"{{\"error\": \"An error occurred: {ex.Message}\"}}")
-                }, 0);
+                    success = false,
+                    error = $"An error occurred: {ex.Message}"
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResult));
             }
         }
-
         private JsonDocument ProcessDocument(BsonDocument document)
         {
             var json = document.ToJson();
