@@ -144,9 +144,9 @@ namespace Guider.API.MVP.Controllers
 
 
         /// <summary>
-        /// Получить документ по web и ID из заголовка
+        /// Получить документ по url и ID из заголовка
         /// </summary>
-        /// <param name="web">Веб параметр</param>
+        /// <param name="url">Веб параметр</param>
         /// <param name="id">Идентификатор документа</param>
         /// <returns>Документ в формате JSON</returns>
         [HttpGet("name/id")]
@@ -161,7 +161,7 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
         [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
         public async Task<ActionResult<string>> GetPlaceByIdFromHeader(
-            [FromQuery] string web,
+            [FromQuery] string url,
              [FromQuery] string id)
         {
             var place = await _placeService.GetPlaceByIdFromHeaderAsync(id);
