@@ -1527,11 +1527,7 @@
         }
 
 
-        /// <summary>
-        ///
-        /// Получить отсортированный список c использованием $and по дистанции с текстовым поиском, фильтрацией по ключевым словам
         
-        /// 
         public async Task<List<BsonDocument>> GetPlacesWithAllKeywordsAsync(
             decimal lat,
             decimal lng,
