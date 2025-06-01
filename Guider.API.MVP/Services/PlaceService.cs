@@ -29,17 +29,14 @@
                 mongoSettings.Value.Collections["Places"]);
         }
 
-        /// <summary>
+       
         /// Получить все документы из коллекции Places
-        /// </summary>
-        /// <returns></returns>
         public async Task<List<BsonDocument>> GetAllAsync() =>
             await _placeCollection.Find(_ => true).ToListAsync();
 
 
-        /// <summary>
+        
         /// Получить документы из коллекции с пагинацией
-        /// </summary>
         /// <param name="pageNumber">Номер страницы</param>
         /// <param name="pageSize">Размер страницы</param>
         /// <returns></returns>
@@ -639,16 +636,16 @@
         /// <summary>
         /// Получить документ по локальнуому url
         /// </summary>
-        /// <param name="web"></param>
+        /// <param name="url"></param>
         /// <returns></returns>
-        public async Task<BsonDocument> GetPlaceByWebAsync(string web)
+        public async Task<BsonDocument> GetPlaceByWebAsync(string url)
         {
-            if (string.IsNullOrEmpty(web))
+            if (string.IsNullOrEmpty(url))
             {
                 return null; 
             }
 
-            var filter = Builders<BsonDocument>.Filter.Eq("web", web);
+            var filter = Builders<BsonDocument>.Filter.Eq("url", url);
             return await _placeCollection.Find(filter).FirstOrDefaultAsync();
         }
 
@@ -701,14 +698,14 @@
                     }
                 }
 
-                // Check for unique web  
-                if (document.Contains("web"))
+                // Check for unique url  
+                if (document.Contains("url"))
                 {
-                    var webFilter = Builders<BsonDocument>.Filter.Eq("web", document["web"].AsString);
+                    var webFilter = Builders<BsonDocument>.Filter.Eq("url", document["url"].AsString);
                     var existingWebDocument = await _placeCollection.Find(webFilter).FirstOrDefaultAsync();
                     if (existingWebDocument != null)
                     {
-                        return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "The 'web' field must be unique." }));
+                        return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "The 'url' field must be unique." }));
                     }
                 }
 
@@ -796,17 +793,17 @@
                     }
                 }
 
-                // Check for unique web
-                if (updatedDocument.Contains("web"))
+                // Check for unique url
+                if (updatedDocument.Contains("url"))
                 {
                     var webFilter = Builders<BsonDocument>.Filter.And(
-                        Builders<BsonDocument>.Filter.Eq("web", updatedDocument["web"].AsString),
+                        Builders<BsonDocument>.Filter.Eq("url", updatedDocument["url"].AsString),
                         Builders<BsonDocument>.Filter.Ne("_id", objectId)
                     );
                     var existingWebDocument = await _placeCollection.Find(webFilter).FirstOrDefaultAsync();
                     if (existingWebDocument != null)
                     {
-                        return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "The 'web' field must be unique." }));
+                        return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "The 'url' field must be unique." }));
                     }
                 }
 
@@ -928,7 +925,7 @@
         //            }
         //        },
         //        {
-        //            "web", 1
+        //            "url", 1
         //        }
         //    })
         //};
@@ -971,7 +968,7 @@
                 }
             },
             {
-                "web", 1
+                "url", 1
             }
         })
     };
@@ -1055,7 +1052,7 @@
                 }
             },
             {
-                "web", 1
+                "url", 1
             }
         })
     };
@@ -1065,14 +1062,7 @@
         }
 
 
-        /// <summary>
-        /// Получить отсортированный по дистанции список данных об объектах 
-        /// </summary>
-        /// <param name="latitude"></param>
-        /// <param name="longitude"></param>
-        /// <param name="radiusMeters"></param>
-        /// <param name="limit"></param>
-        /// <returns></returns>
+        
         public async Task<string> GetNearbyPlacesAsyncCenter(decimal latitude, decimal longitude, int radiusMeters, int limit)
         {
             var pipeline = new[]
@@ -1094,7 +1084,7 @@
                 { "name", 1 },
                 { "location.coordinates", 1 },
                 {
-                    "web", 1
+                    "url", 1
                 }
 
             }),
@@ -1141,7 +1131,7 @@
             { "distance", 1 },
             { "name", 1 },
             { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
-            { "web", 1 },
+            { "url", 1 },
             { "category", 1 },
             { "tags", 1 }
         });
@@ -1214,7 +1204,7 @@
                     { "name", 1 },
                     { "address.city", 1 },
                     { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
-                    { "web", 1 }
+                    { "url", 1 }
                 });
 
             var limitStage = new BsonDocument("$limit", limit);
@@ -1314,7 +1304,7 @@
             { "name", 1 },
             { "address.city", 1 },
             { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
-            { "web", 1 }
+            { "url", 1 }
         });
 
             var limitStage = new BsonDocument("$limit", limit);
@@ -1393,7 +1383,7 @@
         { "name", 1 },
         { "address.city", 1 },
         { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
-        { "web", 1 }
+        { "url", 1 }
     });
 
             var limitStage = new BsonDocument("$limit", limit);
@@ -1510,7 +1500,7 @@
                 { "name", 1 },
                 { "address.city", 1 },
                 { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
-                { "web", 1 }
+                { "url", 1 }
             });
 
             var limitStage = new BsonDocument("$limit", limit);
@@ -1592,7 +1582,7 @@
                     { "name", 1 },
                     { "address.city", 1 },
                     { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
-                    { "web", 1 }
+                    { "url", 1 }
                 });
 
             var limitStage = new BsonDocument("$limit", limit);
@@ -1712,7 +1702,7 @@
                { "name", 1 },
                { "address.city", 1 },
                { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
-               { "web", 1 }
+               { "url", 1 }
            });
 
             var pipeline = new List<BsonDocument> { geoNearStage };
