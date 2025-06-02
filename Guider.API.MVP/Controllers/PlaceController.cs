@@ -419,7 +419,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="jsonDocument">JSON-документ, представляющий данные для создания нового объекта.</param>  
         /// <returns>Созданный объект в формате JSON, обернутый в ApiResponse.</returns>  
         [HttpPost]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Create([FromBody] JsonDocument jsonDocument)
         {
             try
@@ -510,7 +510,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="jsonDocument">JSON-документ, представляющий данные для обновления существующего объекта.</param>
         /// <returns>Обновленный объект в формате JSON, обернутый в ApiResponse.</returns>
         [HttpPut("{id}")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Update(string id, [FromBody] JsonDocument jsonDocument)
         {
             try
@@ -627,7 +627,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="id">Идентификатор документа, который нужно удалить.</param>
         /// <returns>Статус операции удаления в формате JSON, обернутый в ApiResponse.</returns>
         [HttpDelete("{id}")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<IActionResult> Delete(string id)
         {
             //var business = await _placeService.GetByIdAsync(id);
