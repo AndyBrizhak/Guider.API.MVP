@@ -197,13 +197,13 @@
                     // Фильтр по провинции
                     if (filter.TryGetValue("province", out string province) && !string.IsNullOrEmpty(province))
                     {
-                        filters.Add(filterBuilder.Regex("province", new BsonRegularExpression(province, "i")));
+                        filters.Add(filterBuilder.Regex("address.province", new BsonRegularExpression(province, "i")));
                     }
 
                     // Фильтр по городу
                     if (filter.TryGetValue("city", out string city) && !string.IsNullOrEmpty(city))
                     {
-                        filters.Add(filterBuilder.Regex("city", new BsonRegularExpression(city, "i")));
+                        filters.Add(filterBuilder.Regex("address.city", new BsonRegularExpression(city, "i")));
                     }
 
                     // Фильтр по названию заведения
@@ -313,373 +313,375 @@
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResult));
             }
         }
-        private JsonDocument ProcessDocument(BsonDocument document)
-        {
-            var json = document.ToJson();
-            var originalJsonDoc = JsonDocument.Parse(json);
 
-            using var stream = new MemoryStream();
-            using var writer = new Utf8JsonWriter(stream);
 
-            writer.WriteStartObject();
+        //private JsonDocument ProcessDocument(BsonDocument document)
+        //{
+        //    var json = document.ToJson();
+        //    var originalJsonDoc = JsonDocument.Parse(json);
 
-            string idValue = null;
-            var processedProperties = new HashSet<string> { "_id" }; // Отслеживаем обработанные свойства
+        //    using var stream = new MemoryStream();
+        //    using var writer = new Utf8JsonWriter(stream);
 
-            // Извлекаем и обрабатываем _id
-            foreach (var property in originalJsonDoc.RootElement.EnumerateObject())
-            {
-                if (property.Name == "_id")
-                {
-                    idValue = ExtractObjectId(property.Value);
-                    break;
-                }
-            }
+        //    writer.WriteStartObject();
 
-            // Записываем id первым, если он найден
-            if (!string.IsNullOrEmpty(idValue))
-            {
-                writer.WriteString("id", idValue);
-            }
+        //    string idValue = null;
+        //    var processedProperties = new HashSet<string> { "_id" }; // Отслеживаем обработанные свойства
 
-            // Обрабатываем все остальные свойства с учетом специфики схемы
-            foreach (var property in originalJsonDoc.RootElement.EnumerateObject())
-            {
-                if (processedProperties.Contains(property.Name))
-                    continue;
+        //    // Извлекаем и обрабатываем _id
+        //    foreach (var property in originalJsonDoc.RootElement.EnumerateObject())
+        //    {
+        //        if (property.Name == "_id")
+        //        {
+        //            idValue = ExtractObjectId(property.Value);
+        //            break;
+        //        }
+        //    }
 
-                ProcessProperty(writer, property);
-                processedProperties.Add(property.Name);
-            }
+        //    // Записываем id первым, если он найден
+        //    if (!string.IsNullOrEmpty(idValue))
+        //    {
+        //        writer.WriteString("id", idValue);
+        //    }
 
-            writer.WriteEndObject();
-            writer.Flush();
+        //    // Обрабатываем все остальные свойства с учетом специфики схемы
+        //    foreach (var property in originalJsonDoc.RootElement.EnumerateObject())
+        //    {
+        //        if (processedProperties.Contains(property.Name))
+        //            continue;
 
-            var modifiedJson = Encoding.UTF8.GetString(stream.ToArray());
-            var result = JsonDocument.Parse(modifiedJson);
+        //        ProcessProperty(writer, property);
+        //        processedProperties.Add(property.Name);
+        //    }
 
-            // Освобождаем ресурсы исходного документа
-            originalJsonDoc.Dispose();
+        //    writer.WriteEndObject();
+        //    writer.Flush();
 
-            return result;
-        }
+        //    var modifiedJson = Encoding.UTF8.GetString(stream.ToArray());
+        //    var result = JsonDocument.Parse(modifiedJson);
 
-        private string ExtractObjectId(JsonElement idElement)
-        {
-            // Обработка ObjectId согласно схеме
-            if (idElement.ValueKind == JsonValueKind.Object && idElement.TryGetProperty("$oid", out var oidElement))
-            {
-                return oidElement.GetString();
-            }
+        //    // Освобождаем ресурсы исходного документа
+        //    originalJsonDoc.Dispose();
 
-            // Fallback для других форматов ObjectId
-            if (idElement.ValueKind == JsonValueKind.String)
-            {
-                return idElement.GetString();
-            }
+        //    return result;
+        //}
 
-            return null;
-        }
+        //private string ExtractObjectId(JsonElement idElement)
+        //{
+        //    // Обработка ObjectId согласно схеме
+        //    if (idElement.ValueKind == JsonValueKind.Object && idElement.TryGetProperty("$oid", out var oidElement))
+        //    {
+        //        return oidElement.GetString();
+        //    }
 
-        private string GetDocumentId(BsonDocument document)
-        {
-            try
-            {
-                if (document.Contains("_id"))
-                {
-                    var idValue = document["_id"];
-                    if (idValue.IsObjectId)
-                    {
-                        return idValue.AsObjectId.ToString();
-                    }
-                    return idValue.ToString();
-                }
-            }
-            catch
-            {
-                // Игнорируем ошибки извлечения ID
-            }
+        //    // Fallback для других форматов ObjectId
+        //    if (idElement.ValueKind == JsonValueKind.String)
+        //    {
+        //        return idElement.GetString();
+        //    }
 
-            return "unknown";
-        }
+        //    return null;
+        //}
 
-        private void ProcessProperty(Utf8JsonWriter writer, JsonProperty property)
-        {
-            switch (property.Name)
-            {
-                // Обработка полей с особой логикой согласно схеме
-                case "phone":
-                    ProcessPhoneProperty(writer, property);
-                    break;
+        //private string GetDocumentId(BsonDocument document)
+        //{
+        //    try
+        //    {
+        //        if (document.Contains("_id"))
+        //        {
+        //            var idValue = document["_id"];
+        //            if (idValue.IsObjectId)
+        //            {
+        //                return idValue.AsObjectId.ToString();
+        //            }
+        //            return idValue.ToString();
+        //        }
+        //    }
+        //    catch
+        //    {
+        //        // Игнорируем ошибки извлечения ID
+        //    }
 
-                case "owner":
-                    ProcessOwnerProperty(writer, property);
-                    break;
+        //    return "unknown";
+        //}
 
-                case "description":
-                    ProcessDescriptionProperty(writer, property);
-                    break;
+        //private void ProcessProperty(Utf8JsonWriter writer, JsonProperty property)
+        //{
+        //    switch (property.Name)
+        //    {
+        //        // Обработка полей с особой логикой согласно схеме
+        //        case "phone":
+        //            ProcessPhoneProperty(writer, property);
+        //            break;
 
-                case "location":
-                    ProcessLocationProperty(writer, property);
-                    break;
+        //        case "owner":
+        //            ProcessOwnerProperty(writer, property);
+        //            break;
 
-                // Обработка полей с числовыми значениями MongoDB
-                case var name when ContainsMongoNumbers(property.Value):
-                    ProcessPropertyWithMongoNumbers(writer, property);
-                    break;
+        //        case "description":
+        //            ProcessDescriptionProperty(writer, property);
+        //            break;
 
-                default:
-                    // Стандартная обработка для остальных полей
-                    property.WriteTo(writer);
-                    break;
-            }
-        }
+        //        case "location":
+        //            ProcessLocationProperty(writer, property);
+        //            break;
 
-        private void ProcessPhoneProperty(Utf8JsonWriter writer, JsonProperty property)
-        {
-            writer.WritePropertyName(property.Name);
+        //        // Обработка полей с числовыми значениями MongoDB
+        //        case var name when ContainsMongoNumbers(property.Value):
+        //            ProcessPropertyWithMongoNumbers(writer, property);
+        //            break;
 
-            if (property.Value.ValueKind == JsonValueKind.Object)
-            {
-                writer.WriteStartObject();
+        //        default:
+        //            // Стандартная обработка для остальных полей
+        //            property.WriteTo(writer);
+        //            break;
+        //    }
+        //}
 
-                foreach (var phoneField in property.Value.EnumerateObject())
-                {
-                    writer.WritePropertyName(phoneField.Name);
+        //private void ProcessPhoneProperty(Utf8JsonWriter writer, JsonProperty property)
+        //{
+        //    writer.WritePropertyName(property.Name);
 
-                    // Обработка различных форматов телефонных номеров
-                    if (phoneField.Value.ValueKind == JsonValueKind.Object &&
-                        phoneField.Value.TryGetProperty("$numberLong", out var numberLong))
-                    {
-                        // Конвертируем $numberLong в строку
-                        writer.WriteStringValue(numberLong.GetString());
-                    }
-                    else if (phoneField.Value.ValueKind == JsonValueKind.Object &&
-                             phoneField.Value.TryGetProperty("$numberDouble", out var numberDouble))
-                    {
-                        // Обработка $numberDouble
-                        writer.WriteStringValue(numberDouble.GetString());
-                    }
-                    else
-                    {
-                        phoneField.Value.WriteTo(writer);
-                    }
-                }
+        //    if (property.Value.ValueKind == JsonValueKind.Object)
+        //    {
+        //        writer.WriteStartObject();
 
-                writer.WriteEndObject();
-            }
-            else
-            {
-                property.Value.WriteTo(writer);
-            }
-        }
+        //        foreach (var phoneField in property.Value.EnumerateObject())
+        //        {
+        //            writer.WritePropertyName(phoneField.Name);
 
-        private void ProcessOwnerProperty(Utf8JsonWriter writer, JsonProperty property)
-        {
-            // owner может быть объектом или массивом согласно схеме
-            writer.WritePropertyName(property.Name);
+        //            // Обработка различных форматов телефонных номеров
+        //            if (phoneField.Value.ValueKind == JsonValueKind.Object &&
+        //                phoneField.Value.TryGetProperty("$numberLong", out var numberLong))
+        //            {
+        //                // Конвертируем $numberLong в строку
+        //                writer.WriteStringValue(numberLong.GetString());
+        //            }
+        //            else if (phoneField.Value.ValueKind == JsonValueKind.Object &&
+        //                     phoneField.Value.TryGetProperty("$numberDouble", out var numberDouble))
+        //            {
+        //                // Обработка $numberDouble
+        //                writer.WriteStringValue(numberDouble.GetString());
+        //            }
+        //            else
+        //            {
+        //                phoneField.Value.WriteTo(writer);
+        //            }
+        //        }
 
-            if (property.Value.ValueKind == JsonValueKind.Array)
-            {
-                writer.WriteStartArray();
-                foreach (var ownerItem in property.Value.EnumerateArray())
-                {
-                    ProcessOwnerObject(writer, ownerItem);
-                }
-                writer.WriteEndArray();
-            }
-            else if (property.Value.ValueKind == JsonValueKind.Object)
-            {
-                ProcessOwnerObject(writer, property.Value);
-            }
-            else
-            {
-                property.Value.WriteTo(writer);
-            }
-        }
+        //        writer.WriteEndObject();
+        //    }
+        //    else
+        //    {
+        //        property.Value.WriteTo(writer);
+        //    }
+        //}
 
-        private void ProcessOwnerObject(Utf8JsonWriter writer, JsonElement ownerElement)
-        {
-            writer.WriteStartObject();
+        //private void ProcessOwnerProperty(Utf8JsonWriter writer, JsonProperty property)
+        //{
+        //    // owner может быть объектом или массивом согласно схеме
+        //    writer.WritePropertyName(property.Name);
 
-            foreach (var ownerField in ownerElement.EnumerateObject())
-            {
-                writer.WritePropertyName(ownerField.Name);
+        //    if (property.Value.ValueKind == JsonValueKind.Array)
+        //    {
+        //        writer.WriteStartArray();
+        //        foreach (var ownerItem in property.Value.EnumerateArray())
+        //        {
+        //            ProcessOwnerObject(writer, ownerItem);
+        //        }
+        //        writer.WriteEndArray();
+        //    }
+        //    else if (property.Value.ValueKind == JsonValueKind.Object)
+        //    {
+        //        ProcessOwnerObject(writer, property.Value);
+        //    }
+        //    else
+        //    {
+        //        property.Value.WriteTo(writer);
+        //    }
+        //}
 
-                // phone в owner может быть строкой или числом
-                if (ownerField.Name == "phone")
-                {
-                    if (ownerField.Value.ValueKind == JsonValueKind.Number)
-                    {
-                        writer.WriteStringValue(ownerField.Value.GetInt64().ToString());
-                    }
-                    else
-                    {
-                        ownerField.Value.WriteTo(writer);
-                    }
-                }
-                else
-                {
-                    ownerField.Value.WriteTo(writer);
-                }
-            }
+        //private void ProcessOwnerObject(Utf8JsonWriter writer, JsonElement ownerElement)
+        //{
+        //    writer.WriteStartObject();
 
-            writer.WriteEndObject();
-        }
+        //    foreach (var ownerField in ownerElement.EnumerateObject())
+        //    {
+        //        writer.WritePropertyName(ownerField.Name);
 
-        private void ProcessDescriptionProperty(Utf8JsonWriter writer, JsonProperty property)
-        {
-            // description может быть строкой или массивом строк
-            writer.WritePropertyName(property.Name);
-            property.Value.WriteTo(writer);
-        }
+        //        // phone в owner может быть строкой или числом
+        //        if (ownerField.Name == "phone")
+        //        {
+        //            if (ownerField.Value.ValueKind == JsonValueKind.Number)
+        //            {
+        //                writer.WriteStringValue(ownerField.Value.GetInt64().ToString());
+        //            }
+        //            else
+        //            {
+        //                ownerField.Value.WriteTo(writer);
+        //            }
+        //        }
+        //        else
+        //        {
+        //            ownerField.Value.WriteTo(writer);
+        //        }
+        //    }
 
-        private void ProcessLocationProperty(Utf8JsonWriter writer, JsonProperty property)
-        {
-            writer.WritePropertyName(property.Name);
+        //    writer.WriteEndObject();
+        //}
 
-            if (property.Value.ValueKind == JsonValueKind.Object)
-            {
-                writer.WriteStartObject();
+        //private void ProcessDescriptionProperty(Utf8JsonWriter writer, JsonProperty property)
+        //{
+        //    // description может быть строкой или массивом строк
+        //    writer.WritePropertyName(property.Name);
+        //    property.Value.WriteTo(writer);
+        //}
 
-                foreach (var locationField in property.Value.EnumerateObject())
-                {
-                    writer.WritePropertyName(locationField.Name);
+        //private void ProcessLocationProperty(Utf8JsonWriter writer, JsonProperty property)
+        //{
+        //    writer.WritePropertyName(property.Name);
 
-                    if (locationField.Name == "coordinates" && locationField.Value.ValueKind == JsonValueKind.Array)
-                    {
-                        writer.WriteStartArray();
-                        foreach (var coordinate in locationField.Value.EnumerateArray())
-                        {
-                            // Обработка координат с учетом MongoDB Double типов
-                            if (coordinate.ValueKind == JsonValueKind.Object &&
-                                coordinate.TryGetProperty("$numberDouble", out var doubleValue))
-                            {
-                                if (double.TryParse(doubleValue.GetString(), out var parsedDouble))
-                                {
-                                    writer.WriteNumberValue(parsedDouble);
-                                }
-                                else
-                                {
-                                    // Обработка специальных значений (Infinity, -Infinity, NaN)
-                                    writer.WriteStringValue(doubleValue.GetString());
-                                }
-                            }
-                            else
-                            {
-                                coordinate.WriteTo(writer);
-                            }
-                        }
-                        writer.WriteEndArray();
-                    }
-                    else
-                    {
-                        locationField.Value.WriteTo(writer);
-                    }
-                }
+        //    if (property.Value.ValueKind == JsonValueKind.Object)
+        //    {
+        //        writer.WriteStartObject();
 
-                writer.WriteEndObject();
-            }
-            else
-            {
-                property.Value.WriteTo(writer);
-            }
-        }
+        //        foreach (var locationField in property.Value.EnumerateObject())
+        //        {
+        //            writer.WritePropertyName(locationField.Name);
 
-        private bool ContainsMongoNumbers(JsonElement element)
-        {
-            if (element.ValueKind == JsonValueKind.Object)
-            {
-                return element.TryGetProperty("$numberLong", out _) ||
-                       element.TryGetProperty("$numberDouble", out _) ||
-                       element.TryGetProperty("$numberInt", out _);
-            }
+        //            if (locationField.Name == "coordinates" && locationField.Value.ValueKind == JsonValueKind.Array)
+        //            {
+        //                writer.WriteStartArray();
+        //                foreach (var coordinate in locationField.Value.EnumerateArray())
+        //                {
+        //                    // Обработка координат с учетом MongoDB Double типов
+        //                    if (coordinate.ValueKind == JsonValueKind.Object &&
+        //                        coordinate.TryGetProperty("$numberDouble", out var doubleValue))
+        //                    {
+        //                        if (double.TryParse(doubleValue.GetString(), out var parsedDouble))
+        //                        {
+        //                            writer.WriteNumberValue(parsedDouble);
+        //                        }
+        //                        else
+        //                        {
+        //                            // Обработка специальных значений (Infinity, -Infinity, NaN)
+        //                            writer.WriteStringValue(doubleValue.GetString());
+        //                        }
+        //                    }
+        //                    else
+        //                    {
+        //                        coordinate.WriteTo(writer);
+        //                    }
+        //                }
+        //                writer.WriteEndArray();
+        //            }
+        //            else
+        //            {
+        //                locationField.Value.WriteTo(writer);
+        //            }
+        //        }
 
-            if (element.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var item in element.EnumerateArray())
-                {
-                    if (ContainsMongoNumbers(item))
-                        return true;
-                }
-            }
+        //        writer.WriteEndObject();
+        //    }
+        //    else
+        //    {
+        //        property.Value.WriteTo(writer);
+        //    }
+        //}
 
-            return false;
-        }
+        //private bool ContainsMongoNumbers(JsonElement element)
+        //{
+        //    if (element.ValueKind == JsonValueKind.Object)
+        //    {
+        //        return element.TryGetProperty("$numberLong", out _) ||
+        //               element.TryGetProperty("$numberDouble", out _) ||
+        //               element.TryGetProperty("$numberInt", out _);
+        //    }
 
-        private void ProcessPropertyWithMongoNumbers(Utf8JsonWriter writer, JsonProperty property)
-        {
-            writer.WritePropertyName(property.Name);
-            ProcessElementWithMongoNumbers(writer, property.Value);
-        }
+        //    if (element.ValueKind == JsonValueKind.Array)
+        //    {
+        //        foreach (var item in element.EnumerateArray())
+        //        {
+        //            if (ContainsMongoNumbers(item))
+        //                return true;
+        //        }
+        //    }
 
-        private void ProcessElementWithMongoNumbers(Utf8JsonWriter writer, JsonElement element)
-        {
-            switch (element.ValueKind)
-            {
-                case JsonValueKind.Object:
-                    if (element.TryGetProperty("$numberLong", out var numberLong))
-                    {
-                        if (long.TryParse(numberLong.GetString(), out var longValue))
-                        {
-                            writer.WriteNumberValue(longValue);
-                        }
-                        else
-                        {
-                            writer.WriteStringValue(numberLong.GetString());
-                        }
-                    }
-                    else if (element.TryGetProperty("$numberDouble", out var numberDouble))
-                    {
-                        var doubleStr = numberDouble.GetString();
-                        if (double.TryParse(doubleStr, out var doubleValue))
-                        {
-                            writer.WriteNumberValue(doubleValue);
-                        }
-                        else
-                        {
-                            // Обработка специальных значений
-                            writer.WriteStringValue(doubleStr);
-                        }
-                    }
-                    else if (element.TryGetProperty("$numberInt", out var numberInt))
-                    {
-                        if (int.TryParse(numberInt.GetString(), out var intValue))
-                        {
-                            writer.WriteNumberValue(intValue);
-                        }
-                        else
-                        {
-                            writer.WriteStringValue(numberInt.GetString());
-                        }
-                    }
-                    else
-                    {
-                        writer.WriteStartObject();
-                        foreach (var property in element.EnumerateObject())
-                        {
-                            writer.WritePropertyName(property.Name);
-                            ProcessElementWithMongoNumbers(writer, property.Value);
-                        }
-                        writer.WriteEndObject();
-                    }
-                    break;
+        //    return false;
+        //}
 
-                case JsonValueKind.Array:
-                    writer.WriteStartArray();
-                    foreach (var item in element.EnumerateArray())
-                    {
-                        ProcessElementWithMongoNumbers(writer, item);
-                    }
-                    writer.WriteEndArray();
-                    break;
+        //private void ProcessPropertyWithMongoNumbers(Utf8JsonWriter writer, JsonProperty property)
+        //{
+        //    writer.WritePropertyName(property.Name);
+        //    ProcessElementWithMongoNumbers(writer, property.Value);
+        //}
 
-                default:
-                    element.WriteTo(writer);
-                    break;
-            }
-        }
+        //private void ProcessElementWithMongoNumbers(Utf8JsonWriter writer, JsonElement element)
+        //{
+        //    switch (element.ValueKind)
+        //    {
+        //        case JsonValueKind.Object:
+        //            if (element.TryGetProperty("$numberLong", out var numberLong))
+        //            {
+        //                if (long.TryParse(numberLong.GetString(), out var longValue))
+        //                {
+        //                    writer.WriteNumberValue(longValue);
+        //                }
+        //                else
+        //                {
+        //                    writer.WriteStringValue(numberLong.GetString());
+        //                }
+        //            }
+        //            else if (element.TryGetProperty("$numberDouble", out var numberDouble))
+        //            {
+        //                var doubleStr = numberDouble.GetString();
+        //                if (double.TryParse(doubleStr, out var doubleValue))
+        //                {
+        //                    writer.WriteNumberValue(doubleValue);
+        //                }
+        //                else
+        //                {
+        //                    // Обработка специальных значений
+        //                    writer.WriteStringValue(doubleStr);
+        //                }
+        //            }
+        //            else if (element.TryGetProperty("$numberInt", out var numberInt))
+        //            {
+        //                if (int.TryParse(numberInt.GetString(), out var intValue))
+        //                {
+        //                    writer.WriteNumberValue(intValue);
+        //                }
+        //                else
+        //                {
+        //                    writer.WriteStringValue(numberInt.GetString());
+        //                }
+        //            }
+        //            else
+        //            {
+        //                writer.WriteStartObject();
+        //                foreach (var property in element.EnumerateObject())
+        //                {
+        //                    writer.WritePropertyName(property.Name);
+        //                    ProcessElementWithMongoNumbers(writer, property.Value);
+        //                }
+        //                writer.WriteEndObject();
+        //            }
+        //            break;
+
+        //        case JsonValueKind.Array:
+        //            writer.WriteStartArray();
+        //            foreach (var item in element.EnumerateArray())
+        //            {
+        //                ProcessElementWithMongoNumbers(writer, item);
+        //            }
+        //            writer.WriteEndArray();
+        //            break;
+
+        //        default:
+        //            element.WriteTo(writer);
+        //            break;
+        //    }
+        //}
 
 
         /// <summary>
