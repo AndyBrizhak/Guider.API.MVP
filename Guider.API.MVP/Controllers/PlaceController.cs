@@ -577,54 +577,32 @@ namespace Guider.API.MVP.Controllers
         }
 
 
-        /// <summary>
-        /// Удаление документа из коллекции Places.
-        /// Доступно только для авторизованных пользователей с ролями Super Admin или Admin.
-        /// </summary>
-        /// <param name="id">Идентификатор документа, который нужно удалить.</param>
-        /// <returns>Статус операции удаления в формате JSON, обернутый в ApiResponse.</returns>
+       
+
         [HttpDelete("{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<IActionResult> Delete(string id)
         {
-            //var business = await _placeService.GetByIdAsync(id);
-            //if (business == null)
-            //{
-            //    _response.StatusCode = HttpStatusCode.NotFound;
-            //    _response.IsSuccess = false;
-            //    _response.ErrorMessages.Add($"Document with id {id} not found.");
-            //    return NotFound(_response);
-            //}
-
             var deleteResult = await _placeService.DeleteAsync(id);
 
             if (deleteResult == null || deleteResult.RootElement.ValueKind != JsonValueKind.Object)
             {
-                _response.StatusCode = HttpStatusCode.InternalServerError;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add("Unexpected error occurred while deleting the document.");
-                return StatusCode((int)HttpStatusCode.InternalServerError, _response);
+                return StatusCode((int)HttpStatusCode.InternalServerError, "Unexpected error occurred while deleting the document.");
             }
 
             if (deleteResult.RootElement.TryGetProperty("success", out var successElement) && successElement.ValueKind == JsonValueKind.False)
             {
                 string errorMessage = "Failed to delete the document.";
-
                 if (deleteResult.RootElement.TryGetProperty("error", out var errorElement) && errorElement.ValueKind == JsonValueKind.String)
                 {
                     errorMessage = errorElement.GetString();
                 }
 
-                _response.StatusCode = HttpStatusCode.BadRequest;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add(errorMessage);
-                return BadRequest(_response);
+                return BadRequest(errorMessage);
             }
 
-            _response.StatusCode = HttpStatusCode.NoContent;
-            _response.IsSuccess = true;
-            return Ok(_response);
+            // Успешное удаление
+            return NoContent();
         }
-
     }
 }
