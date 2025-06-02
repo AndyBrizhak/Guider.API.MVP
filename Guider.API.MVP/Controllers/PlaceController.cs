@@ -411,13 +411,7 @@ namespace Guider.API.MVP.Controllers
         }
 
 
-        /// <summary>  
-        /// Создание нового документа в коллекции Places.  
-        /// Доступно только для авторизованных пользователей с ролями Super Admin, Admin или Manager.  
-        /// Во входящем параметре должен передаваться валидный JSON-документ.  
-        /// </summary>  
-        /// <param name="jsonDocument">JSON-документ, представляющий данные для создания нового объекта.</param>  
-        /// <returns>Созданный объект в формате JSON, обернутый в ApiResponse.</returns>  
+       
         [HttpPost]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Create([FromBody] JsonDocument jsonDocument)
@@ -427,80 +421,43 @@ namespace Guider.API.MVP.Controllers
                 // Валидация входящих данных  
                 if (jsonDocument == null || jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
                 {
-                    var validationResponse = new ApiResponse
-                    {
-                        StatusCode = HttpStatusCode.BadRequest,
-                        IsSuccess = false,
-                        ErrorMessages = new List<string> { "Invalid input. Expected a JSON object." }
-                    };
-                    return BadRequest(validationResponse);
+                    return BadRequest("Invalid input. Expected a JSON object.");
                 }
 
-                // Отправляем в сервис и получаем полный документ  
-                var createdDocument = await _placeService.CreateAsync(jsonDocument);
+                // Отправляем в сервис и получаем результат
+                var result = await _placeService.CreateAsync(jsonDocument);
 
-                if (createdDocument == null)
+                // Проверяем результат из сервиса
+                if (result.RootElement.TryGetProperty("success", out var successElement) && successElement.GetBoolean())
                 {
-                    var notFoundResponse = new ApiResponse
+                    // Успешное создание - возвращаем 201 Created
+                    if (result.RootElement.TryGetProperty("data", out var dataElement))
                     {
-                        StatusCode = HttpStatusCode.NotFound,
-                        IsSuccess = false,
-                        ErrorMessages = new List<string> { "Document could not be created." }
-                    };
-                    return NotFound(notFoundResponse);
-                }
-
-                // Проверка на неудачный результат операции(success = false)
-                if (!(!createdDocument.RootElement.TryGetProperty("success", out var successElement) ||
-                   successElement.ValueKind != JsonValueKind.False))
-                {
-                    string errorMessage = "Failed to create document or missing id.";
-                    // Добавляем сообщение об ошибке из сервиса, если оно присутствует
-                    if (createdDocument.RootElement.TryGetProperty("message", out var serviceErrorElement) &&
-                        serviceErrorElement.ValueKind == JsonValueKind.String)
-                    {
-                        errorMessage += $" Service error: {serviceErrorElement.GetString()}";
+                        return StatusCode(201, JsonDocument.Parse(dataElement.GetRawText()));
                     }
-                    var badRequestResponse = new ApiResponse
+                    else
                     {
-                        StatusCode = HttpStatusCode.BadRequest,
-                        IsSuccess = false,
-                        ErrorMessages = new List<string> { errorMessage }
-                    };
-                    return BadRequest(badRequestResponse);
+                        return BadRequest("Success response missing data field.");
+                    }
                 }
-
-               
-                
-                    var successResponse = new ApiResponse
+                else
+                {
+                    // Неудачное создание - возвращаем 400 Bad Request
+                    string message = "Unknown error occurred.";
+                    if (result.RootElement.TryGetProperty("message", out var messageElement))
                     {
-                        StatusCode = HttpStatusCode.Created,
-                        IsSuccess = true,
-                        Result = new
-                        {
-                          Data = createdDocument.ToJson() // Include the entire created object
-                        }
-                    };
-                    return Ok(successResponse);
-                
-                
-                
-
+                        message = messageElement.GetString();
+                    }
+                    return BadRequest(message);
+                }
             }
             catch (Exception ex)
             {
-                // Формируем ошибочный ответ  
-                var errorResponse = new ApiResponse
-                {
-                    StatusCode = HttpStatusCode.BadRequest,
-                    IsSuccess = false,
-                    ErrorMessages = new List<string> { ex.Message }
-                };
-                return BadRequest(errorResponse);
+                return BadRequest(ex.Message);
             }
         }
 
-                
+
         /// <summary>
         /// Обновление существующего документа в коллекции Places.
         /// Доступно только для авторизованных пользователей с ролями Super Admin, Admin или Manager.

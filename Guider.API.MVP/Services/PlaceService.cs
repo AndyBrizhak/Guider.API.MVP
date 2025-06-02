@@ -237,11 +237,8 @@
             }
         }
 
-        /// <summary>
+       
         /// Получить документ по локальнуому url
-        /// </summary>
-        /// <param name="url"></param>
-        /// <returns></returns>
         public async Task<BsonDocument> GetPlaceByWebAsync(string url)
         {
             if (string.IsNullOrEmpty(url))
@@ -253,11 +250,8 @@
             return await _placeCollection.Find(filter).FirstOrDefaultAsync();
         }
 
-        /// <summary>
+        
         /// Получить объект по идентификатору из параметров запроса
-        /// </summary>
-        /// <param name="id"></param>
-        /// <returns></returns>
         public async Task<BsonDocument?> GetPlaceByIdFromHeaderAsync(string id)
         {
             if (!ObjectId.TryParse(id, out var objectId))
@@ -269,18 +263,11 @@
             return await _placeCollection.Find(filter).FirstOrDefaultAsync();
         }
 
-              
-
-     /// Создать новый документ в коллекции Places  
-        /// </summary>  
-        /// <param name="jsonDocument">JSON-строка документа</param>  
-        /// <returns>Созданный документ в формате JSON</returns>  
         public async Task<JsonDocument> CreateAsync(JsonDocument jsonDocument)
         {
             try
             {
                 var jsonString = jsonDocument.RootElement.GetRawText();
-
                 var document = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<BsonDocument>(jsonString);
 
                 // Check for unique name  
@@ -313,30 +300,39 @@
                     }
                 }
 
-                if (!document.Contains("createdAt"))
-                {
-                    document.Add("createdAt", DateTime.UtcNow);
-                }
-
+                // Создание заведения в базе данных
                 await _placeCollection.InsertOneAsync(document);
 
-                var createdJsonString = document.ToJson();
-                return JsonDocument.Parse(createdJsonString);
+                // Получение данных о новом заведении
+                var createdDocument = await _placeCollection.Find(Builders<BsonDocument>.Filter.Eq("_id", document["_id"])).FirstOrDefaultAsync();
+
+                if (createdDocument == null)
+                {
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "Failed to retrieve created document." }));
+                }
+
+                // Создание глубокой копии и изменение формата идентификатора
+                var deepCopy = BsonDocument.Parse(createdDocument.ToJson());
+
+                // Изменяем _id на id
+                if (deepCopy.Contains("_id"))
+                {
+                    var idValue = deepCopy["_id"].ToString();
+                    deepCopy.Remove("_id");
+                    deepCopy.Add("id", idValue);
+                }
+
+                // Возврат успешного результата
+                var resultData = JsonDocument.Parse(deepCopy.ToJson());
+                return JsonDocument.Parse(JsonSerializer.Serialize(new { success = true, data = resultData }));
             }
             catch (Exception ex)
             {
-                return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, error = ex.Message }));
+                return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = ex.Message }));
             }
         }
 
-
-       
-        /// <summary>  
         /// Обновить существующий документ в коллекции Places  
-        /// </summary>  
-        /// <param name="id">Строка с уникальным идентификатором объекта</param>
-        /// <param name="jsonDocument">JSON-строка с обновленными данными</param>  
-        /// <returns>Обновленный документ</returns>  
         public async Task<JsonDocument> UpdateAsync(string id, JsonDocument jsonDocument)
         {
             try
@@ -445,8 +441,6 @@
             }
         }
 
-
-
         public async Task<JsonDocument> DeleteAsync(string id)
         {
             try
@@ -493,9 +487,6 @@
                 }));
             }
         }
-
-
-      
 
         /// <summary>
         /// Гео с выводом отсортированного списка с id, distance, name, img_link
@@ -624,8 +615,6 @@
             return result;
         }
 
-
-        
         public async Task<string> GetNearbyPlacesAsyncCenter(decimal latitude, decimal longitude, int radiusMeters, int limit)
         {
             var pipeline = new[]
@@ -1080,7 +1069,6 @@
         }
 
 
-        
         public async Task<List<BsonDocument>> GetPlacesWithAllKeywordsAsync(
             decimal lat,
             decimal lng,
