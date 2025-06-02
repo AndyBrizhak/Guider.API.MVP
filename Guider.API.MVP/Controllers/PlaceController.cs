@@ -28,72 +28,7 @@ namespace Guider.API.MVP.Controllers
             _response = new ApiResponse();
         }
 
-
-
-        /// <summary>
-        /// Получить список мест с пагинацией.
-        /// </summary>
-        /// <param name="pageNumber">Номер страницы (по умолчанию 1).</param>
-        /// <param name="pageSize">Размер страницы (по умолчанию 20).</param>
-        /// <returns>Список мест в формате JSON с заголовками пагинации.</returns>
-        //[HttpGet]
-        ////[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
-        //[ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Conflict)]
-        //public async Task<IActionResult> GetAllPaged([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
-        //{
-        //    try
-        //    {
-        //        // Получаем данные из сервиса (теперь возвращается кортеж)
-        //        var (documents, totalCount) = await _placeService.GetAllPagedAsync(pageNumber, pageSize);
-
-        //        // Проверяем наличие данных
-        //        if (documents == null || documents.Count == 0)
-        //        {
-        //            return NotFound("No places found.");
-        //        }
-
-        //        // Преобразуем JsonDocument в объекты для сериализации
-        //        var result = new List<object>();
-        //        foreach (var document in documents)
-        //        {
-        //            try
-        //            {
-        //                // Преобразуем JsonDocument в объект для корректной сериализации
-        //                using (document)
-        //                {
-        //                    var jsonString = document.RootElement.GetRawText();
-        //                    var jsonObject = System.Text.Json.JsonSerializer.Deserialize<object>(jsonString);
-        //                    result.Add(jsonObject);
-        //                }
-        //            }
-        //            catch (Exception ex)
-        //            {
-        //                // В случае ошибки обработки конкретного документа
-        //                return BadRequest($"Error processing document: {ex.Message}");
-        //            }
-        //        }
-
-        //        // Добавляем заголовки для пагинации (для react-admin)
-        //        Response.Headers.Add("X-Total-Count", totalCount.ToString());
-        //        Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
-
-        //        return Ok(result);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return StatusCode(500, $"Internal server error: {ex.Message}");
-        //    }
-        //}
-
+        
         [HttpGet]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetPlaces(
@@ -146,50 +81,40 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-        /// <summary>
-        /// Получить место по идентификатору.
-        /// </summary>
-        /// <param name="id">Уникальный идентификатор места.</param>
-        /// <returns>Документ места в формате JSON. Возвращает 200 OK, если найден, 404 Not Found, если не найден, 400 Bad Request при ошибке формата, 500 Internal Server Error при других ошибках.</returns>
+       
         [HttpGet("{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.OK)]
-        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.NotFound)]
-        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.BadRequest)]
-        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.InternalServerError)]
-        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.Unauthorized)]
-        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.Forbidden)]
-        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.ServiceUnavailable)]
-        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.GatewayTimeout)]
-        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.RequestTimeout)]
-        [ProducesResponseType(typeof(JsonDocument), (int)HttpStatusCode.Conflict)]
-        public async Task<ActionResult<JsonDocument>> GetById(string id)
+        public async Task<ActionResult> GetById(string id)
         {
             var result = await _placeService.GetByIdAsync(id);
 
-            // Проверяем IsSuccess в полученном JsonDocument
+            // Проверяем, является ли результат ошибкой
             if (result.RootElement.TryGetProperty("IsSuccess", out var isSuccessElement) &&
                 isSuccessElement.GetBoolean() == false)
             {
-                // Если объект не найден или произошла ошибка, возвращаем соответствующий статус
+                // Получаем сообщение об ошибке
+                var errorMessage = "An error occurred";
                 if (result.RootElement.TryGetProperty("Message", out var messageElement))
                 {
-                    var message = messageElement.GetString();
-                    if (message != null && message.Contains("not found"))
-                    {
-                        return NotFound(result);
-                    }
-                    else if (message != null && message.Contains("Invalid") && message.Contains("format"))
-                    {
-                        return BadRequest(result);
-                    }
+                    errorMessage = messageElement.GetString() ?? errorMessage;
+                }
+
+                // Возвращаем соответствующий статус код с сообщением об ошибке
+                if (errorMessage.Contains("not found"))
+                {
+                    return NotFound(new { message = errorMessage });
+                }
+                else if (errorMessage.Contains("Invalid") && errorMessage.Contains("format"))
+                {
+                    return BadRequest(new { message = errorMessage });
                 }
 
                 // Для других ошибок возвращаем Internal Server Error
-                return StatusCode((int)HttpStatusCode.InternalServerError, result);
+                return StatusCode((int)HttpStatusCode.InternalServerError, new { message = errorMessage });
             }
 
-            return Ok(result);
+            // При успехе возвращаем только данные о месте
+            return Ok(JsonSerializer.Deserialize<object>(result.RootElement.GetRawText()));
         }
 
 
