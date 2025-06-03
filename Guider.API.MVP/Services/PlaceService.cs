@@ -263,12 +263,32 @@
             return await _placeCollection.Find(filter).FirstOrDefaultAsync();
         }
 
+        
         public async Task<JsonDocument> CreateAsync(JsonDocument jsonDocument)
         {
             try
             {
                 var jsonString = jsonDocument.RootElement.GetRawText();
                 var document = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<BsonDocument>(jsonString);
+
+                // Преобразование latitude и longitude в GeoJSON location
+                if (document.Contains("latitude") && document.Contains("longitude"))
+                {
+                    var latitude = document["latitude"].ToDouble();
+                    var longitude = document["longitude"].ToDouble();
+
+                    // Создаем GeoJSON Point структуру
+                    var locationDocument = new BsonDocument
+                    {
+                        ["type"] = "Point",
+                        ["coordinates"] = new BsonArray { longitude, latitude } // Важно: сначала longitude, потом latitude
+                    };
+
+                    // Добавляем location и удаляем отдельные поля
+                    document["location"] = locationDocument;
+                    document.Remove("latitude");
+                    document.Remove("longitude");
+                }
 
                 // Check for unique name  
                 if (document.Contains("name"))
@@ -305,7 +325,6 @@
 
                 // Получение данных о новом заведении
                 var createdDocument = await _placeCollection.Find(Builders<BsonDocument>.Filter.Eq("_id", document["_id"])).FirstOrDefaultAsync();
-
                 if (createdDocument == null)
                 {
                     return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "Failed to retrieve created document." }));
