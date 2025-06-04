@@ -575,6 +575,74 @@ namespace Guider.API.MVP.Controllers
         //        return StatusCode((int)HttpStatusCode.InternalServerError, errorResponse);
         //    }
         //}
+        //[HttpPut("{id}")]
+        ////[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //public async Task<IActionResult> Update(string id, [FromBody] JsonDocument jsonDocument)
+        //{
+        //    try
+        //    {
+        //        // Валидация входящих данных
+        //        if (string.IsNullOrEmpty(id))
+        //        {
+        //            return BadRequest("Object ID is required.");
+        //        }
+
+        //        if (jsonDocument == null || jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
+        //        {
+        //            return BadRequest("Invalid input. Expected a JSON object.");
+        //        }
+
+        //        // Отправляем в сервис для обновления
+        //        var updatedDocument = await _placeService.UpdateAsync(id, jsonDocument);
+        //        if (updatedDocument == null)
+        //        {
+        //            return NotFound("Document not found or could not be updated.");
+        //        }
+
+        //        // Проверка на неудачный результат операции (success = false)
+        //        if (updatedDocument.RootElement.TryGetProperty("success", out var successElement) &&
+        //           successElement.ValueKind == JsonValueKind.False)
+        //        {
+        //            string errorMessage = "Failed to update document.";
+
+        //            // Добавляем сообщение об ошибке из сервиса, если оно присутствует
+        //            if (updatedDocument.RootElement.TryGetProperty("message", out var serviceErrorElement) &&
+        //                serviceErrorElement.ValueKind == JsonValueKind.String)
+        //            {
+        //                errorMessage = serviceErrorElement.GetString();
+        //            }
+        //            else if (updatedDocument.RootElement.TryGetProperty("error", out var errorElement) &&
+        //                    errorElement.ValueKind == JsonValueKind.String)
+        //            {
+        //                errorMessage = errorElement.GetString();
+        //            }
+
+        //            return BadRequest(errorMessage);
+        //        }
+
+        //        // Извлекаем документ из ответа сервиса
+        //        JsonElement documentElement;
+
+        //        // Проверяем, есть ли вложенный документ
+        //        if (updatedDocument.RootElement.TryGetProperty("document", out documentElement))
+        //        {
+        //            // Возвращаем вложенный документ
+        //            var documentObject = JsonSerializer.Deserialize<object>(documentElement.GetRawText());
+        //            return Ok(documentObject);
+        //        }
+        //        else
+        //        {
+        //            // Если нет вложенного документа, то весь ответ и есть документ
+        //            var documentObject = JsonSerializer.Deserialize<object>(updatedDocument.RootElement.GetRawText());
+        //            return Ok(documentObject);
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, ex.Message);
+        //    }
+        //}
+
         [HttpPut("{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Update(string id, [FromBody] JsonDocument jsonDocument)
@@ -586,60 +654,46 @@ namespace Guider.API.MVP.Controllers
                 {
                     return BadRequest("Object ID is required.");
                 }
-
                 if (jsonDocument == null || jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
                 {
                     return BadRequest("Invalid input. Expected a JSON object.");
                 }
 
-                // Отправляем в сервис для обновления
-                var updatedDocument = await _placeService.UpdateAsync(id, jsonDocument);
-                if (updatedDocument == null)
-                {
-                    return NotFound("Document not found or could not be updated.");
-                }
+                // Отправляем в сервис и получаем результат
+                var result = await _placeService.UpdateAsync(id, jsonDocument);
 
-                // Проверка на неудачный результат операции (success = false)
-                if (updatedDocument.RootElement.TryGetProperty("success", out var successElement) &&
-                   successElement.ValueKind == JsonValueKind.False)
+                // Проверяем результат из сервиса
+                if (result.RootElement.TryGetProperty("success", out var successElement) && successElement.GetBoolean())
                 {
-                    string errorMessage = "Failed to update document.";
-
-                    // Добавляем сообщение об ошибке из сервиса, если оно присутствует
-                    if (updatedDocument.RootElement.TryGetProperty("message", out var serviceErrorElement) &&
-                        serviceErrorElement.ValueKind == JsonValueKind.String)
+                    // Успешное обновление - возвращаем 200 OK
+                    if (result.RootElement.TryGetProperty("document", out var dataElement))
                     {
-                        errorMessage = serviceErrorElement.GetString();
+                        //return Ok(JsonDocument.Parse(dataElement.GetRawText()));
+                        return Ok(dataElement);
                     }
-                    else if (updatedDocument.RootElement.TryGetProperty("error", out var errorElement) &&
-                            errorElement.ValueKind == JsonValueKind.String)
+                    else
                     {
-                        errorMessage = errorElement.GetString();
+                        return BadRequest("Success response missing data field.");
                     }
-
-                    return BadRequest(errorMessage);
-                }
-
-                // Извлекаем документ из ответа сервиса
-                JsonElement documentElement;
-
-                // Проверяем, есть ли вложенный документ
-                if (updatedDocument.RootElement.TryGetProperty("document", out documentElement))
-                {
-                    // Возвращаем вложенный документ
-                    var documentObject = JsonSerializer.Deserialize<object>(documentElement.GetRawText());
-                    return Ok(documentObject);
                 }
                 else
                 {
-                    // Если нет вложенного документа, то весь ответ и есть документ
-                    var documentObject = JsonSerializer.Deserialize<object>(updatedDocument.RootElement.GetRawText());
-                    return Ok(documentObject);
+                    // Неудачное обновление - возвращаем 400 Bad Request
+                    string message = "Unknown error occurred.";
+                    if (result.RootElement.TryGetProperty("message", out var messageElement))
+                    {
+                        message = messageElement.GetString();
+                    }
+                    else if (result.RootElement.TryGetProperty("error", out var errorElement))
+                    {
+                        message = errorElement.GetString();
+                    }
+                    return BadRequest(message);
                 }
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                return BadRequest(ex.Message);
             }
         }
 

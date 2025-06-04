@@ -482,7 +482,7 @@
                 var responseObj = new
                 {
                     success = true,
-                    message = "Document successfully updated.",
+                    //message = "Document successfully updated.",
                     document = JsonDocument.Parse(updatedJsonString).RootElement
                 };
 
