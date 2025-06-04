@@ -10,6 +10,7 @@
     using System.Collections.Generic;
     using System.Text;
     using System.Text.Json;
+    using System.Text.RegularExpressions;
     using System.Threading.Tasks;
     public class PlaceService
     {
@@ -34,8 +35,8 @@
         public async Task<List<BsonDocument>> GetAllAsync() =>
             await _placeCollection.Find(_ => true).ToListAsync();
 
-               
-        public async Task<JsonDocument> GetPlacesAsync(Dictionary<string, string> filter = null)
+
+       public async Task<JsonDocument> GetPlacesAsync(Dictionary<string, string> filter = null)
         {
             try
             {
@@ -50,34 +51,62 @@
                     {
                         filters.Add(filterBuilder.Or(
                             filterBuilder.Regex("name", new BsonRegularExpression(q, "i")),
-                            filterBuilder.Regex("province", new BsonRegularExpression(q, "i")),
-                            filterBuilder.Regex("city", new BsonRegularExpression(q, "i")),
+                            filterBuilder.Regex("address.province", new BsonRegularExpression(q, "i")),
+                            filterBuilder.Regex("address.city", new BsonRegularExpression(q, "i")),
                             filterBuilder.Regex("url", new BsonRegularExpression(q, "i"))
                         ));
                     }
 
-                    // Фильтр по провинции
+                    // Улучшенный фильтр по провинции
                     if (filter.TryGetValue("province", out string province) && !string.IsNullOrEmpty(province))
                     {
-                        filters.Add(filterBuilder.Regex("address.province", new BsonRegularExpression(province, "i")));
+                        // Создаем более гибкий паттерн для поиска провинции
+                        // Ищем провинцию как точное совпадение или как часть названия
+                        var provincePatterns = new List<FilterDefinition<BsonDocument>>();
+
+                        // 1. Точное совпадение (case-insensitive)
+                        provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression($"^{Regex.Escape(province)}$", "i")));
+
+                        // 2. Поиск в начале строки + возможные суффиксы типа "Province", "State", etc.
+                        provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression($"^{Regex.Escape(province)}\\s+(Province|State|Region)$", "i")));
+
+                        // 3. Поиск провинции как подстроки (если предыдущие не сработали)
+                        provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression(Regex.Escape(province), "i")));
+
+                        filters.Add(filterBuilder.Or(provincePatterns));
                     }
 
-                    // Фильтр по городу
+                    // Улучшенный фильтр по городу
                     if (filter.TryGetValue("city", out string city) && !string.IsNullOrEmpty(city))
                     {
-                        filters.Add(filterBuilder.Regex("address.city", new BsonRegularExpression(city, "i")));
+                        // Аналогично для городов - более гибкий поиск
+                        var cityPatterns = new List<FilterDefinition<BsonDocument>>();
+
+                        // 1. Точное совпадение (case-insensitive)
+                        cityPatterns.Add(filterBuilder.Regex("address.city", new BsonRegularExpression($"^{Regex.Escape(city)}$", "i")));
+
+                        // 2. Поиск города как подстроки
+                        cityPatterns.Add(filterBuilder.Regex("address.city", new BsonRegularExpression(Regex.Escape(city), "i")));
+
+                        filters.Add(filterBuilder.Or(cityPatterns));
                     }
 
                     // Фильтр по названию заведения
                     if (filter.TryGetValue("name", out string name) && !string.IsNullOrEmpty(name))
                     {
-                        filters.Add(filterBuilder.Regex("name", new BsonRegularExpression(name, "i")));
+                        filters.Add(filterBuilder.Regex("name", new BsonRegularExpression(Regex.Escape(name), "i")));
                     }
 
                     // Фильтр по URL
                     if (filter.TryGetValue("url", out string url) && !string.IsNullOrEmpty(url))
                     {
-                        filters.Add(filterBuilder.Regex("url", new BsonRegularExpression(url, "i")));
+                        filters.Add(filterBuilder.Regex("url", new BsonRegularExpression(Regex.Escape(url), "i")));
+                    }
+
+                    // Фильтр по статусу (если нужен)
+                    if (filter.TryGetValue("status", out string status) && !string.IsNullOrEmpty(status))
+                    {
+                        filters.Add(filterBuilder.Eq("status", status));
                     }
 
                     if (filters.Count > 0)
@@ -88,7 +117,7 @@
 
                 long totalCount = await _placeCollection.CountDocumentsAsync(filterDefinition);
 
-                // Сортировка
+                // Сортировка с поддержкой вложенных полей
                 string sortField = "name";
                 bool isDescending = false;
                 if (filter != null)
@@ -96,6 +125,11 @@
                     if (filter.TryGetValue("_sort", out string sort) && !string.IsNullOrEmpty(sort))
                     {
                         sortField = sort;
+                        // Поддержка сортировки по вложенным полям
+                        if (sort == "address.city")
+                            sortField = "address.city";
+                        else if (sort == "address.province")
+                            sortField = "address.province";
                     }
                     if (filter.TryGetValue("_order", out string order) && !string.IsNullOrEmpty(order))
                     {
@@ -426,14 +460,14 @@
                     }
                 }
 
-                if (!updatedDocument.Contains("updatedAt"))
-                {
-                    updatedDocument.Add("updatedAt", DateTime.UtcNow);
-                }
-                else
-                {
-                    updatedDocument["updatedAt"] = DateTime.UtcNow;
-                }
+                //if (!updatedDocument.Contains("updatedAt"))
+                //{
+                //    updatedDocument.Add("updatedAt", DateTime.UtcNow);
+                //}
+                //else
+                //{
+                //    updatedDocument["updatedAt"] = DateTime.UtcNow;
+                //}
 
                 var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
                 var result = await _placeCollection.ReplaceOneAsync(filter, updatedDocument);
