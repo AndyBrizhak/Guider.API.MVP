@@ -127,15 +127,6 @@ namespace Guider.API.MVP.Controllers
         /// <returns>Документ в формате JSON</returns>
         [HttpGet("name/id")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
         public async Task<ActionResult<string>> GetPlaceByIdFromHeader(
             [FromQuery] string url,
              [FromQuery] string id)
@@ -155,9 +146,6 @@ namespace Guider.API.MVP.Controllers
 
 
 
-       
-
-
         /// <summary>
         /// Получить ближайшие места
         /// </summary>
@@ -167,15 +155,6 @@ namespace Guider.API.MVP.Controllers
         /// <param name="isOpen">Фильтр по открытым заведениям (по времени Коста-Рики)</param>
         /// <returns>Список ближайших мест в формате JSON</returns>
         [HttpGet("geonear")]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
         public async Task<ActionResult<string>> GetNearbyPlaces(
             [FromHeader(Name = "X-Latitude")] decimal lat,
             [FromHeader(Name = "X-Longitude")] decimal lng,
@@ -206,9 +185,6 @@ namespace Guider.API.MVP.Controllers
         }
 
 
-
-       
-
         /// <summary>
         /// Получить ближайшие места с любым из ключевых слов
         /// </summary>
@@ -219,15 +195,6 @@ namespace Guider.API.MVP.Controllers
         /// <param name="filterKeywords"></param>
         /// <returns></returns>
         [HttpGet("nearby-with-keywords")]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
         public async Task<ActionResult<string>> GetPlacesWithKeywordsList(
            [FromQuery] decimal lat = 10.539500881521633m,
            [FromQuery] decimal lng = -85.68964788238951m,
@@ -292,15 +259,6 @@ namespace Guider.API.MVP.Controllers
         /// <param name="isOpen">Учитывать ли расписание работы</param>
         /// <returns>Список найденных мест</returns>
         [HttpGet("nearby-with-all-keywords")]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.OK)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.NotFound)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.BadRequest)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.InternalServerError)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Unauthorized)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.Forbidden)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.ServiceUnavailable)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.GatewayTimeout)]
-        [ProducesResponseType(typeof(ApiResponse), (int)HttpStatusCode.RequestTimeout)]
         public async Task<IActionResult> GetPlacesWithAllKeywords(
           [FromQuery] decimal lat = 10.539500881521633m,
           [FromQuery] decimal lng = -85.68964788238951m,
@@ -457,7 +415,6 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-
         
         [HttpPut("{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
@@ -474,15 +431,13 @@ namespace Guider.API.MVP.Controllers
                 {
                     return BadRequest("Invalid input. Expected a JSON object.");
                 }
-
                 // Отправляем в сервис и получаем результат
                 var result = await _placeService.UpdateAsync(id, jsonDocument);
-
                 // Проверяем результат из сервиса
                 if (result.RootElement.TryGetProperty("success", out var successElement) && successElement.GetBoolean())
                 {
                     // Успешное обновление - возвращаем 200 OK
-                    if (result.RootElement.TryGetProperty("document", out var dataElement))
+                    if (result.RootElement.TryGetProperty("data", out var dataElement))
                     {
                         //return Ok(JsonDocument.Parse(dataElement.GetRawText()));
                         return Ok(dataElement);
@@ -512,9 +467,6 @@ namespace Guider.API.MVP.Controllers
                 return BadRequest(ex.Message);
             }
         }
-
-
-
 
         [HttpDelete("{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]

@@ -386,7 +386,7 @@
         }
 
         /// Обновить существующий документ в коллекции Places  
-        public async Task<JsonDocument> UpdateAsync(string id, JsonDocument jsonDocument)
+       public async Task<JsonDocument> UpdateAsync(string id, JsonDocument jsonDocument)
         {
             try
             {
@@ -398,26 +398,25 @@
                 var jsonString = jsonDocument.RootElement.GetRawText();
                 var updatedDocument = MongoDB.Bson.Serialization.BsonSerializer.Deserialize<BsonDocument>(jsonString);
 
-                // Проверяем, есть ли идентификатор в документе и соответствует ли он переданному
-                if (updatedDocument.Contains("_id"))
+                // Удаляем поле _id, если оно присутствует в обновляемых данных
+                if (updatedDocument.Contains("id"))
                 {
-                    var docIdString = updatedDocument["_id"].ToString();
-                    // Проверяем совпадение идентификаторов
-                    if (docIdString != id && docIdString != objectId.ToString())
-                    {
-                        return JsonDocument.Parse(JsonSerializer.Serialize(new
-                        {
-                            success = false,
-                            message = "The ID in the document does not match the provided ID parameter."
-                        }));
-                    }
-                    // Если идентификаторы совпадают, убедимся что формат правильный
-                    updatedDocument["_id"] = objectId;
+                    updatedDocument.Remove("id");
                 }
-                else
+
+                // Преобразование latitude и longitude в GeoJSON location (как в методе создания)
+                if (updatedDocument.Contains("latitude") && updatedDocument.Contains("longitude"))
                 {
-                    // Если в документе нет идентификатора, добавляем его
-                    updatedDocument.Add("_id", objectId);
+                    var latitude = updatedDocument["latitude"].ToDouble();
+                    var longitude = updatedDocument["longitude"].ToDouble();
+                    var locationDocument = new BsonDocument
+                    {
+                        ["type"] = "Point",
+                        ["coordinates"] = new BsonArray { longitude, latitude }
+                    };
+                    updatedDocument["location"] = locationDocument;
+                    updatedDocument.Remove("latitude");
+                    updatedDocument.Remove("longitude");
                 }
 
                 // Check for unique name
@@ -460,37 +459,37 @@
                     }
                 }
 
-                //if (!updatedDocument.Contains("updatedAt"))
-                //{
-                //    updatedDocument.Add("updatedAt", DateTime.UtcNow);
-                //}
-                //else
-                //{
-                //    updatedDocument["updatedAt"] = DateTime.UtcNow;
-                //}
-
                 var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
-                var result = await _placeCollection.ReplaceOneAsync(filter, updatedDocument);
+                var updateDefinition = new BsonDocument("$set", updatedDocument);
+                var result = await _placeCollection.UpdateOneAsync(filter, updateDefinition);
 
                 if (result.MatchedCount == 0)
                 {
                     return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "Document with the specified ID was not found." }));
                 }
 
-                // Создаем результат с оригинальным документом и флагами успеха
-                var updatedJsonString = updatedDocument.ToJson();
-                var responseObj = new
+                // Получение обновленного документа из базы данных (как в методе создания)
+                var updatedDocumentFromDb = await _placeCollection.Find(Builders<BsonDocument>.Filter.Eq("_id", objectId)).FirstOrDefaultAsync();
+                if (updatedDocumentFromDb == null)
                 {
-                    success = true,
-                    //message = "Document successfully updated.",
-                    document = JsonDocument.Parse(updatedJsonString).RootElement
-                };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "Failed to retrieve updated document." }));
+                }
 
-                return JsonDocument.Parse(JsonSerializer.Serialize(responseObj));
+                var deepCopy = BsonDocument.Parse(updatedDocumentFromDb.ToJson());
+
+                if (deepCopy.Contains("_id"))
+                {
+                    var idValue = deepCopy["_id"].ToString();
+                    deepCopy.Remove("_id");
+                    deepCopy["id"] = idValue;
+                }
+
+                var resultData = JsonDocument.Parse(deepCopy.ToJson());
+                return JsonDocument.Parse(JsonSerializer.Serialize(new { success = true, data = resultData }));
             }
             catch (Exception ex)
             {
-                return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, error = ex.Message }));
+                return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = ex.Message }));
             }
         }
 
