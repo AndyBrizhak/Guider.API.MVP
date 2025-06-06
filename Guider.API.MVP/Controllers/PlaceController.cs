@@ -212,9 +212,9 @@ namespace Guider.API.MVP.Controllers
         /// <returns>Список ближайших мест в формате JSON</returns>
         [HttpGet("geo")]
         public async Task<ActionResult<string>> GetNearbyPlaces(
-            [FromHeader(Name = "X-Latitude")] decimal lat,
-            [FromHeader(Name = "X-Longitude")] decimal lng,
-            [FromHeader(Name = "X-Max-Distance")] int maxDistance,
+            [FromHeader(Name = "X-Latitude")] decimal lat = 10.539500881521633m,
+            [FromHeader(Name = "X-Longitude")] decimal lng = -85.68964788238951m,
+            [FromHeader(Name = "X-Max-Distance")] int maxDistance = 10000,
             [FromHeader(Name = "X-Is-Open")] bool isOpen = false)
         {
             try
