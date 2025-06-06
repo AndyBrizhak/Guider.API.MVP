@@ -284,20 +284,6 @@
             return await _placeCollection.Find(filter).FirstOrDefaultAsync();
         }
 
-        
-        /// Получить объект по идентификатору из параметров запроса
-        public async Task<BsonDocument?> GetPlaceByIdFromHeaderAsync(string id)
-        {
-            if (!ObjectId.TryParse(id, out var objectId))
-            {
-                return null; 
-            }
-
-            var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
-            return await _placeCollection.Find(filter).FirstOrDefaultAsync();
-        }
-
-        
         public async Task<JsonDocument> CreateAsync(JsonDocument jsonDocument)
         {
             try

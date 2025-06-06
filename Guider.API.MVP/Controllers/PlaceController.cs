@@ -29,6 +29,46 @@ namespace Guider.API.MVP.Controllers
         }
 
         
+        /// <summary>
+        /// Получить список мест с возможностью фильтрации, сортировки и пагинации.
+        /// </summary>
+        /// <remarks>
+        /// Пример запроса:
+        ///
+        ///     GET /places?q=кафе&amp;province=Guanacaste&amp;city=Nicoya&amp;name=Coffee%20House&amp;url=coffee-house-nicoya
+        ///     &amp;page=1&amp;perPage=20&amp;sortField=name&amp;sortOrder=ASC
+        ///
+        /// Ожидаемый ответ (пример):
+        ///
+        ///     [
+        ///         {
+        ///             "id": "664b1e2f8f1b2c001e3e4a1a",
+        ///             "name": "Coffee House",
+        ///             "province": "Guanacaste",
+        ///             "city": "Nicoya",
+        ///             "url": "coffee-house-nicoya",
+        ///             "address": "Main street, Nicoya",
+        ///             "tags": ["кофе", "завтрак", "WiFi"],
+        ///             "location": { "lat": 10.139, "lng": -85.452 },
+        ///             "img_link": "https://example.com/image.jpg"
+        ///         },
+        ///         ...
+        ///     ]
+        ///
+        /// Заголовки ответа:
+        /// - X-Total-Count: Общее количество найденных мест
+        /// - Access-Control-Expose-Headers: X-Total-Count
+        /// </remarks>
+        /// <param name="q">Текстовый поиск по названию, описанию и тегам</param>
+        /// <param name="province">Фильтр по провинции</param>
+        /// <param name="city">Фильтр по городу</param>
+        /// <param name="name">Фильтр по имени</param>
+        /// <param name="url">Фильтр по url</param>
+        /// <param name="page">Номер страницы (по умолчанию 1)</param>
+        /// <param name="perPage">Количество элементов на странице (по умолчанию 20)</param>
+        /// <param name="sortField">Поле для сортировки (по умолчанию "name")</param>
+        /// <param name="sortOrder">Порядок сортировки: ASC или DESC (по умолчанию ASC)</param>
+        /// <returns>Массив объектов мест</returns>
         [HttpGet]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetPlaces(
@@ -82,6 +122,50 @@ namespace Guider.API.MVP.Controllers
         }
 
        
+        /// <summary>
+        /// Получить место по идентификатору.
+        /// </summary>
+        /// <remarks>
+        /// Запрос возвращает объект места по его уникальному идентификатору.
+        /// 
+        /// Пример запроса:
+        ///
+        ///     GET /places/664b1e2f8f1b2c001e3e4a1a
+        ///
+        /// Пример успешного ответа (код 200):
+        ///
+        ///     {
+        ///         "id": "664b1e2f8f1b2c001e3e4a1a",
+        ///         "name": "Coffee House",
+        ///         "province": "Guanacaste",
+        ///         "city": "Nicoya",
+        ///         "url": "coffee-house-nicoya",
+        ///         "address": "Main street, Nicoya",
+        ///         "tags": ["кофе", "завтрак", "WiFi"],
+        ///         "location": { "lat": 10.139, "lng": -85.452 },
+        ///         "img_link": "https://example.com/image.jpg"
+        ///     }
+        ///
+        /// Пример ответа, если место не найдено (код 404):
+        ///
+        ///     {
+        ///         "message": "Place with id 664b1e2f8f1b2c001e3e4a1a not found."
+        ///     }
+        ///
+        /// Пример ответа при ошибке формата идентификатора (код 400):
+        ///
+        ///     {
+        ///         "message": "Invalid id format."
+        ///     }
+        ///
+        /// Пример ответа при внутренней ошибке сервера (код 500):
+        ///
+        ///     {
+        ///         "message": "An error occurred"
+        ///     }
+        /// </remarks>
+        /// <param name="id">Уникальный идентификатор места (строка, 24 символа)</param>
+        /// <returns>Объект места или сообщение об ошибке</returns>
         [HttpGet("{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<ActionResult> GetById(string id)
@@ -118,34 +202,6 @@ namespace Guider.API.MVP.Controllers
         }
 
 
-
-        /// <summary>
-        /// Получить документ по url и ID из заголовка
-        /// </summary>
-        /// <param name="url">Веб параметр</param>
-        /// <param name="id">Идентификатор документа</param>
-        /// <returns>Документ в формате JSON</returns>
-        [HttpGet("name/id")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<ActionResult<string>> GetPlaceByIdFromHeader(
-            [FromQuery] string url,
-             [FromQuery] string id)
-        {
-            var place = await _placeService.GetPlaceByIdFromHeaderAsync(id);
-
-            if (place == null)
-            {
-                _response.StatusCode = HttpStatusCode.NotFound;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add($"Place with id {id} not found.");
-                return NotFound(_response);
-            }
-            
-            return Ok(place.ToJson());
-        }
-
-
-
         /// <summary>
         /// Получить ближайшие места
         /// </summary>
@@ -154,7 +210,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="maxDistance">Максимальное расстояние</param>
         /// <param name="isOpen">Фильтр по открытым заведениям (по времени Коста-Рики)</param>
         /// <returns>Список ближайших мест в формате JSON</returns>
-        [HttpGet("geonear")]
+        [HttpGet("geo")]
         public async Task<ActionResult<string>> GetNearbyPlaces(
             [FromHeader(Name = "X-Latitude")] decimal lat,
             [FromHeader(Name = "X-Longitude")] decimal lng,
@@ -194,7 +250,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="limit"></param>
         /// <param name="filterKeywords"></param>
         /// <returns></returns>
-        [HttpGet("nearby-with-keywords")]
+        [HttpGet("geo/keywords-any")]
         public async Task<ActionResult<string>> GetPlacesWithKeywordsList(
            [FromQuery] decimal lat = 10.539500881521633m,
            [FromQuery] decimal lng = -85.68964788238951m,
@@ -258,7 +314,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="filterKeywords">Список ключевых слов (обязательны все слова)</param>
         /// <param name="isOpen">Учитывать ли расписание работы</param>
         /// <returns>Список найденных мест</returns>
-        [HttpGet("nearby-with-all-keywords")]
+        [HttpGet("geo/keywords-all")]
         public async Task<IActionResult> GetPlacesWithAllKeywords(
           [FromQuery] decimal lat = 10.539500881521633m,
           [FromQuery] decimal lng = -85.68964788238951m,
@@ -332,7 +388,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="category">Категория, для которой нужно получить теги (опционально).</param>
         /// <param name="selectedTags">Список уже выбранных тегов, которые нужно исключить из результата (опционально).</param>
         /// <returns>Список доступных тегов в формате JSON, обернутый в ApiResponse.</returns>
-        [HttpGet("available-tags")]
+        [HttpGet("tags-on-places")]
         public async Task<ActionResult> GetAvailableTags(
            [FromQuery] string? category = null,
            [FromQuery] List<string>? selectedTags = null)
