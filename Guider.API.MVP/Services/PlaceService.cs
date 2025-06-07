@@ -653,6 +653,15 @@
             return result;
         }
 
+        /// <summary>
+        /// Получить места рядом с заданными координатами с учетом расстояния, времени работы и статуса
+        /// </summary>
+        /// <param name="lat"></param>
+        /// <param name="lng"></param>
+        /// <param name="maxDistanceMeters"></param>
+        /// <param name="isOpen"></param>
+        /// <param name="status"></param>
+        /// <returns></returns>
         public async Task<JsonDocument> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters, bool isOpen = false, string status = null)
         {
             try

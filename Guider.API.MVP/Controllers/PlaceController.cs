@@ -201,10 +201,62 @@ namespace Guider.API.MVP.Controllers
             return Ok(JsonSerializer.Deserialize<object>(result.RootElement.GetRawText()));
         }
 
-              
 
+
+        /// <summary>
+        /// Получить ближайшие места по координатам.
+        /// </summary>
+        /// <remarks>
+        /// Данный метод возвращает список мест, находящихся в радиусе maxDistance метров от заданных координат.
+        /// Можно фильтровать по статусу и учитывать только открытые заведения.
+        /// 
+        /// Пример запроса:
+        ///
+        ///     GET /places/geo
+        ///     Headers:
+        ///         X-Latitude: 10.139
+        ///         X-Longitude: -85.452
+        ///         X-Max-Distance: 5000
+        ///         X-Is-Open: true
+        ///         X-Status: active
+        ///
+        /// Пример успешного ответа (код 200):
+        ///
+        ///     [
+        ///         {
+        ///             "id": "664b1e2f8f1b2c001e3e4a1a",
+        ///             "name": "Coffee House",
+        ///             "province": "Guanacaste",
+        ///             "city": "Nicoya",
+        ///             "url": "coffee-house-nicoya",
+        ///             "address": "Main street, Nicoya",
+        ///             "tags": ["кофе", "завтрак", "WiFi"],
+        ///             "location": { "lat": 10.139, "lng": -85.452 },
+        ///             "img_link": "https://example.com/image.jpg",
+        ///             "distance": 1200.5
+        ///         },
+        ///         ...
+        ///     ]
+        ///
+        /// Пример ответа при ошибке (код 400):
+        ///
+        ///     {
+        ///         "error": "Invalid latitude or longitude."
+        ///     }
+        ///
+        /// Пример ответа при внутренней ошибке (код 500):
+        ///
+        ///     {
+        ///         "error": "Ошибка при получении ближайших мест: <текст ошибки>"
+        ///     }
+        /// </remarks>
+        /// <param name="lat">Широта (по умолчанию 10.539500881521633)</param>
+        /// <param name="lng">Долгота (по умолчанию -85.68964788238951)</param>
+        /// <param name="maxDistance">Максимальное расстояние в метрах (по умолчанию 10000)</param>
+        /// <param name="isOpen">Учитывать только открытые заведения (по умолчанию false)</param>
+        /// <param name="status">Статус заведения (опционально)</param>
         [HttpGet("geo")]
-        public async Task<ActionResult<string>> GetNearbyPlaces(
+        public async Task<IActionResult> GetNearbyPlaces(
             [FromHeader(Name = "X-Latitude")] decimal lat = 10.539500881521633m,
             [FromHeader(Name = "X-Longitude")] decimal lng = -85.68964788238951m,
             [FromHeader(Name = "X-Max-Distance")] int maxDistance = 10000,
@@ -215,49 +267,51 @@ namespace Guider.API.MVP.Controllers
             {
                 // Передаем статус только если он явно задан (не null и не пустой)
                 string? statusToPass = string.IsNullOrWhiteSpace(status) ? null : status;
-
                 var result = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance, isOpen, statusToPass);
 
-                var rootElement = result.RootElement;
-
-                if (rootElement.TryGetProperty("IsSuccess", out var isSuccessElement) &&
+                if (result.RootElement.TryGetProperty("IsSuccess", out var isSuccessElement) &&
                     isSuccessElement.GetBoolean())
                 {
-                    return Content(result.RootElement.GetRawText(), "application/json");
+                    // Если есть свойство data с местами, возвращаем его
+                    if (result.RootElement.TryGetProperty("data", out var dataElement))
+                    {
+                        var placesArray = JsonSerializer.Deserialize<object[]>(dataElement.GetRawText());
+                        return Ok(placesArray);
+                    }
+                    // Если нет свойства data, возвращаем весь результат
+                    else
+                    {
+                        var placesArray = JsonSerializer.Deserialize<object>(result.RootElement.GetRawText());
+                        return Ok(placesArray);
+                    }
                 }
                 else
                 {
-                    var errorMessage = rootElement.TryGetProperty("Message", out var messageElement)
+                    var errorMessage = result.RootElement.TryGetProperty("Message", out var messageElement)
                         ? messageElement.GetString()
                         : "Unknown error occurred";
 
                     if (errorMessage.Contains("Invalid") || errorMessage.Contains("Must be") ||
                         errorMessage.Contains("cannot be null"))
                     {
-                        return BadRequest(result.RootElement.GetRawText());
+                        return BadRequest(new { error = errorMessage });
                     }
                     else if (errorMessage.Contains("Found 0 places"))
                     {
-                        return NotFound(result.RootElement.GetRawText());
+                        return BadRequest(new { error = errorMessage });
                     }
                     else
                     {
-                        return StatusCode((int)HttpStatusCode.InternalServerError, result.RootElement.GetRawText());
+                        return BadRequest(new { error = errorMessage });
                     }
                 }
             }
             catch (Exception ex)
             {
-                var errorResponse = new
-                {
-                    IsSuccess = false,
-                    Message = $"Controller error: {ex.Message}"
-                };
-
-                return StatusCode((int)HttpStatusCode.InternalServerError,
-                    JsonSerializer.Serialize(errorResponse));
+                return StatusCode(500, new { error = $"Ошибка при получении ближайших мест: {ex.Message}" });
             }
         }
+
 
         /// <summary>
         /// Получить ближайшие места с любым из ключевых слов
