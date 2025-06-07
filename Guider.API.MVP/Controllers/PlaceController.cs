@@ -201,7 +201,51 @@ namespace Guider.API.MVP.Controllers
             return Ok(JsonSerializer.Deserialize<object>(result.RootElement.GetRawText()));
         }
 
-        // Заменить текущий метод GetByUrl на следующий вариант
+        /// <summary>
+        /// Получить место по уникальному URL.
+        /// </summary>
+        /// <remarks>
+        /// Данный метод позволяет получить объект места по его уникальному URL (например, "coffee-house-nicoya").
+        /// Используется для отображения информации о месте на основе человеко-понятного адреса.
+        /// 
+        /// Пример запроса:
+        ///
+        ///     GET /places/url/coffee-house-nicoya
+        ///
+        /// Пример успешного ответа (код 200):
+        ///
+        ///     {
+        ///         "id": "664b1e2f8f1b2c001e3e4a1a",
+        ///         "name": "Coffee House",
+        ///         "province": "Guanacaste",
+        ///         "city": "Nicoya",
+        ///         "url": "coffee-house-nicoya",
+        ///         "address": "Main street, Nicoya",
+        ///         "tags": ["кофе", "завтрак", "WiFi"],
+        ///         "location": { "lat": 10.139, "lng": -85.452 },
+        ///         "img_link": "https://example.com/image.jpg"
+        ///     }
+        ///
+        /// Пример ответа, если место не найдено (код 404):
+        ///
+        ///     {
+        ///         "message": "Place with url coffee-house-nicoya not found."
+        ///     }
+        ///
+        /// Пример ответа при ошибке формата или отсутствии url (код 400):
+        ///
+        ///     {
+        ///         "message": "Url is required."
+        ///     }
+        ///
+        /// Пример ответа при внутренней ошибке сервера (код 500):
+        ///
+        ///     {
+        ///         "message": "An error occurred"
+        ///     }
+        /// </remarks>
+        /// <param name="url">Уникальный URL места (строка, обязательный параметр)</param>
+        /// <returns>Объект места или сообщение об ошибке</returns>
         [HttpGet("url/{url}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<ActionResult> GetByUrl([FromRoute] string url)
