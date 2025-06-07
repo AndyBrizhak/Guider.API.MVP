@@ -487,70 +487,238 @@ namespace Guider.API.MVP.Controllers
 
         //}
 
-        [HttpGet("geo/keywords-all")]
+        //[HttpGet("geo/keywords-all")]
+        //public async Task<IActionResult> GetPlacesWithAllKeywords(
+        //    [FromQuery] decimal? lat = 10.539500881521633m,
+        //    [FromQuery] decimal? lng = -85.68964788238951m,
+        //    [FromQuery] int? maxDistanceMeters = 10000,
+        //    [FromQuery] int limit = 100,
+        //    [FromQuery] List<string>? filterKeywords = null,
+        //    [FromQuery] bool searchAllKeywords = true, // Добавлен параметр для логики поиска по всем ключевым словам
+        //    [FromQuery] bool isOpen = false,
+        //    [FromQuery] string? status = null) // Добавлен параметр статуса
+        //{
+        //    // Проверка и корректировка значения limit
+        //    //if (limit < 1)
+        //    //{
+        //    //    limit = 200;
+        //    //}
+        //    //else if (limit > 200)
+        //    //{
+        //    //    limit = 200;
+        //    //}
+
+        //    // Проверка filterKeywords на null и пустой список
+        //    if (filterKeywords == null || !filterKeywords.Any())
+        //    {
+        //        var badRequestResponse = new ApiResponse
+        //        {
+        //            StatusCode = HttpStatusCode.BadRequest,
+        //            IsSuccess = false,
+        //            ErrorMessages = new List<string> { "Filter keywords list is empty or not provided." }
+        //        };
+        //        return BadRequest(badRequestResponse);
+        //    }
+
+        //    // Получение результата из сервиса
+        //    JsonDocument placesJson;
+        //    placesJson = await _placeService.GetPlacesWithAllKeywordsAsync(
+        //        lat,
+        //        lng,
+        //        maxDistanceMeters,
+        //        limit,
+        //        filterKeywords,
+        //        searchAllKeywords, // Передаем параметр для логики поиска
+        //        isOpen,
+        //        status); // Передаем параметр статуса
+
+        //    if (placesJson == null)
+        //    {
+        //        var notFoundResponse = new ApiResponse
+        //        {
+        //            StatusCode = HttpStatusCode.NotFound,
+        //            IsSuccess = false,
+        //            ErrorMessages = new List<string> { $"No places found with all the provided keywords{(isOpen ? " that are currently open" : "")}." }
+        //        };
+        //        return NotFound(notFoundResponse);
+        //    }
+
+        //    // Формирование успешного ответа
+        //    var successResponse = new ApiResponse
+        //    {
+        //        StatusCode = HttpStatusCode.OK,
+        //        IsSuccess = true,
+        //        Result = placesJson
+        //    };
+        //    return Ok(successResponse);
+        //}
+
+        //[HttpGet("keywords")]
+        //public async Task<IActionResult> GetPlacesWithAllKeywords(
+        //    [FromQuery] decimal? lat = 10.539500881521633m,
+        //    [FromQuery] decimal? lng = -85.68964788238951m,
+        //    [FromQuery] int? maxDistanceMeters = 10000,
+        //    [FromQuery] int limit = 100,
+        //    [FromQuery] List<string>? filterKeywords = null,
+        //    [FromQuery] bool searchAllKeywords = true,
+        //    [FromQuery] bool isOpen = false,
+        //    [FromQuery] string? status = null)
+        //{
+        //    try
+        //    {
+        //        // Проверка filterKeywords на null и пустой список
+        //        if (filterKeywords == null || !filterKeywords.Any())
+        //        {
+        //            return BadRequest(new { error = "Filter keywords list is empty or not provided." });
+        //        }
+
+        //        // Передаем статус только если он явно задан (не null и не пустой)
+        //        string? statusToPass = string.IsNullOrWhiteSpace(status) ? null : status;
+
+        //        // Получение результата из сервиса
+        //        var result = await _placeService.GetPlacesWithAllKeywordsAsync(
+        //            lat,
+        //            lng,
+        //            maxDistanceMeters,
+        //            limit,
+        //            filterKeywords,
+        //            searchAllKeywords,
+        //            isOpen,
+        //            statusToPass);
+
+        //        if (result == null)
+        //        {
+        //            return BadRequest(new { error = $"No places found with all the provided keywords{(isOpen ? " that are currently open" : "")}." });
+        //        }
+
+        //        // Проверяем структуру ответа аналогично методу GetNearbyPlaces
+        //        if (result.RootElement.TryGetProperty("IsSuccess", out var isSuccessElement) &&
+        //            isSuccessElement.GetBoolean())
+        //        {
+        //            // Если есть свойство data с местами, возвращаем его
+        //            if (result.RootElement.TryGetProperty("data", out var dataElement))
+        //            {
+        //                var placesArray = JsonSerializer.Deserialize<object[]>(dataElement.GetRawText());
+        //                return Ok(placesArray);
+        //            }
+        //            // Если нет свойства data, возвращаем весь результат
+        //            else
+        //            {
+        //                var placesArray = JsonSerializer.Deserialize<object>(result.RootElement.GetRawText());
+        //                return Ok(placesArray);
+        //            }
+        //        }
+        //        else
+        //        {
+        //            var errorMessage = result.RootElement.TryGetProperty("Message", out var messageElement)
+        //                ? messageElement.GetString()
+        //                : "Unknown error occurred";
+
+        //            if (errorMessage.Contains("Invalid") || errorMessage.Contains("Must be") ||
+        //                errorMessage.Contains("cannot be null"))
+        //            {
+        //                return BadRequest(new { error = errorMessage });
+        //            }
+        //            else if (errorMessage.Contains("Found 0 places"))
+        //            {
+        //                return BadRequest(new { error = errorMessage });
+        //            }
+        //            else
+        //            {
+        //                return BadRequest(new { error = errorMessage });
+        //            }
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new { error = $"Ошибка при получении мест по ключевым словам: {ex.Message}" });
+        //    }
+        //}
+
+        [HttpGet("keywords")]
         public async Task<IActionResult> GetPlacesWithAllKeywords(
             [FromQuery] decimal? lat = 10.539500881521633m,
             [FromQuery] decimal? lng = -85.68964788238951m,
             [FromQuery] int? maxDistanceMeters = 10000,
             [FromQuery] int limit = 100,
             [FromQuery] List<string>? filterKeywords = null,
-            [FromQuery] bool searchAllKeywords = true, // Добавлен параметр для логики поиска по всем ключевым словам
+            [FromQuery] bool searchAllKeywords = true,
             [FromQuery] bool isOpen = false,
-            [FromQuery] string? status = null) // Добавлен параметр статуса
+            [FromQuery] string? status = null)
         {
-            // Проверка и корректировка значения limit
-            //if (limit < 1)
-            //{
-            //    limit = 200;
-            //}
-            //else if (limit > 200)
-            //{
-            //    limit = 200;
-            //}
-
-            // Проверка filterKeywords на null и пустой список
-            if (filterKeywords == null || !filterKeywords.Any())
+            try
             {
-                var badRequestResponse = new ApiResponse
+                // Проверка filterKeywords на null и пустой список
+                if (filterKeywords == null || !filterKeywords.Any())
                 {
-                    StatusCode = HttpStatusCode.BadRequest,
-                    IsSuccess = false,
-                    ErrorMessages = new List<string> { "Filter keywords list is empty or not provided." }
-                };
-                return BadRequest(badRequestResponse);
-            }
+                    return BadRequest(new { error = "Filter keywords list is empty or not provided." });
+                }
 
-            // Получение результата из сервиса
-            JsonDocument placesJson;
-            placesJson = await _placeService.GetPlacesWithAllKeywordsAsync(
-                lat,
-                lng,
-                maxDistanceMeters,
-                limit,
-                filterKeywords,
-                searchAllKeywords, // Передаем параметр для логики поиска
-                isOpen,
-                status); // Передаем параметр статуса
+                // Передаем статус только если он явно задан (не null и не пустой)
+                string? statusToPass = string.IsNullOrWhiteSpace(status) ? null : status;
 
-            if (placesJson == null)
-            {
-                var notFoundResponse = new ApiResponse
+                // Получение результата из сервиса
+                var result = await _placeService.GetPlacesWithAllKeywordsAsync(
+                    lat,
+                    lng,
+                    maxDistanceMeters,
+                    limit,
+                    filterKeywords,
+                    searchAllKeywords,
+                    isOpen,
+                    statusToPass);
+
+                if (result == null)
                 {
-                    StatusCode = HttpStatusCode.NotFound,
-                    IsSuccess = false,
-                    ErrorMessages = new List<string> { $"No places found with all the provided keywords{(isOpen ? " that are currently open" : "")}." }
-                };
-                return NotFound(notFoundResponse);
-            }
+                    return BadRequest(new { error = $"No places found with all the provided keywords{(isOpen ? " that are currently open" : "")}." });
+                }
 
-            // Формирование успешного ответа
-            var successResponse = new ApiResponse
+                // Проверяем структуру ответа
+                if (result.RootElement.TryGetProperty("IsSuccess", out var isSuccessElement) &&
+                    isSuccessElement.GetBoolean())
+                {
+                    // Если есть свойство data с местами
+                    if (result.RootElement.TryGetProperty("data", out var dataElement))
+                    {
+                        // Добавляем количество найденных документов в заголовок
+                        var placesArray = JsonSerializer.Deserialize<object[]>(dataElement.GetRawText());
+                        Response.Headers.Add("X-Total-Count", placesArray.Length.ToString());
+                        Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
+
+                        return Ok(placesArray);
+                    }
+                    // Если нет свойства data, пытаемся получить массив напрямую
+                    else
+                    {
+                        var placesObject = JsonSerializer.Deserialize<object>(result.RootElement.GetRawText());
+
+                        // Если это массив, добавляем счетчик
+                        if (placesObject is JsonElement element && element.ValueKind == JsonValueKind.Array)
+                        {
+                            var placesArray = JsonSerializer.Deserialize<object[]>(element.GetRawText());
+                            Response.Headers.Add("X-Total-Count", placesArray.Length.ToString());
+                            Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
+
+                            return Ok(placesArray);
+                        }
+
+                        return Ok(placesObject);
+                    }
+                }
+                else
+                {
+                    // Простой вывод ошибки из сервиса
+                    var errorMessage = result.RootElement.TryGetProperty("Message", out var messageElement)
+                        ? messageElement.GetString()
+                        : "Unknown error occurred";
+
+                    return BadRequest(new { error = errorMessage });
+                }
+            }
+            catch (Exception ex)
             {
-                StatusCode = HttpStatusCode.OK,
-                IsSuccess = true,
-                Result = placesJson
-            };
-            return Ok(successResponse);
+                return StatusCode(500, new { error = $"Ошибка при получении мест по ключевым словам: {ex.Message}" });
+            }
         }
 
 
