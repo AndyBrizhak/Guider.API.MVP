@@ -273,7 +273,56 @@
 
 
         /// Получить документ по локальнуому url
-        public async Task<JsonDocument> GetByUrlAsync(string url)
+        //public async Task<JsonDocument> GetByUrlAsync(string url)
+        //{
+        //    try
+        //    {
+        //        // Validate URL parameter
+        //        if (string.IsNullOrEmpty(url))
+        //        {
+        //            var errorResponse = new
+        //            {
+        //                IsSuccess = false,
+        //                Message = "URL parameter is required and cannot be null or empty."
+        //            };
+        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //        }
+
+        //        // Create filter by url and execute query
+        //        var filter = Builders<BsonDocument>.Filter.Eq("url", url);
+        //        var place = await _placeCollection.Find(filter).FirstOrDefaultAsync();
+
+        //        if (place == null)
+        //        {
+        //            var errorResponse = new
+        //            {
+        //                IsSuccess = false,
+        //                Message = $"Object with URL '{url}' not found."
+        //            };
+        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //        }
+
+        //        // Create a copy of the place document without the _id field
+        //        var placeCopy = place.DeepClone().AsBsonDocument;
+        //        placeCopy.Remove("_id");
+        //        // Add id field with the original ObjectId as string
+        //        placeCopy["id"] = place["_id"].AsObjectId.ToString();
+
+        //        // Return only the place document with id field
+        //        return JsonDocument.Parse(placeCopy.ToJson());
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        var errorResponse = new
+        //        {
+        //            IsSuccess = false,
+        //            Message = $"An error occurred: {ex.Message}"
+        //        };
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //    }
+        //}
+
+        public async Task<JsonDocument> GetByUrlAsync(string url, string status = null)
         {
             try
             {
@@ -288,8 +337,29 @@
                     return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
                 }
 
-                // Create filter by url and execute query
-                var filter = Builders<BsonDocument>.Filter.Eq("url", url);
+                // Create filter by url
+                var filterBuilder = Builders<BsonDocument>.Filter;
+                var filter = filterBuilder.Eq("url", url);
+
+                // Add status filtering logic (same as in GetPlacesNearbyAsync)
+                if (status == null)
+                {
+                    // Если статус null - не добавляем фильтрацию по статусу (передаются все объекты)
+                    // filter остается без фильтра по статусу
+                }
+                else if (string.IsNullOrWhiteSpace(status))
+                {
+                    // Если статус пустая строка - выбираются все объекты с любыми статусами или без статуса
+                    // Не добавляем условие фильтрации - берем все
+                }
+                else
+                {
+                    // Если статус указан конкретный - фильтруем строго по этому статусу
+                    // Объекты без поля status не будут выбраны
+                    filter = filterBuilder.And(filter, filterBuilder.Eq("status", status));
+                }
+
+                // Execute query
                 var place = await _placeCollection.Find(filter).FirstOrDefaultAsync();
 
                 if (place == null)
@@ -297,7 +367,7 @@
                     var errorResponse = new
                     {
                         IsSuccess = false,
-                        Message = $"Object with URL '{url}' not found."
+                        Message = $"Object with URL '{url}' not found or doesn't match status criteria."
                     };
                     return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
                 }
@@ -305,11 +375,19 @@
                 // Create a copy of the place document without the _id field
                 var placeCopy = place.DeepClone().AsBsonDocument;
                 placeCopy.Remove("_id");
+
                 // Add id field with the original ObjectId as string
                 placeCopy["id"] = place["_id"].AsObjectId.ToString();
 
-                // Return only the place document with id field
-                return JsonDocument.Parse(placeCopy.ToJson());
+                // Return success response with the place data
+                var successResponse = new
+                {
+                    IsSuccess = true,
+                    Message = "Place found successfully.",
+                    Data = BsonTypeMapper.MapToDotNetValue(placeCopy)
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
             }
             catch (Exception ex)
             {
@@ -321,6 +399,7 @@
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
             }
         }
+
 
         public async Task<JsonDocument> CreateAsync(JsonDocument jsonDocument)
         {
