@@ -201,104 +201,36 @@ namespace Guider.API.MVP.Controllers
             return Ok(JsonSerializer.Deserialize<object>(result.RootElement.GetRawText()));
         }
 
-
-        /// <summary>
-        /// Получить ближайшие места
-        /// </summary>
-        /// <param name="lat">Широта</param>
-        /// <param name="lng">Долгота</param>
-        /// <param name="maxDistance">Максимальное расстояние</param>
-        /// <param name="isOpen">Фильтр по открытым заведениям (по времени Коста-Рики)</param>
-        /// <returns>Список ближайших мест в формате JSON</returns>
-        //[HttpGet("geo")]
-        //public async Task<ActionResult<string>> GetNearbyPlaces(
-        //    [FromHeader(Name = "X-Latitude")] decimal lat = 10.539500881521633m,
-        //    [FromHeader(Name = "X-Longitude")] decimal lng = -85.68964788238951m,
-        //    [FromHeader(Name = "X-Max-Distance")] int maxDistance = 10000,
-        //    [FromHeader(Name = "X-Is-Open")] bool isOpen = false)
-        //{
-        //    try
-        //    {
-        //        var places = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance, isOpen);
-
-        //        if (places == null || places.Count == 0)
-        //        {
-        //            _response.StatusCode = HttpStatusCode.NotFound;
-        //            _response.IsSuccess = false;
-        //            _response.ErrorMessages.Add($"No places found within {maxDistance} meters{(isOpen ? " that are currently open" : "")}.");
-        //            return NotFound(_response);
-        //        }
-
-        //        return Content(places.ToJson(), "application/json");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _response.StatusCode = HttpStatusCode.InternalServerError;
-        //        _response.IsSuccess = false;
-        //        _response.ErrorMessages.Add(ex.Message);
-        //        return StatusCode((int)HttpStatusCode.InternalServerError, _response);
-        //    }
-        //}
-
-        //[HttpGet("geo")]
-        //public async Task<ActionResult<string>> GetNearbyPlaces(
-        //[FromHeader(Name = "X-Latitude")] decimal lat = 10.539500881521633m,
-        //[FromHeader(Name = "X-Longitude")] decimal lng = -85.68964788238951m,
-        //[FromHeader(Name = "X-Max-Distance")] int maxDistance = 10000,
-        //[FromHeader(Name = "X-Is-Open")] bool isOpen = false,
-        //[FromHeader(Name = "X-Status")] string status = "active")
-        //{
-        //    try
-        //    {
-        //        var places = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance, isOpen, status);
-        //        if (places == null || places.Count == 0)
-        //        {
-        //            _response.StatusCode = HttpStatusCode.NotFound;
-        //            _response.IsSuccess = false;
-        //            _response.ErrorMessages.Add($"No places found within {maxDistance} meters{(isOpen ? " that are currently open" : "")} with status '{status}'.");
-        //            return NotFound(_response);
-        //        }
-        //        return Content(places.ToJson(), "application/json");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _response.StatusCode = HttpStatusCode.InternalServerError;
-        //        _response.IsSuccess = false;
-        //        _response.ErrorMessages.Add(ex.Message);
-        //        return StatusCode((int)HttpStatusCode.InternalServerError, _response);
-        //    }
-        //}
+              
 
         [HttpGet("geo")]
         public async Task<ActionResult<string>> GetNearbyPlaces(
-    [FromHeader(Name = "X-Latitude")] decimal lat = 10.539500881521633m,
-    [FromHeader(Name = "X-Longitude")] decimal lng = -85.68964788238951m,
-    [FromHeader(Name = "X-Max-Distance")] int maxDistance = 10000,
-    [FromHeader(Name = "X-Is-Open")] bool isOpen = false,
-    [FromHeader(Name = "X-Status")] string status = "active")
+            [FromHeader(Name = "X-Latitude")] decimal lat = 10.539500881521633m,
+            [FromHeader(Name = "X-Longitude")] decimal lng = -85.68964788238951m,
+            [FromHeader(Name = "X-Max-Distance")] int maxDistance = 10000,
+            [FromHeader(Name = "X-Is-Open")] bool isOpen = false,
+            [FromHeader(Name = "X-Status")] string? status = null)
         {
             try
             {
-                var result = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance, isOpen, status);
+                // Передаем статус только если он явно задан (не null и не пустой)
+                string? statusToPass = string.IsNullOrWhiteSpace(status) ? null : status;
 
-                // Парсим JsonDocument для получения структуры ответа
+                var result = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance, isOpen, statusToPass);
+
                 var rootElement = result.RootElement;
 
-                // Проверяем успешность операции
                 if (rootElement.TryGetProperty("IsSuccess", out var isSuccessElement) &&
                     isSuccessElement.GetBoolean())
                 {
-                    // Успешный ответ - возвращаем JSON как есть
                     return Content(result.RootElement.GetRawText(), "application/json");
                 }
                 else
                 {
-                    // Неуспешный ответ - получаем сообщение об ошибке
                     var errorMessage = rootElement.TryGetProperty("Message", out var messageElement)
                         ? messageElement.GetString()
                         : "Unknown error occurred";
 
-                    // Определяем HTTP статус в зависимости от типа ошибки
                     if (errorMessage.Contains("Invalid") || errorMessage.Contains("Must be") ||
                         errorMessage.Contains("cannot be null"))
                     {
@@ -316,7 +248,6 @@ namespace Guider.API.MVP.Controllers
             }
             catch (Exception ex)
             {
-                // Создаем стандартный формат ошибки для исключений контроллера
                 var errorResponse = new
                 {
                     IsSuccess = false,

@@ -653,22 +653,56 @@
             return result;
         }
 
-        //public async Task<List<BsonDocument>> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters, bool isOpen, string status = "active")
+        //public async Task<JsonDocument> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters, bool isOpen = false, string status = "active")
         //{
-        //    if (!isOpen)
+        //    try
         //    {
-        //        return await GetPlacesNearbyAsync(lat, lng, maxDistanceMeters, status);
-        //    }
+        //        // Валидация входных параметров
+        //        if (lat < -90 || lat > 90)
+        //        {
+        //            var errorResponse = new
+        //            {
+        //                IsSuccess = false,
+        //                Message = "Invalid latitude value. Must be between -90 and 90."
+        //            };
+        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //        }
 
-        //    var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
-        //    var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
+        //        if (lng < -180 || lng > 180)
+        //        {
+        //            var errorResponse = new
+        //            {
+        //                IsSuccess = false,
+        //                Message = "Invalid longitude value. Must be between -180 and 180."
+        //            };
+        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //        }
 
-        //    var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
-        //    var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt"); // Например, "8:30 AM"
+        //        if (maxDistanceMeters <= 0)
+        //        {
+        //            var errorResponse = new
+        //            {
+        //                IsSuccess = false,
+        //                Message = "Maximum distance must be greater than 0."
+        //            };
+        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //        }
 
-        //    var pipeline = new[]
-        //    {
-        //        new BsonDocument("$geoNear", new BsonDocument
+        //        if (string.IsNullOrWhiteSpace(status))
+        //        {
+        //            var errorResponse = new
+        //            {
+        //                IsSuccess = false,
+        //                Message = "Status parameter cannot be null or empty."
+        //            };
+        //            return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //        }
+
+        //        // Создаем список стадий pipeline
+        //        var pipelineStages = new List<BsonDocument>();
+
+        //        // Стадия 1: $geoNear - поиск по геолокации
+        //        pipelineStages.Add(new BsonDocument("$geoNear", new BsonDocument
         //        {
         //            { "near", new BsonDocument
         //                {
@@ -679,126 +713,120 @@
         //            { "distanceField", "distance" },
         //            { "maxDistance", maxDistanceMeters },
         //            { "spherical", true }
-        //        }),
+        //        }));
 
-        //            // Добавляем фильтрацию по статусу
-        //            new BsonDocument("$match", new BsonDocument
+        //        // Стадия 2: $match - фильтрация
+        //        var matchConditions = new BsonDocument
+        //        {
+        //            { "status", status }
+        //        };
+
+        //        // Если нужно фильтровать по времени работы
+        //        if (isOpen)
+        //        {
+        //            var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
+        //            var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
+        //            var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
+        //            var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt"); // Например, "8:30 AM"
+
+        //            matchConditions.Add("schedule", new BsonDocument
         //            {
-        //                { "status", status },
-        //                { "schedule", new BsonDocument
+        //                { "$elemMatch", new BsonDocument
         //                    {
-        //                        { "$elemMatch", new BsonDocument
+        //                        { "days", new BsonDocument("$in", new BsonArray { dayOfWeek }) },
+        //                        { "hours", new BsonDocument
         //                            {
-        //                                { "days", new BsonDocument("$in", new BsonArray { dayOfWeek }) },
-        //                                { "hours", new BsonDocument
+        //                                { "$elemMatch", new BsonDocument
         //                                    {
-        //                                        { "$elemMatch", new BsonDocument
-        //                                            {
-        //                                                { "start", new BsonDocument("$lte", currentTimeString) },
-        //                                                { "end", new BsonDocument("$gte", currentTimeString) }
-        //                                            }
-        //                                        }
+        //                                        { "start", new BsonDocument("$lte", currentTimeString) },
+        //                                        { "end", new BsonDocument("$gte", currentTimeString) }
         //                                    }
         //                                }
         //                            }
         //                        }
         //                    }
         //                }
-        //            }),
+        //            });
+        //        }
 
-        //        new BsonDocument("$project", new BsonDocument
+        //        pipelineStages.Add(new BsonDocument("$match", matchConditions));
+
+        //        // Стадия 3: $project - выбор полей
+        //        pipelineStages.Add(new BsonDocument("$project", new BsonDocument
         //        {
         //            { "_id", 1 },
         //            { "distance", 1 },
         //            { "name", 1 },
         //            { "img_link", new BsonDocument
         //                {
-        //                    { "$arrayElemAt", new BsonArray { "$img_link", 0 } }
+        //                    { "$arrayElemAt", new BsonArray { "$img_link", 0 } } // Первая ссылка на изображение
         //                }
         //            },
         //            { "url", 1 }
-        //        })
-        //    };
+        //        }));
 
-        //    var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
-        //    return result;
-        //}
+        //        var result = await _placeCollection.Aggregate<BsonDocument>(pipelineStages).ToListAsync();
 
-        //public async Task<List<BsonDocument>> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters, bool isOpen = false, string status = "active")
-        //{
-        //    // Создаем список стадий pipeline
-        //    var pipelineStages = new List<BsonDocument>();
-
-        //    // Стадия 1: $geoNear - поиск по геолокации
-        //    pipelineStages.Add(new BsonDocument("$geoNear", new BsonDocument
-        //    {
-        //        { "near", new BsonDocument
-        //            {
-        //                { "type", "Point" },
-        //                { "coordinates", new BsonArray { lng, lat } }
-        //            }
-        //        },
-        //        { "distanceField", "distance" },
-        //        { "maxDistance", maxDistanceMeters },
-        //        { "spherical", true }
-        //    }));
-
-        //    // Стадия 2: $match - фильтрация
-        //    var matchConditions = new BsonDocument
-        //    {
-        //        { "status", status }
-        //    };
-
-        //    // Если нужно фильтровать по времени работы
-        //    if (isOpen)
-        //    {
-        //        var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
-        //        var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
-
-        //        var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
-        //        var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt"); // Например, "8:30 AM"
-
-        //        matchConditions.Add("schedule", new BsonDocument
+        //        // Обработка результата и создание response в формате с id вместо _id
+        //        var processedResults = result.Select(doc =>
         //        {
-        //            { "$elemMatch", new BsonDocument
-        //                {
-        //                    { "days", new BsonDocument("$in", new BsonArray { dayOfWeek }) },
-        //                    { "hours", new BsonDocument
-        //                        {
-        //                            { "$elemMatch", new BsonDocument
-        //                                {
-        //                                    { "start", new BsonDocument("$lte", currentTimeString) },
-        //                                    { "end", new BsonDocument("$gte", currentTimeString) }
-        //                                }
-        //                            }
-        //                        }
-        //                    }
-        //                }
-        //            }
-        //        });
-        //    }
-
-        //    pipelineStages.Add(new BsonDocument("$match", matchConditions));
-
-        //    // Стадия 3: $project - выбор полей
-        //            pipelineStages.Add(new BsonDocument("$project", new BsonDocument
-        //    {
-        //        { "_id", 1 },
-        //        { "distance", 1 },
-        //        { "name", 1 },
-        //        { "img_link", new BsonDocument
+        //            var docCopy = doc.DeepClone().AsBsonDocument;
+        //            if (docCopy.Contains("_id"))
         //            {
-        //                { "$arrayElemAt", new BsonArray { "$img_link", 0 } } // Первая ссылка на изображение
+        //                docCopy["id"] = docCopy["_id"].ToString();
+        //                docCopy.Remove("_id");
         //            }
-        //        },
-        //        { "url", 1 }
-        //    }));
+        //            return docCopy;
+        //        }).ToList();
 
-        //    var result = await _placeCollection.Aggregate<BsonDocument>(pipelineStages).ToListAsync();
-        //    return result;
+        //        var successResponse = new
+        //        {
+        //            IsSuccess = true,
+        //            Message = $"Found {processedResults.Count} places within {maxDistanceMeters} meters.",
+        //            Data = processedResults.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList()
+        //        };
+
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+        //    }
+        //    catch (TimeZoneNotFoundException ex)
+        //    {
+        //        var errorResponse = new
+        //        {
+        //            IsSuccess = false,
+        //            Message = $"Time zone error: {ex.Message}"
+        //        };
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //    }
+        //    catch (MongoException ex)
+        //    {
+        //        var errorResponse = new
+        //        {
+        //            IsSuccess = false,
+        //            Message = $"Database error: {ex.Message}"
+        //        };
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //    }
+        //    catch (ArgumentException ex)
+        //    {
+        //        var errorResponse = new
+        //        {
+        //            IsSuccess = false,
+        //            Message = $"Invalid argument: {ex.Message}"
+        //        };
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        var errorResponse = new
+        //        {
+        //            IsSuccess = false,
+        //            Message = $"An error occurred: {ex.Message}"
+        //        };
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //    }
         //}
 
-        public async Task<JsonDocument> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters, bool isOpen = false, string status = "active")
+        public async Task<JsonDocument> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters, bool isOpen = false, string status = null)
         {
             try
             {
@@ -833,16 +861,6 @@
                     return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
                 }
 
-                if (string.IsNullOrWhiteSpace(status))
-                {
-                    var errorResponse = new
-                    {
-                        IsSuccess = false,
-                        Message = "Status parameter cannot be null or empty."
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-                }
-
                 // Создаем список стадий pipeline
                 var pipelineStages = new List<BsonDocument>();
 
@@ -861,10 +879,25 @@
                 }));
 
                 // Стадия 2: $match - фильтрация
-                var matchConditions = new BsonDocument
+                var matchConditions = new BsonDocument();
+
+                // Логика фильтрации по статусу
+                if (status == null)
                 {
-                    { "status", status }
-                };
+                    // Если статус null - не добавляем фильтрацию по статусу (передаются все объекты)
+                    // matchConditions остается без фильтра по статусу
+                }
+                else if (string.IsNullOrWhiteSpace(status))
+                {
+                    // Если статус пустая строка - выбираются все объекты с любыми статусами или без статуса
+                    // Не добавляем условие фильтрации - берем все
+                }
+                else
+                {
+                    // Если статус указан конкретный - фильтруем строго по этому статусу
+                    // Объекты без поля status не будут выбраны
+                    matchConditions.Add("status", status);
+                }
 
                 // Если нужно фильтровать по времени работы
                 if (isOpen)
@@ -970,7 +1003,6 @@
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
             }
         }
-
 
         public async Task<string> GetNearbyPlacesAsyncCenter(decimal latitude, decimal longitude, int radiusMeters, int limit)
         {
