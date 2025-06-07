@@ -533,85 +533,231 @@
         /// <param name="lng"></param>
         /// <param name="maxDistanceMeters"></param>
         /// <returns></returns>
-        public async Task<List<BsonDocument>> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters)
+        //public async Task<List<BsonDocument>> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters)
+        //{
+        //    var pipeline = new[]
+        //    {
+        //new BsonDocument("$geoNear", new BsonDocument
+        //{
+        //    { "near", new BsonDocument
+        //        {
+        //            { "type", "Point" },
+        //            { "coordinates", new BsonArray { lng, lat } }
+        //        }
+        //    },
+        //    { "distanceField", "distance" },
+        //    { "maxDistance", maxDistanceMeters },
+        //    { "spherical", true }
+        //}),
+        //new BsonDocument("$project", new BsonDocument
+        //{
+        //    { "_id", 1 },
+        //    { "distance", 1 },
+        //    { "name", 1 },
+        //    { "img_link", new BsonDocument
+        //        {
+        //            { "$arrayElemAt", new BsonArray { "$img_link", 0 } } // Первая ссылка на изображение
+        //        }
+        //    },
+        //    {
+        //        "url", 1
+        //    }
+        //    })
+        //    };
+        //    var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+        //    return result;
+        //}
+
+        //    /// <summary>
+        //    /// Гео с выводом отсортированного списка открытых заведений по времени Коста-Рики
+        //    /// </summary>
+        //    /// <param name="lat">Широта</param>
+        //    /// <param name="lng">Долгота</param>
+        //    /// <param name="maxDistanceMeters">Максимальное расстояние в метрах</param>
+        //    /// <param name="isOpen">Учитывать ли расписание работы</param>
+        //    /// <returns>Список ближайших мест</returns>
+        //    public async Task<List<BsonDocument>> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters, bool isOpen)
+        //    {
+        //        if (!isOpen)
+        //        {
+
+        //            return await GetPlacesNearbyAsync(lat, lng, maxDistanceMeters);
+        //        }
+
+
+        //        var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
+        //        var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
+
+
+        //        var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
+        //        var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt"); // Например, "8:30 AM"
+
+        //        var pipeline = new[]
+        //        {
+
+        //    new BsonDocument("$geoNear", new BsonDocument
+        //    {
+        //        { "near", new BsonDocument
+        //            {
+        //                { "type", "Point" },
+        //                { "coordinates", new BsonArray { lng, lat } }
+        //            }
+        //        },
+        //        { "distanceField", "distance" },
+        //        { "maxDistance", maxDistanceMeters },
+        //        { "spherical", true }
+        //    }),
+
+
+        //    new BsonDocument("$match", new BsonDocument
+        //    {
+        //        { "schedule", new BsonDocument
+        //            {
+        //                { "$elemMatch", new BsonDocument
+        //                    {
+        //                        { "days", new BsonDocument("$in", new BsonArray { dayOfWeek }) },
+        //                        { "hours", new BsonDocument
+        //                            {
+        //                                { "$elemMatch", new BsonDocument
+        //                                    {
+        //                                        { "start", new BsonDocument("$lte", currentTimeString) },
+        //                                        { "end", new BsonDocument("$gte", currentTimeString) }
+        //                                    }
+        //                                }
+        //                            }
+        //                        }
+        //                    }
+        //                }
+        //            }
+        //        }
+        //    }),
+
+
+        //    new BsonDocument("$project", new BsonDocument
+        //    {
+        //        { "_id", 1 },
+        //        { "distance", 1 },
+        //        { "name", 1 },
+        //        { "img_link", new BsonDocument
+        //            {
+        //                { "$arrayElemAt", new BsonArray { "$img_link", 0 } } 
+        //            }
+        //        },
+        //        {
+        //            "url", 1
+        //        }
+        //    })
+        //};
+
+        //        var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+        //        return result;
+        //    }
+        //public async Task<List<BsonDocument>> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters, bool isOpen, string status = "active")
+        //{
+        //    if (!isOpen)
+        //    {
+        //        return await GetPlacesNearbyAsync(lat, lng, maxDistanceMeters, status);
+        //    }
+
+        //    var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
+        //    var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
+
+        //    var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
+        //    var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt"); // Например, "8:30 AM"
+
+        //    var pipeline = new[]
+        //    {
+        //        new BsonDocument("$geoNear", new BsonDocument
+        //        {
+        //            { "near", new BsonDocument
+        //                {
+        //                    { "type", "Point" },
+        //                    { "coordinates", new BsonArray { lng, lat } }
+        //                }
+        //            },
+        //            { "distanceField", "distance" },
+        //            { "maxDistance", maxDistanceMeters },
+        //            { "spherical", true }
+        //        }),
+
+        //            // Добавляем фильтрацию по статусу
+        //            new BsonDocument("$match", new BsonDocument
+        //            {
+        //                { "status", status },
+        //                { "schedule", new BsonDocument
+        //                    {
+        //                        { "$elemMatch", new BsonDocument
+        //                            {
+        //                                { "days", new BsonDocument("$in", new BsonArray { dayOfWeek }) },
+        //                                { "hours", new BsonDocument
+        //                                    {
+        //                                        { "$elemMatch", new BsonDocument
+        //                                            {
+        //                                                { "start", new BsonDocument("$lte", currentTimeString) },
+        //                                                { "end", new BsonDocument("$gte", currentTimeString) }
+        //                                            }
+        //                                        }
+        //                                    }
+        //                                }
+        //                            }
+        //                        }
+        //                    }
+        //                }
+        //            }),
+
+        //        new BsonDocument("$project", new BsonDocument
+        //        {
+        //            { "_id", 1 },
+        //            { "distance", 1 },
+        //            { "name", 1 },
+        //            { "img_link", new BsonDocument
+        //                {
+        //                    { "$arrayElemAt", new BsonArray { "$img_link", 0 } }
+        //                }
+        //            },
+        //            { "url", 1 }
+        //        })
+        //    };
+
+        //    var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+        //    return result;
+        //}
+
+        public async Task<List<BsonDocument>> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters, bool isOpen = false, string status = "active")
         {
-            var pipeline = new[]
+            // Создаем список стадий pipeline
+            var pipelineStages = new List<BsonDocument>();
+
+            // Стадия 1: $geoNear - поиск по геолокации
+            pipelineStages.Add(new BsonDocument("$geoNear", new BsonDocument
             {
-        new BsonDocument("$geoNear", new BsonDocument
-        {
-            { "near", new BsonDocument
-                {
-                    { "type", "Point" },
-                    { "coordinates", new BsonArray { lng, lat } }
-                }
-            },
-            { "distanceField", "distance" },
-            { "maxDistance", maxDistanceMeters },
-            { "spherical", true }
-        }),
-        new BsonDocument("$project", new BsonDocument
-        {
-            { "_id", 1 },
-            { "distance", 1 },
-            { "name", 1 },
-            { "img_link", new BsonDocument
-                {
-                    { "$arrayElemAt", new BsonArray { "$img_link", 0 } } // Первая ссылка на изображение
-                }
-            },
+                { "near", new BsonDocument
+                    {
+                        { "type", "Point" },
+                        { "coordinates", new BsonArray { lng, lat } }
+                    }
+                },
+                { "distanceField", "distance" },
+                { "maxDistance", maxDistanceMeters },
+                { "spherical", true }
+            }));
+
+            // Стадия 2: $match - фильтрация
+            var matchConditions = new BsonDocument
             {
-                "url", 1
-            }
-            })
+                { "status", status }
             };
-            var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
-            return result;
-        }
 
-        /// <summary>
-        /// Гео с выводом отсортированного списка открытых заведений по времени Коста-Рики
-        /// </summary>
-        /// <param name="lat">Широта</param>
-        /// <param name="lng">Долгота</param>
-        /// <param name="maxDistanceMeters">Максимальное расстояние в метрах</param>
-        /// <param name="isOpen">Учитывать ли расписание работы</param>
-        /// <returns>Список ближайших мест</returns>
-        public async Task<List<BsonDocument>> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters, bool isOpen)
-        {
-            if (!isOpen)
+            // Если нужно фильтровать по времени работы
+            if (isOpen)
             {
-                
-                return await GetPlacesNearbyAsync(lat, lng, maxDistanceMeters);
-            }
+                var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
+                var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
 
-            
-            var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
-            var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
+                var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
+                var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt"); // Например, "8:30 AM"
 
-            
-            var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
-            var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt"); // Например, "8:30 AM"
-
-            var pipeline = new[]
-            {
-        
-        new BsonDocument("$geoNear", new BsonDocument
-        {
-            { "near", new BsonDocument
-                {
-                    { "type", "Point" },
-                    { "coordinates", new BsonArray { lng, lat } }
-                }
-            },
-            { "distanceField", "distance" },
-            { "maxDistance", maxDistanceMeters },
-            { "spherical", true }
-        }),
-        
-        
-        new BsonDocument("$match", new BsonDocument
-        {
-            { "schedule", new BsonDocument
+                matchConditions.Add("schedule", new BsonDocument
                 {
                     { "$elemMatch", new BsonDocument
                         {
@@ -628,30 +774,29 @@
                             }
                         }
                     }
-                }
+                });
             }
-        }),
-        
-        
-        new BsonDocument("$project", new BsonDocument
-        {
-            { "_id", 1 },
-            { "distance", 1 },
-            { "name", 1 },
-            { "img_link", new BsonDocument
-                {
-                    { "$arrayElemAt", new BsonArray { "$img_link", 0 } } 
-                }
-            },
-            {
-                "url", 1
-            }
-        })
-    };
 
-            var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+            pipelineStages.Add(new BsonDocument("$match", matchConditions));
+
+            // Стадия 3: $project - выбор полей
+                    pipelineStages.Add(new BsonDocument("$project", new BsonDocument
+            {
+                { "_id", 1 },
+                { "distance", 1 },
+                { "name", 1 },
+                { "img_link", new BsonDocument
+                    {
+                        { "$arrayElemAt", new BsonArray { "$img_link", 0 } } // Первая ссылка на изображение
+                    }
+                },
+                { "url", 1 }
+            }));
+
+            var result = await _placeCollection.Aggregate<BsonDocument>(pipelineStages).ToListAsync();
             return result;
         }
+
 
         public async Task<string> GetNearbyPlacesAsyncCenter(decimal latitude, decimal longitude, int radiusMeters, int limit)
         {
