@@ -757,18 +757,18 @@
                 pipelineStages.Add(new BsonDocument("$match", matchConditions));
 
                 // Стадия 3: $project - выбор полей
-                pipelineStages.Add(new BsonDocument("$project", new BsonDocument
-                {
-                    { "_id", 1 },
-                    { "distance", 1 },
-                    { "name", 1 },
-                    { "img_link", new BsonDocument
-                        {
-                            { "$arrayElemAt", new BsonArray { "$img_link", 0 } } // Первая ссылка на изображение
-                        }
-                    },
-                    { "url", 1 }
-                }));
+                //pipelineStages.Add(new BsonDocument("$project", new BsonDocument
+                //{
+                //    { "_id", 1 },
+                //    { "distance", 1 },
+                //    { "name", 1 },
+                //    { "img_link", new BsonDocument
+                //        {
+                //            { "$arrayElemAt", new BsonArray { "$img_link", 0 } } // Первая ссылка на изображение
+                //        }
+                //    },
+                //    { "url", 1 }
+                //}));
 
                 var result = await _placeCollection.Aggregate<BsonDocument>(pipelineStages).ToListAsync();
 
