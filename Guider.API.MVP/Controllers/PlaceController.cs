@@ -240,35 +240,93 @@ namespace Guider.API.MVP.Controllers
         //    }
         //}
 
+        //[HttpGet("geo")]
+        //public async Task<ActionResult<string>> GetNearbyPlaces(
+        //[FromHeader(Name = "X-Latitude")] decimal lat = 10.539500881521633m,
+        //[FromHeader(Name = "X-Longitude")] decimal lng = -85.68964788238951m,
+        //[FromHeader(Name = "X-Max-Distance")] int maxDistance = 10000,
+        //[FromHeader(Name = "X-Is-Open")] bool isOpen = false,
+        //[FromHeader(Name = "X-Status")] string status = "active")
+        //{
+        //    try
+        //    {
+        //        var places = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance, isOpen, status);
+        //        if (places == null || places.Count == 0)
+        //        {
+        //            _response.StatusCode = HttpStatusCode.NotFound;
+        //            _response.IsSuccess = false;
+        //            _response.ErrorMessages.Add($"No places found within {maxDistance} meters{(isOpen ? " that are currently open" : "")} with status '{status}'.");
+        //            return NotFound(_response);
+        //        }
+        //        return Content(places.ToJson(), "application/json");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _response.StatusCode = HttpStatusCode.InternalServerError;
+        //        _response.IsSuccess = false;
+        //        _response.ErrorMessages.Add(ex.Message);
+        //        return StatusCode((int)HttpStatusCode.InternalServerError, _response);
+        //    }
+        //}
+
         [HttpGet("geo")]
         public async Task<ActionResult<string>> GetNearbyPlaces(
-        [FromHeader(Name = "X-Latitude")] decimal lat = 10.539500881521633m,
-        [FromHeader(Name = "X-Longitude")] decimal lng = -85.68964788238951m,
-        [FromHeader(Name = "X-Max-Distance")] int maxDistance = 10000,
-        [FromHeader(Name = "X-Is-Open")] bool isOpen = false,
-        [FromHeader(Name = "X-Status")] string status = "active")
+    [FromHeader(Name = "X-Latitude")] decimal lat = 10.539500881521633m,
+    [FromHeader(Name = "X-Longitude")] decimal lng = -85.68964788238951m,
+    [FromHeader(Name = "X-Max-Distance")] int maxDistance = 10000,
+    [FromHeader(Name = "X-Is-Open")] bool isOpen = false,
+    [FromHeader(Name = "X-Status")] string status = "active")
         {
             try
             {
-                var places = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance, isOpen, status);
-                if (places == null || places.Count == 0)
+                var result = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance, isOpen, status);
+
+                // Парсим JsonDocument для получения структуры ответа
+                var rootElement = result.RootElement;
+
+                // Проверяем успешность операции
+                if (rootElement.TryGetProperty("IsSuccess", out var isSuccessElement) &&
+                    isSuccessElement.GetBoolean())
                 {
-                    _response.StatusCode = HttpStatusCode.NotFound;
-                    _response.IsSuccess = false;
-                    _response.ErrorMessages.Add($"No places found within {maxDistance} meters{(isOpen ? " that are currently open" : "")} with status '{status}'.");
-                    return NotFound(_response);
+                    // Успешный ответ - возвращаем JSON как есть
+                    return Content(result.RootElement.GetRawText(), "application/json");
                 }
-                return Content(places.ToJson(), "application/json");
+                else
+                {
+                    // Неуспешный ответ - получаем сообщение об ошибке
+                    var errorMessage = rootElement.TryGetProperty("Message", out var messageElement)
+                        ? messageElement.GetString()
+                        : "Unknown error occurred";
+
+                    // Определяем HTTP статус в зависимости от типа ошибки
+                    if (errorMessage.Contains("Invalid") || errorMessage.Contains("Must be") ||
+                        errorMessage.Contains("cannot be null"))
+                    {
+                        return BadRequest(result.RootElement.GetRawText());
+                    }
+                    else if (errorMessage.Contains("Found 0 places"))
+                    {
+                        return NotFound(result.RootElement.GetRawText());
+                    }
+                    else
+                    {
+                        return StatusCode((int)HttpStatusCode.InternalServerError, result.RootElement.GetRawText());
+                    }
+                }
             }
             catch (Exception ex)
             {
-                _response.StatusCode = HttpStatusCode.InternalServerError;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add(ex.Message);
-                return StatusCode((int)HttpStatusCode.InternalServerError, _response);
+                // Создаем стандартный формат ошибки для исключений контроллера
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"Controller error: {ex.Message}"
+                };
+
+                return StatusCode((int)HttpStatusCode.InternalServerError,
+                    JsonSerializer.Serialize(errorResponse));
             }
         }
-
 
         /// <summary>
         /// Получить ближайшие места с любым из ключевых слов
