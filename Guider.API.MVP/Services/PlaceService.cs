@@ -650,40 +650,40 @@
         /// <param name="lng"></param>
         /// <param name="maxDistanceMeters"></param>
         /// <returns></returns>
-        public async Task<List<BsonDocument>> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters)
-        {
-            var pipeline = new[]
-            {
-        new BsonDocument("$geoNear", new BsonDocument
-        {
-            { "near", new BsonDocument
-                {
-                    { "type", "Point" },
-                    { "coordinates", new BsonArray { lng, lat } }
-                }
-            },
-            { "distanceField", "distance" },
-            { "maxDistance", maxDistanceMeters },
-            { "spherical", true }
-        }),
-        new BsonDocument("$project", new BsonDocument
-        {
-            { "_id", 1 },
-            { "distance", 1 },
-            { "name", 1 },
-            { "img_link", new BsonDocument
-                {
-                    { "$arrayElemAt", new BsonArray { "$img_link", 0 } } // Первая ссылка на изображение
-                }
-            },
-            {
-                "url", 1
-            }
-            })
-            };
-            var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
-            return result;
-        }
+        //public async Task<List<BsonDocument>> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters)
+        //{
+        //    var pipeline = new[]
+        //    {
+        //new BsonDocument("$geoNear", new BsonDocument
+        //{
+        //    { "near", new BsonDocument
+        //        {
+        //            { "type", "Point" },
+        //            { "coordinates", new BsonArray { lng, lat } }
+        //        }
+        //    },
+        //    { "distanceField", "distance" },
+        //    { "maxDistance", maxDistanceMeters },
+        //    { "spherical", true }
+        //}),
+        //new BsonDocument("$project", new BsonDocument
+        //{
+        //    { "_id", 1 },
+        //    { "distance", 1 },
+        //    { "name", 1 },
+        //    { "img_link", new BsonDocument
+        //        {
+        //            { "$arrayElemAt", new BsonArray { "$img_link", 0 } } // Первая ссылка на изображение
+        //        }
+        //    },
+        //    {
+        //        "url", 1
+        //    }
+        //    })
+        //    };
+        //    var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+        //    return result;
+        //}
 
         /// <summary>
         /// Гео с выводом отсортированного списка открытых заведений по времени Коста-Рики
@@ -693,82 +693,82 @@
         /// <param name="maxDistanceMeters">Максимальное расстояние в метрах</param>
         /// <param name="isOpen">Учитывать ли расписание работы</param>
         /// <returns>Список ближайших мест</returns>
-        public async Task<List<BsonDocument>> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters, bool isOpen)
-        {
-            if (!isOpen)
-            {
+        //public async Task<List<BsonDocument>> GetPlacesNearbyAsync(decimal lat, decimal lng, int maxDistanceMeters, bool isOpen)
+        //{
+        //    if (!isOpen)
+        //    {
 
-                return await GetPlacesNearbyAsync(lat, lng, maxDistanceMeters);
-            }
-
-
-            var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
-            var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
+        //        return await GetPlacesNearbyAsync(lat, lng, maxDistanceMeters);
+        //    }
 
 
-            var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
-            var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt"); // Например, "8:30 AM"
-
-            var pipeline = new[]
-            {
-
-                new BsonDocument("$geoNear", new BsonDocument
-                {
-                    { "near", new BsonDocument
-                        {
-                            { "type", "Point" },
-                            { "coordinates", new BsonArray { lng, lat } }
-                        }
-                    },
-                    { "distanceField", "distance" },
-                    { "maxDistance", maxDistanceMeters },
-                    { "spherical", true }
-                }),
+        //    var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
+        //    var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
 
 
-            new BsonDocument("$match", new BsonDocument
-            {
-                { "schedule", new BsonDocument
-                    {
-                        { "$elemMatch", new BsonDocument
-                            {
-                                { "days", new BsonDocument("$in", new BsonArray { dayOfWeek }) },
-                                { "hours", new BsonDocument
-                                    {
-                                        { "$elemMatch", new BsonDocument
-                                            {
-                                                { "start", new BsonDocument("$lte", currentTimeString) },
-                                                { "end", new BsonDocument("$gte", currentTimeString) }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }),
+        //    var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
+        //    var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt"); // Например, "8:30 AM"
+
+        //    var pipeline = new[]
+        //    {
+
+        //        new BsonDocument("$geoNear", new BsonDocument
+        //        {
+        //            { "near", new BsonDocument
+        //                {
+        //                    { "type", "Point" },
+        //                    { "coordinates", new BsonArray { lng, lat } }
+        //                }
+        //            },
+        //            { "distanceField", "distance" },
+        //            { "maxDistance", maxDistanceMeters },
+        //            { "spherical", true }
+        //        }),
 
 
-            new BsonDocument("$project", new BsonDocument
-                {
-                    { "_id", 1 },
-                    { "distance", 1 },
-                    { "name", 1 },
-                    { "img_link", new BsonDocument
-                        {
-                            { "$arrayElemAt", new BsonArray { "$img_link", 0 } }
-                        }
-                    },
-                    {
-                        "url", 1
-                    }
-                })
-             };
+        //    new BsonDocument("$match", new BsonDocument
+        //    {
+        //        { "schedule", new BsonDocument
+        //            {
+        //                { "$elemMatch", new BsonDocument
+        //                    {
+        //                        { "days", new BsonDocument("$in", new BsonArray { dayOfWeek }) },
+        //                        { "hours", new BsonDocument
+        //                            {
+        //                                { "$elemMatch", new BsonDocument
+        //                                    {
+        //                                        { "start", new BsonDocument("$lte", currentTimeString) },
+        //                                        { "end", new BsonDocument("$gte", currentTimeString) }
+        //                                    }
+        //                                }
+        //                            }
+        //                        }
+        //                    }
+        //                }
+        //            }
+        //        }
+        //    }),
 
-            var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
-            return result;
-        }
+
+        //    new BsonDocument("$project", new BsonDocument
+        //        {
+        //            { "_id", 1 },
+        //            { "distance", 1 },
+        //            { "name", 1 },
+        //            { "img_link", new BsonDocument
+        //                {
+        //                    { "$arrayElemAt", new BsonArray { "$img_link", 0 } }
+        //                }
+        //            },
+        //            {
+        //                "url", 1
+        //            }
+        //        })
+        //     };
+
+        //    var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+        //    return result;
+        //}
 
         /// <summary>
         /// Получить места рядом с заданными координатами с учетом расстояния, времени работы и статуса
@@ -957,41 +957,41 @@
             }
         }
 
-        public async Task<string> GetNearbyPlacesAsyncCenter(decimal latitude, decimal longitude, int radiusMeters, int limit)
-        {
-            var pipeline = new[]
-            {
-            new BsonDocument("$geoNear", new BsonDocument
-            {
-                
-                { "near", new BsonArray { longitude, latitude } },  // Массив координат
-                { "distanceField", "distance" },
-                { "maxDistance", radiusMeters },
-                { "spherical", true },
-                
-            })
-            ,
-            new BsonDocument("$project", new BsonDocument
-            {
-                { "_id", 1 },
-                { "category", 1 },
-                { "name", 1 },
-                { "location.coordinates", 1 },
-                {
-                    "url", 1
-                }
+        //public async Task<string> GetNearbyPlacesAsyncCenter(decimal latitude, decimal longitude, int radiusMeters, int limit)
+        //{
+        //    var pipeline = new[]
+        //    {
+        //    new BsonDocument("$geoNear", new BsonDocument
+        //    {
 
-            }),
-            new BsonDocument("$limit", limit) 
-            };
+        //        { "near", new BsonArray { longitude, latitude } },  // Массив координат
+        //        { "distanceField", "distance" },
+        //        { "maxDistance", radiusMeters },
+        //        { "spherical", true },
 
-            var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
-            if (results.Count == 0)
-            {
-                return "[]"; 
-            }
-            return results.ToJson();  
-        }
+        //    })
+        //    ,
+        //    new BsonDocument("$project", new BsonDocument
+        //    {
+        //        { "_id", 1 },
+        //        { "category", 1 },
+        //        { "name", 1 },
+        //        { "location.coordinates", 1 },
+        //        {
+        //            "url", 1
+        //        }
+
+        //    }),
+        //    new BsonDocument("$limit", limit) 
+        //    };
+
+        //    var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+        //    if (results.Count == 0)
+        //    {
+        //        return "[]"; 
+        //    }
+        //    return results.ToJson();  
+        //}
 
 
         /// <summary>
@@ -1004,51 +1004,51 @@
         /// <param name="category"></param>
         /// <param name="filterTags"></param>
         /// <returns></returns>
-        public async Task<List<BsonDocument>> GetPlacesNearbyByCategoryByTagsAsyncAsync(decimal lat, decimal lng, int maxDistanceMeters, string? category = null, List<string>? filterTags = null)
-        {
-            var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
-        {
-            { "near", new BsonDocument
-                {
-                    { "type", "Point" },
-                    { "coordinates", new BsonArray { lng, lat } }
-                }
-            },
-            { "distanceField", "distance" },
-            { "maxDistance", maxDistanceMeters },
-            { "spherical", true }
-        });
+        //public async Task<List<BsonDocument>> GetPlacesNearbyByCategoryByTagsAsyncAsync(decimal lat, decimal lng, int maxDistanceMeters, string? category = null, List<string>? filterTags = null)
+        //{
+        //    var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
+        //{
+        //    { "near", new BsonDocument
+        //        {
+        //            { "type", "Point" },
+        //            { "coordinates", new BsonArray { lng, lat } }
+        //        }
+        //    },
+        //    { "distanceField", "distance" },
+        //    { "maxDistance", maxDistanceMeters },
+        //    { "spherical", true }
+        //});
 
-            var projectStage = new BsonDocument("$project", new BsonDocument
-        {
-            { "_id", 1 },
-            { "distance", 1 },
-            { "name", 1 },
-            { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
-            { "url", 1 },
-            { "category", 1 },
-            { "tags", 1 }
-        });
-            
-            var pipeline = new[] { geoNearStage, projectStage };
+        //    var projectStage = new BsonDocument("$project", new BsonDocument
+        //{
+        //    { "_id", 1 },
+        //    { "distance", 1 },
+        //    { "name", 1 },
+        //    { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
+        //    { "url", 1 },
+        //    { "category", 1 },
+        //    { "tags", 1 }
+        //});
 
-            var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+        //    var pipeline = new[] { geoNearStage, projectStage };
 
-            if (!string.IsNullOrEmpty(category))
-            {
-                results = results.Where(doc => System.Text.RegularExpressions.Regex.IsMatch(doc["category"].AsString, category, System.Text.RegularExpressions.RegexOptions.IgnoreCase)).ToList();
-            }
+        //    var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
 
-            if (filterTags != null && filterTags.Any())
-            {
-                results = results.Where(doc =>
-                    doc.Contains("tags") && doc["tags"].IsBsonArray &&
-                    doc["tags"].AsBsonArray.Any(tag => filterTags.Any(filterTag =>
-                        System.Text.RegularExpressions.Regex.IsMatch(tag.AsString, filterTag, System.Text.RegularExpressions.RegexOptions.IgnoreCase)))).ToList();
-            }
+        //    if (!string.IsNullOrEmpty(category))
+        //    {
+        //        results = results.Where(doc => System.Text.RegularExpressions.Regex.IsMatch(doc["category"].AsString, category, System.Text.RegularExpressions.RegexOptions.IgnoreCase)).ToList();
+        //    }
 
-            return results;
-        }
+        //    if (filterTags != null && filterTags.Any())
+        //    {
+        //        results = results.Where(doc =>
+        //            doc.Contains("tags") && doc["tags"].IsBsonArray &&
+        //            doc["tags"].AsBsonArray.Any(tag => filterTags.Any(filterTag =>
+        //                System.Text.RegularExpressions.Regex.IsMatch(tag.AsString, filterTag, System.Text.RegularExpressions.RegexOptions.IgnoreCase)))).ToList();
+        //    }
+
+        //    return results;
+        //}
 
         /// <summary>
         /// Получить отсоритрованный список по дистанции с текстовым поиском
@@ -1059,55 +1059,55 @@
         /// <param name="limit"></param>
         /// <param name="searchText"></param>
         /// <returns></returns>
-        public async Task<List<BsonDocument>> GetPlacesNearbyWithTextSearchAsync(decimal lat, decimal lng, int maxDistanceMeters, int limit, string searchText)
-        {
-            var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
-            {
-                { "near", new BsonDocument
-                    {
-                        { "type", "Point" },
-                        { "coordinates", new BsonArray { lng, lat } }
-                    }
-                },
-                { "distanceField", "distance" },
-                { "maxDistance", maxDistanceMeters },
-                { "spherical", true }
-            });
+        //public async Task<List<BsonDocument>> GetPlacesNearbyWithTextSearchAsync(decimal lat, decimal lng, int maxDistanceMeters, int limit, string searchText)
+        //{
+        //    var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
+        //    {
+        //        { "near", new BsonDocument
+        //            {
+        //                { "type", "Point" },
+        //                { "coordinates", new BsonArray { lng, lat } }
+        //            }
+        //        },
+        //        { "distanceField", "distance" },
+        //        { "maxDistance", maxDistanceMeters },
+        //        { "spherical", true }
+        //    });
 
-            var matchStage = new BsonDocument("$match", new BsonDocument
-                {
-                    { "$or", new BsonArray
-                        {
-                            new BsonDocument("name", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                            new BsonDocument("description", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                            new BsonDocument("address.city", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                            new BsonDocument("address.country", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                            new BsonDocument("address.province", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                            new BsonDocument("address.street", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                            new BsonDocument("category", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                            new BsonDocument("keywords", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                            new BsonDocument("tags", new BsonDocument("$regex", searchText).Add("$options", "i"))
-                         }
-                    }
-                });
+        //    var matchStage = new BsonDocument("$match", new BsonDocument
+        //        {
+        //            { "$or", new BsonArray
+        //                {
+        //                    new BsonDocument("name", new BsonDocument("$regex", searchText).Add("$options", "i")),
+        //                    new BsonDocument("description", new BsonDocument("$regex", searchText).Add("$options", "i")),
+        //                    new BsonDocument("address.city", new BsonDocument("$regex", searchText).Add("$options", "i")),
+        //                    new BsonDocument("address.country", new BsonDocument("$regex", searchText).Add("$options", "i")),
+        //                    new BsonDocument("address.province", new BsonDocument("$regex", searchText).Add("$options", "i")),
+        //                    new BsonDocument("address.street", new BsonDocument("$regex", searchText).Add("$options", "i")),
+        //                    new BsonDocument("category", new BsonDocument("$regex", searchText).Add("$options", "i")),
+        //                    new BsonDocument("keywords", new BsonDocument("$regex", searchText).Add("$options", "i")),
+        //                    new BsonDocument("tags", new BsonDocument("$regex", searchText).Add("$options", "i"))
+        //                 }
+        //            }
+        //        });
 
-            var projectStage = new BsonDocument("$project", new BsonDocument
-                {
-                    { "_id", 1 },
-                    { "distance", 1 },
-                    { "name", 1 },
-                    { "address.city", 1 },
-                    { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
-                    { "url", 1 }
-                });
+        //    var projectStage = new BsonDocument("$project", new BsonDocument
+        //        {
+        //            { "_id", 1 },
+        //            { "distance", 1 },
+        //            { "name", 1 },
+        //            { "address.city", 1 },
+        //            { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
+        //            { "url", 1 }
+        //        });
 
-            var limitStage = new BsonDocument("$limit", limit);
+        //    var limitStage = new BsonDocument("$limit", limit);
 
-            var pipeline = new[] { geoNearStage, matchStage, projectStage, limitStage };
+        //    var pipeline = new[] { geoNearStage, matchStage, projectStage, limitStage };
 
-            var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
-            return results;
-        }
+        //    var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+        //    return results;
+        //}
 
 
         /// <summary>
@@ -1120,95 +1120,95 @@
         /// <param name="searchText">Текст для поиска</param>
         /// <param name="isOpen">Учитывать ли расписание работы</param>
         /// <returns>Список найденных объектов</returns>
-        public async Task<List<BsonDocument>> GetPlacesNearbyWithTextSearchAsync(decimal lat, decimal lng, int maxDistanceMeters, int limit, string searchText, bool isOpen)
-        {
-            if (!isOpen)
-            {
-                
-                return await GetPlacesNearbyWithTextSearchAsync(lat, lng, maxDistanceMeters, limit, searchText);
-            }
+        //    public async Task<List<BsonDocument>> GetPlacesNearbyWithTextSearchAsync(decimal lat, decimal lng, int maxDistanceMeters, int limit, string searchText, bool isOpen)
+        //    {
+        //        if (!isOpen)
+        //        {
 
-            
-            var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
-            var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
+        //            return await GetPlacesNearbyWithTextSearchAsync(lat, lng, maxDistanceMeters, limit, searchText);
+        //        }
 
-            
-            var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
-            var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt"); // Например, "8:30 AM"
 
-            
-            var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
-    {
-        { "near", new BsonDocument
-            {
-                { "type", "Point" },
-                { "coordinates", new BsonArray { lng, lat } }
-            }
-        },
-        { "distanceField", "distance" },
-        { "maxDistance", maxDistanceMeters },
-        { "spherical", true }
-    });
+        //        var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
+        //        var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
 
-            var textSearchStage = new BsonDocument("$match", new BsonDocument
-        {
-            { "$or", new BsonArray
-                {
-                    new BsonDocument("name", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                    new BsonDocument("description", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                    new BsonDocument("address.city", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                    new BsonDocument("address.country", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                    new BsonDocument("address.province", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                    new BsonDocument("address.street", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                    new BsonDocument("category", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                    new BsonDocument("keywords", new BsonDocument("$regex", searchText).Add("$options", "i")),
-                    new BsonDocument("tags", new BsonDocument("$regex", searchText).Add("$options", "i"))
-                 }
-            }
-        });
 
-            
-            var scheduleMatchStage = new BsonDocument("$match", new BsonDocument
-    {
-        { "schedule", new BsonDocument
-            {
-                { "$elemMatch", new BsonDocument
-                    {
-                        { "days", new BsonDocument("$in", new BsonArray { dayOfWeek }) },
-                        { "hours", new BsonDocument
-                            {
-                                { "$elemMatch", new BsonDocument
-                                    {
-                                        { "start", new BsonDocument("$lte", currentTimeString) },
-                                        { "end", new BsonDocument("$gte", currentTimeString) }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    });
+        //        var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
+        //        var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt"); // Например, "8:30 AM"
 
-            var projectStage = new BsonDocument("$project", new BsonDocument
-        {
-            { "_id", 1 },
-            { "distance", 1 },
-            { "name", 1 },
-            { "address.city", 1 },
-            { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
-            { "url", 1 }
-        });
 
-            var limitStage = new BsonDocument("$limit", limit);
+        //        var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
+        //{
+        //    { "near", new BsonDocument
+        //        {
+        //            { "type", "Point" },
+        //            { "coordinates", new BsonArray { lng, lat } }
+        //        }
+        //    },
+        //    { "distanceField", "distance" },
+        //    { "maxDistance", maxDistanceMeters },
+        //    { "spherical", true }
+        //});
 
-            
-            var pipeline = new[] { geoNearStage, textSearchStage, scheduleMatchStage, projectStage, limitStage };
+        //        var textSearchStage = new BsonDocument("$match", new BsonDocument
+        //    {
+        //        { "$or", new BsonArray
+        //            {
+        //                new BsonDocument("name", new BsonDocument("$regex", searchText).Add("$options", "i")),
+        //                new BsonDocument("description", new BsonDocument("$regex", searchText).Add("$options", "i")),
+        //                new BsonDocument("address.city", new BsonDocument("$regex", searchText).Add("$options", "i")),
+        //                new BsonDocument("address.country", new BsonDocument("$regex", searchText).Add("$options", "i")),
+        //                new BsonDocument("address.province", new BsonDocument("$regex", searchText).Add("$options", "i")),
+        //                new BsonDocument("address.street", new BsonDocument("$regex", searchText).Add("$options", "i")),
+        //                new BsonDocument("category", new BsonDocument("$regex", searchText).Add("$options", "i")),
+        //                new BsonDocument("keywords", new BsonDocument("$regex", searchText).Add("$options", "i")),
+        //                new BsonDocument("tags", new BsonDocument("$regex", searchText).Add("$options", "i"))
+        //             }
+        //        }
+        //    });
 
-            var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
-            return results;
-        }
+
+        //        var scheduleMatchStage = new BsonDocument("$match", new BsonDocument
+        //{
+        //    { "schedule", new BsonDocument
+        //        {
+        //            { "$elemMatch", new BsonDocument
+        //                {
+        //                    { "days", new BsonDocument("$in", new BsonArray { dayOfWeek }) },
+        //                    { "hours", new BsonDocument
+        //                        {
+        //                            { "$elemMatch", new BsonDocument
+        //                                {
+        //                                    { "start", new BsonDocument("$lte", currentTimeString) },
+        //                                    { "end", new BsonDocument("$gte", currentTimeString) }
+        //                                }
+        //                            }
+        //                        }
+        //                    }
+        //                }
+        //            }
+        //        }
+        //    }
+        //});
+
+        //        var projectStage = new BsonDocument("$project", new BsonDocument
+        //    {
+        //        { "_id", 1 },
+        //        { "distance", 1 },
+        //        { "name", 1 },
+        //        { "address.city", 1 },
+        //        { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
+        //        { "url", 1 }
+        //    });
+
+        //        var limitStage = new BsonDocument("$limit", limit);
+
+
+        //        var pipeline = new[] { geoNearStage, textSearchStage, scheduleMatchStage, projectStage, limitStage };
+
+        //        var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+        //        return results;
+        //    }
 
         /// <summary>
         /// Получить отсортированный список по дистанции с текстовым поиском и фильтрацией по ключевым словам 
@@ -1220,76 +1220,76 @@
         /// <param name="limit"></param>
         /// <param name="filterKeywords"></param>
         /// <returns></returns>
-        public async Task<List<BsonDocument>> GetPlacesWithKeywordsListAsync(
-          decimal lat,
-          decimal lng,
-          int maxDistanceMeters,
-          int limit,
-          List<string>? filterKeywords)
-        {
-            var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
-            {
-                { "near", new BsonDocument
-                    {
-                        { "type", "Point" },
-                        { "coordinates", new BsonArray { lng, lat } }
-                    }
-                },
-                { "distanceField", "distance" },
-                { "maxDistance", maxDistanceMeters },
-                { "spherical", true }
-            });
+        //    public async Task<List<BsonDocument>> GetPlacesWithKeywordsListAsync(
+        //      decimal lat,
+        //      decimal lng,
+        //      int maxDistanceMeters,
+        //      int limit,
+        //      List<string>? filterKeywords)
+        //    {
+        //        var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
+        //        {
+        //            { "near", new BsonDocument
+        //                {
+        //                    { "type", "Point" },
+        //                    { "coordinates", new BsonArray { lng, lat } }
+        //                }
+        //            },
+        //            { "distanceField", "distance" },
+        //            { "maxDistance", maxDistanceMeters },
+        //            { "spherical", true }
+        //        });
 
-            
-            BsonDocument? matchStage = null;
-            if (filterKeywords != null && filterKeywords.Any())
-            {
-                var orConditions = new BsonArray();
-                foreach (var keyword in filterKeywords)
-                {
-                    if (!string.IsNullOrWhiteSpace(keyword))
-                    {
-                        orConditions.Add(new BsonDocument("name", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        orConditions.Add(new BsonDocument("description", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        orConditions.Add(new BsonDocument("address.city", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        orConditions.Add(new BsonDocument("address.country", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        orConditions.Add(new BsonDocument("address.province", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        orConditions.Add(new BsonDocument("address.street", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        orConditions.Add(new BsonDocument("category", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        orConditions.Add(new BsonDocument("keywords", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        orConditions.Add(new BsonDocument("tags", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                    }
-                }
 
-                if (orConditions.Count > 0)
-                {
-                    matchStage = new BsonDocument("$match", new BsonDocument
-            {
-                { "$or", orConditions }
-            });
-                }
-            }
+        //        BsonDocument? matchStage = null;
+        //        if (filterKeywords != null && filterKeywords.Any())
+        //        {
+        //            var orConditions = new BsonArray();
+        //            foreach (var keyword in filterKeywords)
+        //            {
+        //                if (!string.IsNullOrWhiteSpace(keyword))
+        //                {
+        //                    orConditions.Add(new BsonDocument("name", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                    orConditions.Add(new BsonDocument("description", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                    orConditions.Add(new BsonDocument("address.city", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                    orConditions.Add(new BsonDocument("address.country", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                    orConditions.Add(new BsonDocument("address.province", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                    orConditions.Add(new BsonDocument("address.street", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                    orConditions.Add(new BsonDocument("category", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                    orConditions.Add(new BsonDocument("keywords", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                    orConditions.Add(new BsonDocument("tags", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                }
+        //            }
 
-            var projectStage = new BsonDocument("$project", new BsonDocument
-    {
-        { "_id", 1 },
-        { "distance", 1 },
-        { "name", 1 },
-        { "address.city", 1 },
-        { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
-        { "url", 1 }
-    });
+        //            if (orConditions.Count > 0)
+        //            {
+        //                matchStage = new BsonDocument("$match", new BsonDocument
+        //        {
+        //            { "$or", orConditions }
+        //        });
+        //            }
+        //        }
 
-            var limitStage = new BsonDocument("$limit", limit);
+        //        var projectStage = new BsonDocument("$project", new BsonDocument
+        //{
+        //    { "_id", 1 },
+        //    { "distance", 1 },
+        //    { "name", 1 },
+        //    { "address.city", 1 },
+        //    { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
+        //    { "url", 1 }
+        //});
 
-            
-            var pipeline = matchStage != null
-                ? new[] { geoNearStage, matchStage, projectStage, limitStage }
-                : new[] { geoNearStage, projectStage, limitStage };
+        //        var limitStage = new BsonDocument("$limit", limit);
 
-            var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
-            return results;
-        }
+
+        //        var pipeline = matchStage != null
+        //            ? new[] { geoNearStage, matchStage, projectStage, limitStage }
+        //            : new[] { geoNearStage, projectStage, limitStage };
+
+        //        var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+        //        return results;
+        //    }
 
         /// <summary>
         /// Получить отсортированный список по дистанции с текстовым поиском, фильтрацией по ключевым словам 
@@ -1302,192 +1302,192 @@
         /// <param name="filterKeywords"></param>
         /// <param name="isOpen"></param>
         /// <returns></returns>
-        public async Task<List<BsonDocument>> GetPlacesWithKeywordsListAsync(
-            decimal lat,
-            decimal lng,
-            int maxDistanceMeters,
-            int limit,
-            List<string>? filterKeywords,
-            bool isOpen)
-        {
-            var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
-            {
-                { "near", new BsonDocument
-                    {
-                        { "type", "Point" },
-                        { "coordinates", new BsonArray { lng, lat } }
-                    }
-                },
-                { "distanceField", "distance" },
-                { "maxDistance", maxDistanceMeters },
-                { "spherical", true }
-            });
-
-            
-            BsonDocument? matchStage = null;
-            if (filterKeywords != null && filterKeywords.Any())
-            {
-                var orConditions = new BsonArray();
-                foreach (var keyword in filterKeywords)
-                {
-                    if (!string.IsNullOrWhiteSpace(keyword))
-                    {
-                        orConditions.Add(new BsonDocument("name", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        orConditions.Add(new BsonDocument("description", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        orConditions.Add(new BsonDocument("address.city", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        orConditions.Add(new BsonDocument("address.country", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        orConditions.Add(new BsonDocument("address.province", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        orConditions.Add(new BsonDocument("address.street", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        orConditions.Add(new BsonDocument("category", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        orConditions.Add(new BsonDocument("keywords", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        orConditions.Add(new BsonDocument("tags", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                    }
-                }
-
-                if (orConditions.Count > 0)
-                {
-                    matchStage = new BsonDocument("$match", new BsonDocument
-                    {
-                        { "$or", orConditions }
-                    });
-                }
-            }
-
-            
-            BsonDocument? scheduleMatchStage = null;
-            if (isOpen)
-            {
-                var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
-                var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
-
-                var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
-                var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt");
-
-                scheduleMatchStage = new BsonDocument("$match", new BsonDocument
-                {
-                    { "schedule", new BsonDocument
-                        {
-                            { "$elemMatch", new BsonDocument
-                                {
-                                    { "days", new BsonDocument("$in", new BsonArray { dayOfWeek }) },
-                                    { "hours", new BsonDocument
-                                        {
-                                            { "$elemMatch", new BsonDocument
-                                                {
-                                                    { "start", new BsonDocument("$lte", currentTimeString) },
-                                                    { "end", new BsonDocument("$gte", currentTimeString) }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-
-            var projectStage = new BsonDocument("$project", new BsonDocument
-            {
-                { "_id", 1 },
-                { "distance", 1 },
-                { "name", 1 },
-                { "address.city", 1 },
-                { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
-                { "url", 1 }
-            });
-
-            var limitStage = new BsonDocument("$limit", limit);
-
-            
-            var pipeline = new List<BsonDocument> { geoNearStage };
-            if (matchStage != null) pipeline.Add(matchStage);
-            if (scheduleMatchStage != null) pipeline.Add(scheduleMatchStage);
-            pipeline.Add(projectStage);
-            pipeline.Add(limitStage);
-
-            var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
-            return results;
-        }
+        //public async Task<List<BsonDocument>> GetPlacesWithKeywordsListAsync(
+        //    decimal lat,
+        //    decimal lng,
+        //    int maxDistanceMeters,
+        //    int limit,
+        //    List<string>? filterKeywords,
+        //    bool isOpen)
+        //{
+        //    var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
+        //    {
+        //        { "near", new BsonDocument
+        //            {
+        //                { "type", "Point" },
+        //                { "coordinates", new BsonArray { lng, lat } }
+        //            }
+        //        },
+        //        { "distanceField", "distance" },
+        //        { "maxDistance", maxDistanceMeters },
+        //        { "spherical", true }
+        //    });
 
 
-        public async Task<List<BsonDocument>> GetPlacesWithAllKeywordsAsync(
-            decimal lat,
-            decimal lng,
-            int maxDistanceMeters,
-            int limit,
-            List<string>? filterKeywords)
-        {
-            var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
-                {
-                    { "near", new BsonDocument
-                        {
-                            { "type", "Point" },
-                            { "coordinates", new BsonArray { lng, lat } }
-                        }
-                    },
-                    { "distanceField", "distance" },
-                    { "maxDistance", maxDistanceMeters },
-                    { "spherical", true }
-                });
+        //    BsonDocument? matchStage = null;
+        //    if (filterKeywords != null && filterKeywords.Any())
+        //    {
+        //        var orConditions = new BsonArray();
+        //        foreach (var keyword in filterKeywords)
+        //        {
+        //            if (!string.IsNullOrWhiteSpace(keyword))
+        //            {
+        //                orConditions.Add(new BsonDocument("name", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                orConditions.Add(new BsonDocument("description", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                orConditions.Add(new BsonDocument("address.city", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                orConditions.Add(new BsonDocument("address.country", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                orConditions.Add(new BsonDocument("address.province", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                orConditions.Add(new BsonDocument("address.street", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                orConditions.Add(new BsonDocument("category", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                orConditions.Add(new BsonDocument("keywords", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                orConditions.Add(new BsonDocument("tags", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //            }
+        //        }
 
-            
-            BsonDocument? matchStage = null;
-            if (filterKeywords != null && filterKeywords.Any())
-            {
-                
-                var andConditions = new BsonArray();
+        //        if (orConditions.Count > 0)
+        //        {
+        //            matchStage = new BsonDocument("$match", new BsonDocument
+        //            {
+        //                { "$or", orConditions }
+        //            });
+        //        }
+        //    }
 
-                foreach (var keyword in filterKeywords)
-                {
-                    if (!string.IsNullOrWhiteSpace(keyword))
-                    {
-                        
-                        var fieldsOrCondition = new BsonArray();
-                        fieldsOrCondition.Add(new BsonDocument("name", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        fieldsOrCondition.Add(new BsonDocument("description", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        fieldsOrCondition.Add(new BsonDocument("address.city", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        fieldsOrCondition.Add(new BsonDocument("address.country", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        fieldsOrCondition.Add(new BsonDocument("address.province", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        fieldsOrCondition.Add(new BsonDocument("address.street", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        fieldsOrCondition.Add(new BsonDocument("category", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        fieldsOrCondition.Add(new BsonDocument("keywords", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        fieldsOrCondition.Add(new BsonDocument("tags", new BsonDocument("$regex", keyword).Add("$options", "i")));
 
-                        
-                        andConditions.Add(new BsonDocument("$or", fieldsOrCondition));
-                    }
-                }
+        //    BsonDocument? scheduleMatchStage = null;
+        //    if (isOpen)
+        //    {
+        //        var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
+        //        var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
 
-                if (andConditions.Count > 0)
-                {
-                    matchStage = new BsonDocument("$match", new BsonDocument
-                    {
-                        { "$and", andConditions }
-                    });
-                }
-            }
+        //        var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
+        //        var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt");
 
-            var projectStage = new BsonDocument("$project", new BsonDocument
-                {
-                    { "_id", 1 },
-                    { "distance", 1 },
-                    { "name", 1 },
-                    { "address.city", 1 },
-                    { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
-                    { "url", 1 }
-                });
+        //        scheduleMatchStage = new BsonDocument("$match", new BsonDocument
+        //        {
+        //            { "schedule", new BsonDocument
+        //                {
+        //                    { "$elemMatch", new BsonDocument
+        //                        {
+        //                            { "days", new BsonDocument("$in", new BsonArray { dayOfWeek }) },
+        //                            { "hours", new BsonDocument
+        //                                {
+        //                                    { "$elemMatch", new BsonDocument
+        //                                        {
+        //                                            { "start", new BsonDocument("$lte", currentTimeString) },
+        //                                            { "end", new BsonDocument("$gte", currentTimeString) }
+        //                                        }
+        //                                    }
+        //                                }
+        //                            }
+        //                        }
+        //                    }
+        //                }
+        //            }
+        //        });
+        //    }
 
-            var limitStage = new BsonDocument("$limit", limit);
+        //    var projectStage = new BsonDocument("$project", new BsonDocument
+        //    {
+        //        { "_id", 1 },
+        //        { "distance", 1 },
+        //        { "name", 1 },
+        //        { "address.city", 1 },
+        //        { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
+        //        { "url", 1 }
+        //    });
 
-            // Формируем пайплайн в зависимости от наличия matchStage
-            var pipeline = matchStage != null
-                ? new[] { geoNearStage, matchStage, projectStage, limitStage }
-                : new[] { geoNearStage, projectStage, limitStage };
+        //    var limitStage = new BsonDocument("$limit", limit);
 
-            var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
-            return results;
-        }
+
+        //    var pipeline = new List<BsonDocument> { geoNearStage };
+        //    if (matchStage != null) pipeline.Add(matchStage);
+        //    if (scheduleMatchStage != null) pipeline.Add(scheduleMatchStage);
+        //    pipeline.Add(projectStage);
+        //    pipeline.Add(limitStage);
+
+        //    var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+        //    return results;
+        //}
+
+
+        //public async Task<List<BsonDocument>> GetPlacesWithAllKeywordsAsync(
+        //    decimal lat,
+        //    decimal lng,
+        //    int maxDistanceMeters,
+        //    int limit,
+        //    List<string>? filterKeywords)
+        //{
+        //    var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
+        //        {
+        //            { "near", new BsonDocument
+        //                {
+        //                    { "type", "Point" },
+        //                    { "coordinates", new BsonArray { lng, lat } }
+        //                }
+        //            },
+        //            { "distanceField", "distance" },
+        //            { "maxDistance", maxDistanceMeters },
+        //            { "spherical", true }
+        //        });
+
+
+        //    BsonDocument? matchStage = null;
+        //    if (filterKeywords != null && filterKeywords.Any())
+        //    {
+
+        //        var andConditions = new BsonArray();
+
+        //        foreach (var keyword in filterKeywords)
+        //        {
+        //            if (!string.IsNullOrWhiteSpace(keyword))
+        //            {
+
+        //                var fieldsOrCondition = new BsonArray();
+        //                fieldsOrCondition.Add(new BsonDocument("name", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                fieldsOrCondition.Add(new BsonDocument("description", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                fieldsOrCondition.Add(new BsonDocument("address.city", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                fieldsOrCondition.Add(new BsonDocument("address.country", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                fieldsOrCondition.Add(new BsonDocument("address.province", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                fieldsOrCondition.Add(new BsonDocument("address.street", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                fieldsOrCondition.Add(new BsonDocument("category", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                fieldsOrCondition.Add(new BsonDocument("keywords", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                fieldsOrCondition.Add(new BsonDocument("tags", new BsonDocument("$regex", keyword).Add("$options", "i")));
+
+
+        //                andConditions.Add(new BsonDocument("$or", fieldsOrCondition));
+        //            }
+        //        }
+
+        //        if (andConditions.Count > 0)
+        //        {
+        //            matchStage = new BsonDocument("$match", new BsonDocument
+        //            {
+        //                { "$and", andConditions }
+        //            });
+        //        }
+        //    }
+
+        //    var projectStage = new BsonDocument("$project", new BsonDocument
+        //        {
+        //            { "_id", 1 },
+        //            { "distance", 1 },
+        //            { "name", 1 },
+        //            { "address.city", 1 },
+        //            { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
+        //            { "url", 1 }
+        //        });
+
+        //    var limitStage = new BsonDocument("$limit", limit);
+
+        //    // Формируем пайплайн в зависимости от наличия matchStage
+        //    var pipeline = matchStage != null
+        //        ? new[] { geoNearStage, matchStage, projectStage, limitStage }
+        //        : new[] { geoNearStage, projectStage, limitStage };
+
+        //    var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+        //    return results;
+        //}
 
 
         /// <summary>
@@ -1501,120 +1501,397 @@
         /// <param name="filterKeywords"></param>
         /// <param name="isOpen"></param>
         /// <returns></returns>
+        //public async Task<JsonDocument> GetPlacesWithAllKeywordsAsync(
+        //  decimal lat,
+        //  decimal lng,
+        //  int maxDistanceMeters,
+        //  int limit,
+        //  List<string>? filterKeywords,
+        //  bool isOpen)
+        //{
+        //    var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
+        //   {
+        //       { "near", new BsonDocument
+        //           {
+        //               { "type", "Point" },
+        //               { "coordinates", new BsonArray { lng, lat } }
+        //           }
+        //       },
+        //       { "distanceField", "distance" },
+        //       { "maxDistance", maxDistanceMeters },
+        //       { "spherical", true }
+        //   });
+
+        //    BsonDocument? matchStage = null;
+        //    if (filterKeywords != null && filterKeywords.Any())
+        //    {
+        //        var andConditions = new BsonArray();
+
+        //        foreach (var keyword in filterKeywords)
+        //        {
+        //            if (!string.IsNullOrWhiteSpace(keyword))
+        //            {
+        //                var fieldsOrCondition = new BsonArray();
+        //                fieldsOrCondition.Add(new BsonDocument("name", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                fieldsOrCondition.Add(new BsonDocument("description", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                fieldsOrCondition.Add(new BsonDocument("address.city", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                fieldsOrCondition.Add(new BsonDocument("address.country", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                fieldsOrCondition.Add(new BsonDocument("address.province", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                fieldsOrCondition.Add(new BsonDocument("address.street", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                fieldsOrCondition.Add(new BsonDocument("category", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                fieldsOrCondition.Add(new BsonDocument("keywords", new BsonDocument("$regex", keyword).Add("$options", "i")));
+        //                fieldsOrCondition.Add(new BsonDocument("tags", new BsonDocument("$regex", keyword).Add("$options", "i")));
+
+        //                andConditions.Add(new BsonDocument("$or", fieldsOrCondition));
+        //            }
+        //        }
+
+        //        if (andConditions.Count > 0)
+        //        {
+        //            matchStage = new BsonDocument("$match", new BsonDocument
+        //           {
+        //               { "$and", andConditions }
+        //           });
+        //        }
+        //    }
+
+        //    BsonDocument? scheduleMatchStage = null;
+        //    if (isOpen)
+        //    {
+        //        var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
+        //        var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
+
+        //        var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
+        //        var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt");
+
+        //        scheduleMatchStage = new BsonDocument("$match", new BsonDocument
+        //       {
+        //           { "schedule", new BsonDocument
+        //               {
+        //                   { "$elemMatch", new BsonDocument
+        //                       {
+        //                           { "days", new BsonDocument("$in", new BsonArray { dayOfWeek }) },
+        //                           { "hours", new BsonDocument
+        //                               {
+        //                                   { "$elemMatch", new BsonDocument
+        //                                       {
+        //                                           { "start", new BsonDocument("$lte", currentTimeString) },
+        //                                           { "end", new BsonDocument("$gte", currentTimeString) }
+        //                                       }
+        //                                   }
+        //                               }
+        //                           }
+        //                       }
+        //                   }
+        //               }
+        //           }
+        //       });
+        //    }
+
+        //    var projectStage = new BsonDocument("$project", new BsonDocument
+        //   {
+        //       { "_id", 1 },
+        //       { "distance", 1 },
+        //       { "name", 1 },
+        //       { "address.city", 1 },
+        //       { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
+        //       { "url", 1 }
+        //   });
+
+        //    var pipeline = new List<BsonDocument> { geoNearStage };
+        //    if (matchStage != null) pipeline.Add(matchStage);
+        //    if (scheduleMatchStage != null) pipeline.Add(scheduleMatchStage);
+        //    pipeline.Add(projectStage);
+
+        //    var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+
+        //    var totalCount = results.Count;
+
+        //    var finalResult = new BsonDocument
+        //   {
+        //       { "totalCount", totalCount },
+        //       { "places", new BsonArray(results) }
+        //   };
+
+        //    var jsonString = finalResult.ToJson();
+        //    return JsonDocument.Parse(jsonString);
+        //}
+
         public async Task<JsonDocument> GetPlacesWithAllKeywordsAsync(
-          decimal lat,
-          decimal lng,
-          int maxDistanceMeters,
-          int limit,
-          List<string>? filterKeywords,
-          bool isOpen)
+            decimal? lat,
+            decimal? lng,
+            int? maxDistanceMeters,
+            int limit,
+            List<string>? filterKeywords,
+            bool searchAllKeywords,
+            bool isOpen,
+            string? status = null)
         {
-            var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
-           {
-               { "near", new BsonDocument
-                   {
-                       { "type", "Point" },
-                       { "coordinates", new BsonArray { lng, lat } }
-                   }
-               },
-               { "distanceField", "distance" },
-               { "maxDistance", maxDistanceMeters },
-               { "spherical", true }
-           });
-
-            BsonDocument? matchStage = null;
-            if (filterKeywords != null && filterKeywords.Any())
+            try
             {
-                var andConditions = new BsonArray();
+                // Валидация входных параметров
+                bool hasCoordinates = lat.HasValue && lng.HasValue;
 
-                foreach (var keyword in filterKeywords)
+                if (hasCoordinates)
                 {
-                    if (!string.IsNullOrWhiteSpace(keyword))
+                    if (lat < -90 || lat > 90)
                     {
-                        var fieldsOrCondition = new BsonArray();
-                        fieldsOrCondition.Add(new BsonDocument("name", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        fieldsOrCondition.Add(new BsonDocument("description", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        fieldsOrCondition.Add(new BsonDocument("address.city", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        fieldsOrCondition.Add(new BsonDocument("address.country", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        fieldsOrCondition.Add(new BsonDocument("address.province", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        fieldsOrCondition.Add(new BsonDocument("address.street", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        fieldsOrCondition.Add(new BsonDocument("category", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        fieldsOrCondition.Add(new BsonDocument("keywords", new BsonDocument("$regex", keyword).Add("$options", "i")));
-                        fieldsOrCondition.Add(new BsonDocument("tags", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                        var errorResponse = new
+                        {
+                            IsSuccess = false,
+                            Message = "Invalid latitude value. Must be between -90 and 90."
+                        };
+                        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                    }
 
-                        andConditions.Add(new BsonDocument("$or", fieldsOrCondition));
+                    if (lng < -180 || lng > 180)
+                    {
+                        var errorResponse = new
+                        {
+                            IsSuccess = false,
+                            Message = "Invalid longitude value. Must be between -180 and 180."
+                        };
+                        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                    }
+
+                    if (maxDistanceMeters.HasValue && maxDistanceMeters <= 0)
+                    {
+                        var errorResponse = new
+                        {
+                            IsSuccess = false,
+                            Message = "Maximum distance must be greater than 0."
+                        };
+                        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
                     }
                 }
 
-                if (andConditions.Count > 0)
+                // Создаем список стадий pipeline
+                var pipelineStages = new List<BsonDocument>();
+
+                // Стадия 1: $geoNear - поиск по геолокации (только если координаты указаны)
+                if (hasCoordinates)
                 {
-                    matchStage = new BsonDocument("$match", new BsonDocument
-                   {
-                       { "$and", andConditions }
-                   });
+                    var geoNearStage = new BsonDocument("$geoNear", new BsonDocument
+                    {
+                        { "near", new BsonDocument
+                            {
+                                { "type", "Point" },
+                                { "coordinates", new BsonArray { lng.Value, lat.Value } }
+                            }
+                        },
+                        { "distanceField", "distance" },
+                        { "spherical", true }
+                    });
+
+                    if (maxDistanceMeters.HasValue)
+                    {
+                        geoNearStage["$geoNear"].AsBsonDocument.Add("maxDistance", maxDistanceMeters.Value);
+                    }
+
+                    pipelineStages.Add(geoNearStage);
                 }
-            }
 
-            BsonDocument? scheduleMatchStage = null;
-            if (isOpen)
+                // Стадия 2: $match - фильтрация
+                var matchConditions = new BsonDocument();
+
+                // Фильтрация по ключевым словам
+                if (filterKeywords != null && filterKeywords.Any())
+                {
+                    var keywordConditions = new BsonArray();
+
+                    foreach (var keyword in filterKeywords)
+                    {
+                        if (!string.IsNullOrWhiteSpace(keyword))
+                        {
+                            var fieldsOrCondition = new BsonArray();
+                            fieldsOrCondition.Add(new BsonDocument("name", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                            fieldsOrCondition.Add(new BsonDocument("description", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                            fieldsOrCondition.Add(new BsonDocument("address.city", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                            fieldsOrCondition.Add(new BsonDocument("address.country", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                            fieldsOrCondition.Add(new BsonDocument("address.province", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                            fieldsOrCondition.Add(new BsonDocument("address.street", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                            fieldsOrCondition.Add(new BsonDocument("category", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                            fieldsOrCondition.Add(new BsonDocument("keywords", new BsonDocument("$regex", keyword).Add("$options", "i")));
+                            fieldsOrCondition.Add(new BsonDocument("tags", new BsonDocument("$regex", keyword).Add("$options", "i")));
+
+                            if (searchAllKeywords)
+                            {
+                                // Для поиска по всем ключевым словам - каждое слово должно присутствовать
+                                keywordConditions.Add(new BsonDocument("$or", fieldsOrCondition));
+                            }
+                            else
+                            {
+                                // Для поиска по любому ключевому слову - добавляем все условия в один $or
+                                foreach (BsonDocument condition in fieldsOrCondition)
+                                {
+                                    keywordConditions.Add(condition);
+                                }
+                            }
+                        }
+                    }
+
+                    if (keywordConditions.Count > 0)
+                    {
+                        if (searchAllKeywords)
+                        {
+                            // Все ключевые слова должны быть найдены
+                            matchConditions.Add("$and", keywordConditions);
+                        }
+                        else
+                        {
+                            // Достаточно найти любое ключевое слово
+                            matchConditions.Add("$or", keywordConditions);
+                        }
+                    }
+                }
+
+                // Фильтрация по статусу
+                if (status == null)
+                {
+                    // Если статус null - не добавляем фильтрацию по статусу
+                }
+                else if (string.IsNullOrWhiteSpace(status))
+                {
+                    // Если статус пустая строка - выбираются все объекты с любыми статусами или без статуса
+                }
+                else
+                {
+                    // Если статус указан конкретный - фильтруем строго по этому статусу
+                    matchConditions.Add("status", status);
+                }
+
+                // Фильтрация по времени работы
+                if (isOpen)
+                {
+                    var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
+                    var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
+                    var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
+                    var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt");
+
+                    matchConditions.Add("schedule", new BsonDocument
+                    {
+                        { "$elemMatch", new BsonDocument
+                            {
+                                { "days", new BsonDocument("$in", new BsonArray { dayOfWeek }) },
+                                { "hours", new BsonDocument
+                                    {
+                                        { "$elemMatch", new BsonDocument
+                                            {
+                                                { "start", new BsonDocument("$lte", currentTimeString) },
+                                                { "end", new BsonDocument("$gte", currentTimeString) }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Добавляем стадию $match только если есть условия для фильтрации
+                if (matchConditions.ElementCount > 0)
+                {
+                    pipelineStages.Add(new BsonDocument("$match", matchConditions));
+                }
+
+                // Стадия 3: $limit - ограничение количества результатов
+                if (limit > 0)
+                {
+                    pipelineStages.Add(new BsonDocument("$limit", limit));
+                }
+
+                // Стадия 4: $project - выбор полей
+                var projectStage = new BsonDocument("$project", new BsonDocument
+                {
+                    { "_id", 1 },
+                    { "name", 1 },
+                    { "address.city", 1 },
+                    { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
+                    { "url", 1 }
+                });
+
+                // Добавляем поле distance только если использовался геопоиск
+                if (hasCoordinates)
+                {
+                    projectStage["$project"].AsBsonDocument.Add("distance", 1);
+                }
+
+                pipelineStages.Add(projectStage);
+
+                // Выполнение агрегации
+                var result = await _placeCollection.Aggregate<BsonDocument>(pipelineStages).ToListAsync();
+
+                // Обработка результата и создание response в формате с id вместо _id
+                var processedResults = result.Select(doc =>
+                {
+                    var docCopy = doc.DeepClone().AsBsonDocument;
+                    if (docCopy.Contains("_id"))
+                    {
+                        docCopy["id"] = docCopy["_id"].ToString();
+                        docCopy.Remove("_id");
+                    }
+                    return docCopy;
+                }).ToList();
+
+                string message;
+                if (hasCoordinates && maxDistanceMeters.HasValue)
+                {
+                    message = $"Found {processedResults.Count} places within {maxDistanceMeters.Value} meters.";
+                }
+                else if (hasCoordinates)
+                {
+                    message = $"Found {processedResults.Count} places near the specified coordinates.";
+                }
+                else
+                {
+                    message = $"Found {processedResults.Count} places matching the search criteria.";
+                }
+
+                var successResponse = new
+                {
+                    IsSuccess = true,
+                    Message = message,
+                    Data = processedResults.Select(doc => BsonTypeMapper.MapToDotNetValue(doc)).ToList()
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+            }
+            catch (TimeZoneNotFoundException ex)
             {
-                var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
-                var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
-
-                var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
-                var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt");
-
-                scheduleMatchStage = new BsonDocument("$match", new BsonDocument
-               {
-                   { "schedule", new BsonDocument
-                       {
-                           { "$elemMatch", new BsonDocument
-                               {
-                                   { "days", new BsonDocument("$in", new BsonArray { dayOfWeek }) },
-                                   { "hours", new BsonDocument
-                                       {
-                                           { "$elemMatch", new BsonDocument
-                                               {
-                                                   { "start", new BsonDocument("$lte", currentTimeString) },
-                                                   { "end", new BsonDocument("$gte", currentTimeString) }
-                                               }
-                                           }
-                                       }
-                                   }
-                               }
-                           }
-                       }
-                   }
-               });
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"Time zone error: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
             }
-
-            var projectStage = new BsonDocument("$project", new BsonDocument
-           {
-               { "_id", 1 },
-               { "distance", 1 },
-               { "name", 1 },
-               { "address.city", 1 },
-               { "img_link", new BsonDocument { { "$arrayElemAt", new BsonArray { "$img_link", 0 } } } },
-               { "url", 1 }
-           });
-
-            var pipeline = new List<BsonDocument> { geoNearStage };
-            if (matchStage != null) pipeline.Add(matchStage);
-            if (scheduleMatchStage != null) pipeline.Add(scheduleMatchStage);
-            pipeline.Add(projectStage);
-
-            var results = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
-
-            var totalCount = results.Count;
-
-            var finalResult = new BsonDocument
-           {
-               { "totalCount", totalCount },
-               { "places", new BsonArray(results) }
-           };
-
-            var jsonString = finalResult.ToJson();
-            return JsonDocument.Parse(jsonString);
+            catch (MongoException ex)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"Database error: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+            catch (ArgumentException ex)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"Invalid argument: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"An error occurred: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
         }
 
 

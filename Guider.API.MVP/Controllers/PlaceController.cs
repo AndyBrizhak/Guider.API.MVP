@@ -364,56 +364,56 @@ namespace Guider.API.MVP.Controllers
         /// <param name="limit"></param>
         /// <param name="filterKeywords"></param>
         /// <returns></returns>
-        [HttpGet("geo/keywords-any")]
-        public async Task<ActionResult<string>> GetPlacesWithKeywordsList(
-           [FromQuery] decimal lat = 10.539500881521633m,
-           [FromQuery] decimal lng = -85.68964788238951m,
-           [FromQuery] int maxDistanceMeters = 10000,
-           [FromQuery] int limit = 100,
-           [FromQuery] List<string>? filterKeywords = null,
-           [FromQuery] bool isOpen = false)
-        {
-            // Проверка и корректировка значения limit
-            if (limit < 1)
-            {
-                limit = 200;
-            }
-            else if (limit > 200)
-            {
-                limit = 200;
-            }
+        //[HttpGet("geo/keywords-any")]
+        //public async Task<ActionResult<string>> GetPlacesWithKeywordsList(
+        //   [FromQuery] decimal lat = 10.539500881521633m,
+        //   [FromQuery] decimal lng = -85.68964788238951m,
+        //   [FromQuery] int maxDistanceMeters = 10000,
+        //   [FromQuery] int limit = 100,
+        //   [FromQuery] List<string>? filterKeywords = null,
+        //   [FromQuery] bool isOpen = false)
+        //{
+        //    // Проверка и корректировка значения limit
+        //    if (limit < 1)
+        //    {
+        //        limit = 200;
+        //    }
+        //    else if (limit > 200)
+        //    {
+        //        limit = 200;
+        //    }
 
-            // Проверка filterKeywords на null и пустой список
-            if (filterKeywords == null || !filterKeywords.Any())
-            {
-                _response.StatusCode = HttpStatusCode.NotFound;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add("Filter keywords list is empty or not provided.");
-                return NotFound(_response);
-            }
+        //    // Проверка filterKeywords на null и пустой список
+        //    if (filterKeywords == null || !filterKeywords.Any())
+        //    {
+        //        _response.StatusCode = HttpStatusCode.NotFound;
+        //        _response.IsSuccess = false;
+        //        _response.ErrorMessages.Add("Filter keywords list is empty or not provided.");
+        //        return NotFound(_response);
+        //    }
 
-            List<BsonDocument> places;
+        //    List<BsonDocument> places;
 
-            // Используем соответствующую перегрузку метода в зависимости от значения isOpen
-            if (isOpen)
-            {
-                places = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistanceMeters, isOpen);
-            }
-            else
-            {
-                places = await _placeService.GetPlacesWithKeywordsListAsync(lat, lng, maxDistanceMeters, limit, filterKeywords);
-            }
+        //    // Используем соответствующую перегрузку метода в зависимости от значения isOpen
+        //    if (isOpen)
+        //    {
+        //        places = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistanceMeters, isOpen);
+        //    }
+        //    else
+        //    {
+        //        places = await _placeService.GetPlacesWithKeywordsListAsync(lat, lng, maxDistanceMeters, limit, filterKeywords);
+        //    }
 
-            if (places == null || places.Count == 0)
-            {
-                _response.StatusCode = HttpStatusCode.NotFound;
-                _response.IsSuccess = false;
-                _response.ErrorMessages.Add($"No places found with the provided filters{(isOpen ? " that are currently open" : "")}.");
-                return NotFound(_response);
-            }
+        //    if (places == null || places.Count == 0)
+        //    {
+        //        _response.StatusCode = HttpStatusCode.NotFound;
+        //        _response.IsSuccess = false;
+        //        _response.ErrorMessages.Add($"No places found with the provided filters{(isOpen ? " that are currently open" : "")}.");
+        //        return NotFound(_response);
+        //    }
 
-            return Content(places.ToJson(), "application/json");
-        }
+        //    return Content(places.ToJson(), "application/json");
+        //}
 
 
 
@@ -428,63 +428,129 @@ namespace Guider.API.MVP.Controllers
         /// <param name="filterKeywords">Список ключевых слов (обязательны все слова)</param>
         /// <param name="isOpen">Учитывать ли расписание работы</param>
         /// <returns>Список найденных мест</returns>
+        //[HttpGet("geo/keywords-all")]
+        //public async Task<IActionResult> GetPlacesWithAllKeywords(
+        //  [FromQuery] decimal lat = 10.539500881521633m,
+        //  [FromQuery] decimal lng = -85.68964788238951m,
+        //  [FromQuery] int maxDistanceMeters = 10000,
+        //  [FromQuery] int limit = 100,
+        //  [FromQuery] List<string>? filterKeywords = null,
+        //  [FromQuery] bool isOpen = false)
+        //{
+
+        //        // Проверка и корректировка значения limit
+        //        //if (limit < 1)
+        //        //{
+        //        //    limit = 200;
+        //        //}
+        //        //else if (limit > 200)
+        //        //{
+        //        //    limit = 200;
+        //        //}
+
+        //        // Проверка filterKeywords на null и пустой список
+        //        if (filterKeywords == null || !filterKeywords.Any())
+        //        {
+        //            var badRequestResponse = new ApiResponse
+        //            {
+        //                StatusCode = HttpStatusCode.BadRequest,
+        //                IsSuccess = false,
+        //                ErrorMessages = new List<string> { "Filter keywords list is empty or not provided." }
+        //            };
+        //            return BadRequest(badRequestResponse);
+        //        }
+
+        //        // Получение результата из сервиса
+        //        JsonDocument placesJson;
+        //        placesJson = await _placeService.GetPlacesWithAllKeywordsAsync(lat, lng, maxDistanceMeters, limit, filterKeywords, isOpen);
+
+        //        if (placesJson == null)
+        //        {
+        //            var notFoundResponse = new ApiResponse
+        //            {
+        //                StatusCode = HttpStatusCode.NotFound,
+        //                IsSuccess = false,
+        //                ErrorMessages = new List<string> { $"No places found with all the provided keywords{(isOpen ? " that are currently open" : "")}." }
+        //            };
+        //            return NotFound(notFoundResponse);
+        //        }
+
+        //        // Формирование успешного ответа
+        //        var successResponse = new ApiResponse
+        //        {
+        //            StatusCode = HttpStatusCode.OK,
+        //            IsSuccess = true,
+        //            Result = placesJson
+        //        };
+
+        //        return Ok(successResponse);
+
+        //}
+
         [HttpGet("geo/keywords-all")]
         public async Task<IActionResult> GetPlacesWithAllKeywords(
-          [FromQuery] decimal lat = 10.539500881521633m,
-          [FromQuery] decimal lng = -85.68964788238951m,
-          [FromQuery] int maxDistanceMeters = 10000,
-          [FromQuery] int limit = 100,
-          [FromQuery] List<string>? filterKeywords = null,
-          [FromQuery] bool isOpen = false)
+            [FromQuery] decimal? lat = 10.539500881521633m,
+            [FromQuery] decimal? lng = -85.68964788238951m,
+            [FromQuery] int? maxDistanceMeters = 10000,
+            [FromQuery] int limit = 100,
+            [FromQuery] List<string>? filterKeywords = null,
+            [FromQuery] bool searchAllKeywords = true, // Добавлен параметр для логики поиска по всем ключевым словам
+            [FromQuery] bool isOpen = false,
+            [FromQuery] string? status = null) // Добавлен параметр статуса
         {
-            
-                // Проверка и корректировка значения limit
-                if (limit < 1)
-                {
-                    limit = 200;
-                }
-                else if (limit > 200)
-                {
-                    limit = 200;
-                }
+            // Проверка и корректировка значения limit
+            //if (limit < 1)
+            //{
+            //    limit = 200;
+            //}
+            //else if (limit > 200)
+            //{
+            //    limit = 200;
+            //}
 
-                // Проверка filterKeywords на null и пустой список
-                if (filterKeywords == null || !filterKeywords.Any())
+            // Проверка filterKeywords на null и пустой список
+            if (filterKeywords == null || !filterKeywords.Any())
+            {
+                var badRequestResponse = new ApiResponse
                 {
-                    var badRequestResponse = new ApiResponse
-                    {
-                        StatusCode = HttpStatusCode.BadRequest,
-                        IsSuccess = false,
-                        ErrorMessages = new List<string> { "Filter keywords list is empty or not provided." }
-                    };
-                    return BadRequest(badRequestResponse);
-                }
-
-                // Получение результата из сервиса
-                JsonDocument placesJson;
-                placesJson = await _placeService.GetPlacesWithAllKeywordsAsync(lat, lng, maxDistanceMeters, limit, filterKeywords, isOpen);
-                
-                if (placesJson == null)
-                {
-                    var notFoundResponse = new ApiResponse
-                    {
-                        StatusCode = HttpStatusCode.NotFound,
-                        IsSuccess = false,
-                        ErrorMessages = new List<string> { $"No places found with all the provided keywords{(isOpen ? " that are currently open" : "")}." }
-                    };
-                    return NotFound(notFoundResponse);
-                }
-
-                // Формирование успешного ответа
-                var successResponse = new ApiResponse
-                {
-                    StatusCode = HttpStatusCode.OK,
-                    IsSuccess = true,
-                    Result = placesJson
+                    StatusCode = HttpStatusCode.BadRequest,
+                    IsSuccess = false,
+                    ErrorMessages = new List<string> { "Filter keywords list is empty or not provided." }
                 };
+                return BadRequest(badRequestResponse);
+            }
 
-                return Ok(successResponse);
-            
+            // Получение результата из сервиса
+            JsonDocument placesJson;
+            placesJson = await _placeService.GetPlacesWithAllKeywordsAsync(
+                lat,
+                lng,
+                maxDistanceMeters,
+                limit,
+                filterKeywords,
+                searchAllKeywords, // Передаем параметр для логики поиска
+                isOpen,
+                status); // Передаем параметр статуса
+
+            if (placesJson == null)
+            {
+                var notFoundResponse = new ApiResponse
+                {
+                    StatusCode = HttpStatusCode.NotFound,
+                    IsSuccess = false,
+                    ErrorMessages = new List<string> { $"No places found with all the provided keywords{(isOpen ? " that are currently open" : "")}." }
+                };
+                return NotFound(notFoundResponse);
+            }
+
+            // Формирование успешного ответа
+            var successResponse = new ApiResponse
+            {
+                StatusCode = HttpStatusCode.OK,
+                IsSuccess = true,
+                Result = placesJson
+            };
+            return Ok(successResponse);
         }
 
 
