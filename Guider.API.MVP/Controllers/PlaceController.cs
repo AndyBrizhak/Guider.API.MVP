@@ -201,6 +201,41 @@ namespace Guider.API.MVP.Controllers
             return Ok(JsonSerializer.Deserialize<object>(result.RootElement.GetRawText()));
         }
 
+        [HttpGet("by-url/{url}")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        public async Task<ActionResult> GetByUrl(string url)
+        {
+            var result = await _placeService.GetByUrlAsync(url);
+
+            // Проверяем, является ли результат ошибкой
+            if (result.RootElement.TryGetProperty("IsSuccess", out var isSuccessElement) &&
+                isSuccessElement.GetBoolean() == false)
+            {
+                // Получаем сообщение об ошибке
+                var errorMessage = "An error occurred";
+                if (result.RootElement.TryGetProperty("Message", out var messageElement))
+                {
+                    errorMessage = messageElement.GetString() ?? errorMessage;
+                }
+
+                // Возвращаем соответствующий статус код с сообщением об ошибке
+                if (errorMessage.Contains("not found"))
+                {
+                    return NotFound(new { message = errorMessage });
+                }
+                else if (errorMessage.Contains("required") || errorMessage.Contains("null or empty"))
+                {
+                    return BadRequest(new { message = errorMessage });
+                }
+
+                // Для других ошибок возвращаем Internal Server Error
+                return StatusCode((int)HttpStatusCode.InternalServerError, new { message = errorMessage });
+            }
+
+            // При успехе возвращаем только данные о месте
+            return Ok(JsonSerializer.Deserialize<object>(result.RootElement.GetRawText()));
+        }
+
 
 
         /// <summary>

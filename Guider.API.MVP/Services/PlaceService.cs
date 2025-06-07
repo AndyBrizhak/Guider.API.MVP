@@ -271,17 +271,55 @@
             }
         }
 
-       
-        /// Получить документ по локальнуому url
-        public async Task<BsonDocument> GetPlaceByWebAsync(string url)
-        {
-            if (string.IsNullOrEmpty(url))
-            {
-                return null; 
-            }
 
-            var filter = Builders<BsonDocument>.Filter.Eq("url", url);
-            return await _placeCollection.Find(filter).FirstOrDefaultAsync();
+        /// Получить документ по локальнуому url
+        public async Task<JsonDocument> GetByUrlAsync(string url)
+        {
+            try
+            {
+                // Validate URL parameter
+                if (string.IsNullOrEmpty(url))
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = "URL parameter is required and cannot be null or empty."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Create filter by url and execute query
+                var filter = Builders<BsonDocument>.Filter.Eq("url", url);
+                var place = await _placeCollection.Find(filter).FirstOrDefaultAsync();
+
+                if (place == null)
+                {
+                    var errorResponse = new
+                    {
+                        IsSuccess = false,
+                        Message = $"Object with URL '{url}' not found."
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+                }
+
+                // Create a copy of the place document without the _id field
+                var placeCopy = place.DeepClone().AsBsonDocument;
+                placeCopy.Remove("_id");
+                // Add id field with the original ObjectId as string
+                placeCopy["id"] = place["_id"].AsObjectId.ToString();
+
+                // Return only the place document with id field
+                return JsonDocument.Parse(placeCopy.ToJson());
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = new
+                {
+                    IsSuccess = false,
+                    Message = $"An error occurred: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
         }
 
         public async Task<JsonDocument> CreateAsync(JsonDocument jsonDocument)
