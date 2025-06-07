@@ -201,9 +201,10 @@ namespace Guider.API.MVP.Controllers
             return Ok(JsonSerializer.Deserialize<object>(result.RootElement.GetRawText()));
         }
 
-        [HttpGet("by-url/{url}")]
+        // Заменить текущий метод GetByUrl на следующий вариант
+        [HttpGet("url/{url}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
-        public async Task<ActionResult> GetByUrl(string url)
+        public async Task<ActionResult> GetByUrl([FromRoute] string url)
         {
             var result = await _placeService.GetByUrlAsync(url);
 
