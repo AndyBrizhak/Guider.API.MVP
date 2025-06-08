@@ -44,7 +44,38 @@ namespace Guider.API.MVP.Controllers
         /// <summary>
         /// Authenticates a user based on the provided credentials and generates a JWT token.
         /// </summary>
-        /// <param name="loginRequest">Login credentials containing username and password</param>
+        /// <remarks>
+        /// Sample request:
+        ///
+        ///     POST /login
+        ///     {
+        ///         "username": "user1",
+        ///         "password": "Password123!"
+        ///     }
+        ///
+        /// </remarks>
+        /// <param name="loginRequest">
+        /// The login credentials. Example:
+        /// <br/>
+        /// {<br/>
+        /// &nbsp;&nbsp;"username": "user1",<br/>
+        /// &nbsp;&nbsp;"password": "Password123!"<br/>
+        /// }
+        /// </param>
+        /// <returns>
+        /// Returns the authentication result in the following format:
+        /// <br/>
+        /// {<br/>
+        /// &nbsp;&nbsp;"token": "jwt_token_string",<br/>
+        /// &nbsp;&nbsp;"id": "user_id",<br/>
+        /// &nbsp;&nbsp;"username": "user1",<br/>
+        /// &nbsp;&nbsp;"email": "user1@example.com",<br/>
+        /// &nbsp;&nbsp;"role": "user"<br/>
+        /// }
+        /// </returns>
+        /// <response code="200">Authentication successful, JWT token returned</response>
+        /// <response code="400">Username or password not provided</response>
+        /// <response code="401">Invalid username or password</response>
         [HttpPost("login")]
         public async Task<ActionResult> Login([FromBody] LoginRequest loginRequest)
         {
@@ -150,9 +181,6 @@ namespace Guider.API.MVP.Controllers
         /// <response code="400">Validation error or user already exists</response>
         /// <response code="500">Internal server error</response>
         [HttpPost("users")]
-        [ProducesResponseType(StatusCodes.Status201Created)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult> CreateUser([FromBody] CreateUserData requestModel)
         {
             // Проверяем наличие обязательного объекта data
@@ -533,24 +561,31 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// 
         /// Retrieves a user by their unique identifier.
-        /// 
         /// </summary>
-        /// 
-        /// <param name="id">The unique identifier of the user.</param>
-        /// 
+        /// <remarks>
+        /// Sample request:
+        ///
+        ///     GET /users/{id}
+        ///
+        /// </remarks>
+        /// <param name="id">
+        /// The unique identifier of the user to retrieve.
+        /// <br/>
+        /// Example: "a1b2c3d4-5678-90ab-cdef-1234567890ab"
+        /// </param>
         /// <returns>
-        /// 
-        /// Returns the user's details in the format expected by React Admin.
-        /// 
-        /// Possible outcomes:
-        /// 
-        /// - 200 OK: User found and details retrieved successfully.
-        /// 
-        /// - 404 Not Found: User with the specified ID does not exist.
-        /// 
+        /// Returns the user's details in the following format:
+        /// <br/>
+        /// {<br/>
+        /// &nbsp;&nbsp;"id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",<br/>
+        /// &nbsp;&nbsp;"username": "user1",<br/>
+        /// &nbsp;&nbsp;"email": "user1@example.com",<br/>
+        /// &nbsp;&nbsp;"role": "user"<br/>
+        /// }
         /// </returns>
+        /// <response code="200">User found and details retrieved successfully</response>
+        /// <response code="404">User with the specified ID does not exist</response>
         [HttpGet("users/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> GetUserById(string id)
@@ -575,41 +610,46 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// 
         /// Updates a user's details based on the provided unique identifier and update model.
-        /// 
         /// </summary>
-        /// 
+        /// <remarks>
+        /// Sample request:
+        ///
+        ///     PUT /users/{id}
+        ///     {
+        ///         "username": "newusername",
+        ///         "email": "newemail@example.com",
+        ///         "role": "user"
+        ///     }
+        ///
+        /// </remarks>
         /// <param name="id">The unique identifier of the user to update.</param>
-        /// 
-        /// <param name="model">The update model containing the following fields:
-        /// 
-        /// - UserName: The new username of the user (optional).
-        /// 
-        /// - Email: The new email of the user (optional).
-        /// 
-        /// - Role: The new role of the user (optional).
-        /// 
+        /// <param name="model">
+        /// The update model containing the following fields (all optional):
+        /// <br/>
+        /// {<br/>
+        /// &nbsp;&nbsp;"username": "newusername",<br/>
+        /// &nbsp;&nbsp;"email": "newemail@example.com",<br/>
+        /// &nbsp;&nbsp;"role": "user"<br/>
+        /// }
+        /// <br/>
+        /// <b>Note:</b> When entering an email, you must use a valid email format (e.g., "user@example.com").
         /// </param>
-        /// 
         /// <returns>
-        /// 
-        /// Returns the updated user's details in the format expected by React Admin.
-        /// 
-        /// Possible outcomes:
-        /// 
-        /// - 200 OK: User updated successfully.
-        /// 
-        /// - 400 Bad Request: At least one field (UserName, Email, or Role) must be provided for update.
-        /// 
-        /// - 404 Not Found: User with the specified ID does not exist.
-        /// 
-        /// - 403 Forbidden: Current user does not have permission to update the target user.
-        /// 
-        /// - 500 Internal Server Error: An error occurred during the update process.
-        /// 
+        /// Returns the updated user's details in the following format:
+        /// <br/>
+        /// {<br/>
+        /// &nbsp;&nbsp;"id": "user_id",<br/>
+        /// &nbsp;&nbsp;"username": "newusername",<br/>
+        /// &nbsp;&nbsp;"email": "newemail@example.com",<br/>
+        /// &nbsp;&nbsp;"role": "user"<br/>
+        /// }
         /// </returns>
-        /// 
+        /// <response code="200">User updated successfully</response>
+        /// <response code="400">At least one field (username, email, or role) must be provided for update</response>
+        /// <response code="404">User with the specified ID does not exist</response>
+        /// <response code="403">Current user does not have permission to update the target user</response>
+        /// <response code="500">An error occurred during the update process</response>
         [HttpPut("users/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<ActionResult> UpdateUser(string id, [FromBody] UpdateUserData model)
@@ -704,13 +744,10 @@ namespace Guider.API.MVP.Controllers
             // Формируем ответ в формате, соответствующем UpdateResult
             return Ok(new
             {
-                //data = new
-                //{
                 id = userToUpdate.Id,
                 username = userToUpdate.UserName,
                 email = userToUpdate.Email,
                 role = role.ToLower()
-                //}
             });
         }
         public class UpdateUserData
