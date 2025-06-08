@@ -265,107 +265,7 @@ namespace Guider.API.MVP.Controllers
             return Ok(JsonSerializer.Deserialize<object>(result.RootElement.GetRawText()));
         }
 
-
-
-        /// <summary>
-        /// Получить ближайшие места по координатам.
-        /// </summary>
-        /// <remarks>
-        /// Данный метод возвращает список мест, находящихся в радиусе maxDistance метров от заданных координат.
-        /// Можно фильтровать по статусу и учитывать только открытые заведения.
-        /// 
-        /// Пример запроса:
-        /// 
-        ///     GET /places/geo
-        ///     Headers:
-        ///         X-Latitude: 10.139
-        ///         X-Longitude: -85.452
-        ///         X-Max-Distance: 5000
-        ///         X-Is-Open: true
-        ///         X-Status: active
-        /// 
-        /// Пример успешного ответа (код 200):
-        /// 
-        ///     [
-        ///         {
-        ///             "id": "664b1e2f8f1b2c001e3e4a1a",
-        ///             "name": "Coffee House",
-        ///             "province": "Guanacaste",
-        ///             "city": "Nicoya",
-        ///             "url": "coffee-house-nicoya",
-        ///             "address": "Main street, Nicoya",
-        ///             "tags": ["кофе", "завтрак", "WiFi"],
-        ///             "location": { "lat": 10.139, "lng": -85.452 },
-        ///             "img_link": "https://example.com/image.jpg",
-        ///             "distance": 1200.5
-        ///         }
-        ///     ]
-        /// </remarks>
-        /// <param name="lat">Широта (по умолчанию 10.539500881521633)</param>
-        /// <param name="lng">Долгота (по умолчанию -85.68964788238951)</param>
-        /// <param name="maxDistance">Максимальное расстояние в метрах (по умолчанию 10000)</param>
-        /// <param name="isOpen">Учитывать только открытые заведения (по умолчанию false)</param>
-        /// <param name="status">Статус заведения (опционально)</param>
-        /// <returns>Массив объектов мест с расстоянием до них</returns>
-        /// <response code="200">Успешный запрос. Возвращает массив мест</response>
-        /// <response code="400">Некорректные параметры запроса или координаты</response>
-        /// <response code="500">Внутренняя ошибка сервера</response>
-        [HttpGet("geo")]
-        public async Task<IActionResult> GetNearbyPlaces(
-            [FromHeader(Name = "X-Latitude")] decimal lat = 10.539500881521633m,
-            [FromHeader(Name = "X-Longitude")] decimal lng = -85.68964788238951m,
-            [FromHeader(Name = "X-Max-Distance")] int maxDistance = 10000,
-            [FromHeader(Name = "X-Is-Open")] bool isOpen = false,
-            [FromHeader(Name = "X-Status")] string? status = null)
-        {
-            try
-            {
-                // Передаем статус только если он явно задан (не null и не пустой)
-                string? statusToPass = string.IsNullOrWhiteSpace(status) ? null : status;
-                var result = await _placeService.GetPlacesNearbyAsync(lat, lng, maxDistance, isOpen, statusToPass);
-
-                if (result.RootElement.TryGetProperty("IsSuccess", out var isSuccessElement) &&
-                    isSuccessElement.GetBoolean())
-                {
-                    // Если есть свойство data с местами, возвращаем его
-                    if (result.RootElement.TryGetProperty("data", out var dataElement))
-                    {
-                        var placesArray = JsonSerializer.Deserialize<object[]>(dataElement.GetRawText());
-                        return Ok(placesArray);
-                    }
-                    // Если нет свойства data, возвращаем весь результат
-                    else
-                    {
-                        var placesArray = JsonSerializer.Deserialize<object>(result.RootElement.GetRawText());
-                        return Ok(placesArray);
-                    }
-                }
-                else
-                {
-                    var errorMessage = result.RootElement.TryGetProperty("Message", out var messageElement)
-                        ? messageElement.GetString()
-                        : "Unknown error occurred";
-
-                    if (errorMessage.Contains("Invalid") || errorMessage.Contains("Must be") ||
-                        errorMessage.Contains("cannot be null"))
-                    {
-                        return BadRequest(new { error = errorMessage });
-                    }
-                    else if (errorMessage.Contains("Found 0 places"))
-                    {
-                        return BadRequest(new { error = errorMessage });
-                    }
-                    else
-                    {
-                        return BadRequest(new { error = errorMessage });
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = $"Ошибка при получении ближайших мест: {ex.Message}" });
-            }
-        }
+               
 
         /// <summary>
         /// Получить места по ключевым словам.
@@ -724,7 +624,7 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// Универсальный поиск мест с поддержкой геопозиционирования, фильтрации по статусу и тегам
+        /// Универсальный поиск c фильтрацией и сортировкой
         /// </summary>
         /// <remarks>
         /// Выполняет комплексный поиск мест с возможностью фильтрации по различным критериям:
@@ -777,7 +677,7 @@ namespace Guider.API.MVP.Controllers
         /// <response code="200">Успешно получен список мест. Возвращает массив объектов мест с заголовком X-Total-Count</response>
         /// <response code="400">Ошибка в параметрах запроса или логике фильтрации</response>
         /// <response code="500">Внутренняя ошибка сервера при выполнении поиска</response>
-        [HttpGet("with-geo-status-tags")]
+        [HttpGet("filters")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetPlacesWithGeoWithStatusWithTags(
             [FromQuery] string q = null,
