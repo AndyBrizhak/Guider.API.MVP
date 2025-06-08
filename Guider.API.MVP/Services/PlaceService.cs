@@ -1189,6 +1189,13 @@
                     }
                 }
 
+                // Проверяем нужно ли фильтровать по времени работы
+                bool filterByWorkingHours = false;
+                if (filter != null && filter.TryGetValue("isOpen", out string isOpenStr))
+                {
+                    bool.TryParse(isOpenStr, out filterByWorkingHours);
+                }
+
                 List<BsonDocument> documents;
                 long totalCount;
 
@@ -1208,35 +1215,35 @@
                         if (filter.TryGetValue("q", out string q) && !string.IsNullOrEmpty(q))
                         {
                             queryConditions.Add(new BsonDocument("$or", new BsonArray
-                            {
-                                new BsonDocument("name", new BsonDocument("$regex", new BsonRegularExpression(q, "i"))),
-                                new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression(q, "i"))),
-                                new BsonDocument("address.city", new BsonDocument("$regex", new BsonRegularExpression(q, "i"))),
-                                new BsonDocument("url", new BsonDocument("$regex", new BsonRegularExpression(q, "i"))),
-                                new BsonDocument("description", new BsonDocument("$regex", new BsonRegularExpression(q, "i"))),
-                                new BsonDocument("category", new BsonDocument("$regex", new BsonRegularExpression(q, "i")))
-                            }));
+                    {
+                        new BsonDocument("name", new BsonDocument("$regex", new BsonRegularExpression(q, "i"))),
+                        new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression(q, "i"))),
+                        new BsonDocument("address.city", new BsonDocument("$regex", new BsonRegularExpression(q, "i"))),
+                        new BsonDocument("url", new BsonDocument("$regex", new BsonRegularExpression(q, "i"))),
+                        new BsonDocument("description", new BsonDocument("$regex", new BsonRegularExpression(q, "i"))),
+                        new BsonDocument("category", new BsonDocument("$regex", new BsonRegularExpression(q, "i")))
+                    }));
                         }
 
                         // Фильтр по провинции
                         if (filter.TryGetValue("province", out string province) && !string.IsNullOrEmpty(province))
                         {
                             queryConditions.Add(new BsonDocument("$or", new BsonArray
-                            {
-                                new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression($"^{Regex.Escape(province)}$", "i"))),
-                                new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression($"^{Regex.Escape(province)}\\s+(Province|State|Region)$", "i"))),
-                                new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression(Regex.Escape(province), "i")))
-                            }));
+                    {
+                        new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression($"^{Regex.Escape(province)}$", "i"))),
+                        new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression($"^{Regex.Escape(province)}\\s+(Province|State|Region)$", "i"))),
+                        new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression(Regex.Escape(province), "i")))
+                    }));
                         }
 
                         // Фильтр по городу
                         if (filter.TryGetValue("city", out string city) && !string.IsNullOrEmpty(city))
                         {
                             queryConditions.Add(new BsonDocument("$or", new BsonArray
-                            {
-                                new BsonDocument("address.city", new BsonDocument("$regex", new BsonRegularExpression($"^{Regex.Escape(city)}$", "i"))),
-                                new BsonDocument("address.city", new BsonDocument("$regex", new BsonRegularExpression(Regex.Escape(city), "i")))
-                            }));
+                    {
+                        new BsonDocument("address.city", new BsonDocument("$regex", new BsonRegularExpression($"^{Regex.Escape(city)}$", "i"))),
+                        new BsonDocument("address.city", new BsonDocument("$regex", new BsonRegularExpression(Regex.Escape(city), "i")))
+                    }));
                         }
 
                         // Фильтр по названию
@@ -1284,6 +1291,34 @@
                                     queryConditions.Add(new BsonDocument("tags", new BsonDocument("$in", new BsonArray(tagsList))));
                                 }
                             }
+                        }
+
+                        // Фильтр по времени работы
+                        if (filterByWorkingHours)
+                        {
+                            var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
+                            var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
+                            var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
+                            var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt"); // Например, "8:30 AM"
+
+                            queryConditions.Add(new BsonDocument("schedule", new BsonDocument
+                    {
+                        { "$elemMatch", new BsonDocument
+                            {
+                                { "days", new BsonDocument("$in", new BsonArray { dayOfWeek }) },
+                                { "hours", new BsonDocument
+                                    {
+                                        { "$elemMatch", new BsonDocument
+                                            {
+                                                { "start", new BsonDocument("$lte", currentTimeString) },
+                                                { "end", new BsonDocument("$gte", currentTimeString) }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }));
                         }
 
                         // Объединяем все условия через $and
@@ -1444,6 +1479,27 @@
                             }
                         }
 
+                        // Фильтр по времени работы для обычного поиска
+                        if (filterByWorkingHours)
+                        {
+                            var costaRicaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central America Standard Time");
+                            var currentTimeInCostaRica = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, costaRicaTimeZone);
+                            var dayOfWeek = currentTimeInCostaRica.DayOfWeek.ToString();
+                            var currentTimeString = currentTimeInCostaRica.ToString("h:mm tt"); // Например, "8:30 AM"
+
+                            filters.Add(filterBuilder.ElemMatch<BsonDocument>("schedule",
+                                filterBuilder.And(
+                                    filterBuilder.In("days", new[] { dayOfWeek }),
+                                    filterBuilder.ElemMatch<BsonDocument>("hours",
+                                        filterBuilder.And(
+                                            filterBuilder.Lte("start", currentTimeString),
+                                            filterBuilder.Gte("end", currentTimeString)
+                                        )
+                                    )
+                                )
+                            ));
+                        }
+
                         if (filters.Count > 0)
                         {
                             filterDefinition = filterBuilder.And(filters);
@@ -1546,6 +1602,36 @@
 
                 return JsonDocument.Parse(JsonSerializer.Serialize(result));
             }
+            catch (TimeZoneNotFoundException ex)
+            {
+                var errorResult = new
+                {
+                    success = false,
+                    error = $"Time zone error: {ex.Message}"
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResult));
+            }
+            catch (MongoException ex)
+            {
+                var errorResult = new
+                {
+                    success = false,
+                    error = $"Database error: {ex.Message}"
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResult));
+            }
+            catch (ArgumentException ex)
+            {
+                var errorResult = new
+                {
+                    success = false,
+                    error = $"Invalid argument: {ex.Message}"
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResult));
+            }
             catch (Exception ex)
             {
                 var errorResult = new
@@ -1557,7 +1643,6 @@
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResult));
             }
         }
-
 
     }
 }

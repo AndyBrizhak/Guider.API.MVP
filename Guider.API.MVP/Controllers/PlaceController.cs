@@ -723,6 +723,60 @@ namespace Guider.API.MVP.Controllers
             return NoContent();
         }
 
+        /// <summary>
+        /// Универсальный поиск мест с поддержкой геопозиционирования, фильтрации по статусу и тегам
+        /// </summary>
+        /// <remarks>
+        /// Выполняет комплексный поиск мест с возможностью фильтрации по различным критериям:
+        /// - Текстовый поиск по названию, описанию и другим полям
+        /// - Географическая фильтрация по провинции и городу
+        /// - Геопространственный поиск в радиусе от указанных координат
+        /// - Фильтрация по категориям, статусам и тегам
+        /// - Фильтрация по времени работы (открыто/закрыто)
+        /// - Поддержка сортировки и пагинации результатов
+        /// 
+        /// **Примеры использования:**
+        /// 
+        /// 1. Поиск ресторанов в радиусе 5 км от центра города:
+        ///    ```
+        ///    GET /api/places/with-geo-status-tags?category=restaurant&amp;latitude=50.4501&amp;longitude=30.5234&amp;distance=5000
+        ///    ```
+        /// 
+        /// 2. Поиск открытых кафе с тегами "wifi" или "терраса":
+        ///    ```
+        ///    GET /api/places/with-geo-status-tags?category=cafe&amp;isOpen=true&amp;tags=wifi,терраса&amp;tagsMode=any
+        ///    ```
+        /// 
+        /// 3. Текстовый поиск с сортировкой по названию:
+        ///    ```
+        ///    GET /api/places/with-geo-status-tags?q=пицца&amp;sortField=name&amp;sortOrder=ASC&amp;page=1&amp;perPage=10
+        ///    ```
+        /// 
+        /// **Ответ содержит заголовки:**
+        /// - `X-Total-Count`: общее количество найденных записей
+        /// - `Access-Control-Expose-Headers`: список доступных заголовков для CORS
+        /// </remarks>
+        /// <param name="q">Текстовый запрос для поиска по названию, описанию и другим полям места. Пример: "кафе центр"</param>
+        /// <param name="province">Фильтр по провинции/области. Пример: "Киевская область"</param>
+        /// <param name="city">Фильтр по городу. Пример: "Киев"</param>
+        /// <param name="name">Фильтр по точному или частичному совпадению названия. Пример: "Старбакс"</param>
+        /// <param name="url">Фильтр по URL/веб-сайту места. Пример: "starbucks.com"</param>
+        /// <param name="category">Фильтр по категории места. Пример: "restaurant", "cafe", "hotel"</param>
+        /// <param name="status">Фильтр по статусу места. Пример: "active", "inactive", "pending"</param>
+        /// <param name="tags">Список тегов через запятую для фильтрации. Пример: "wifi,парковка,детская площадка"</param>
+        /// <param name="tagsMode">Режим фильтрации по тегам: "any" (любой из тегов) или "all" (все теги). По умолчанию: "any"</param>
+        /// <param name="latitude">Широта для геопространственного поиска в градусах. Пример: 50.4501</param>
+        /// <param name="longitude">Долгота для геопространственного поиска в градусах. Пример: 30.5234</param>
+        /// <param name="distance">Радиус поиска в метрах от указанных координат. Пример: 1000 (1 км), 5000 (5 км)</param>
+        /// <param name="isOpen">Фильтр по времени работы: true - только открытые места, false - только закрытые, null - все</param>
+        /// <param name="page">Номер страницы для пагинации (начиная с 1). По умолчанию: 1</param>
+        /// <param name="perPage">Количество записей на странице (1-100). По умолчанию: 20</param>
+        /// <param name="sortField">Поле для сортировки. Доступные значения: "name", "category", "status", "createdAt", "distance" (при геопоиске). По умолчанию: "name"</param>
+        /// <param name="sortOrder">Порядок сортировки: "ASC" (по возрастанию) или "DESC" (по убыванию). По умолчанию: "ASC"</param>
+        /// <returns>Массив мест с информацией о пагинации в заголовках ответа</returns>
+        /// <response code="200">Успешно получен список мест. Возвращает массив объектов мест с заголовком X-Total-Count</response>
+        /// <response code="400">Ошибка в параметрах запроса или логике фильтрации</response>
+        /// <response code="500">Внутренняя ошибка сервера при выполнении поиска</response>
         [HttpGet("with-geo-status-tags")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetPlacesWithGeoWithStatusWithTags(
@@ -738,6 +792,7 @@ namespace Guider.API.MVP.Controllers
             [FromQuery] double? latitude = null,
             [FromQuery] double? longitude = null,
             [FromQuery] double? distance = null,
+            [FromQuery] bool? isOpen = null,
             [FromQuery] int page = 1,
             [FromQuery] int perPage = 20,
             [FromQuery] string sortField = "name",
@@ -762,6 +817,9 @@ namespace Guider.API.MVP.Controllers
             if (latitude.HasValue) filter["latitude"] = latitude.Value.ToString();
             if (longitude.HasValue) filter["longitude"] = longitude.Value.ToString();
             if (distance.HasValue) filter["distance"] = distance.Value.ToString();
+
+            // Фильтр по времени работы
+            if (isOpen.HasValue) filter["isOpen"] = isOpen.Value.ToString().ToLower();
 
             // Параметры сортировки и пагинации
             filter["_sort"] = sortField;
