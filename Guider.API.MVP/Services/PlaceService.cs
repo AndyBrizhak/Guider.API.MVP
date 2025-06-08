@@ -1162,6 +1162,876 @@
             return JsonDocument.Parse(jsonString);
         }
 
+        //public async Task<JsonDocument> GetPlacesWithGeoWithStatusWithTagsAsync(Dictionary<string, string> filter = null)
+        //{
+        //    try
+        //    {
+        //        FilterDefinition<BsonDocument> filterDefinition = Builders<BsonDocument>.Filter.Empty;
+        //        bool useGeoSearch = false;
+        //        double userLat = 0, userLng = 0, searchDistance = 10000;
+
+        //        if (filter != null && filter.Count > 0)
+        //        {
+        //            var filterBuilder = Builders<BsonDocument>.Filter;
+        //            var filters = new List<FilterDefinition<BsonDocument>>();
+
+        //            // Геопоиск с дистанцией
+        //            if (filter.TryGetValue("latitude", out string latStr) &&
+        //                filter.TryGetValue("longitude", out string lngStr) &&
+        //                double.TryParse(latStr, out userLat) &&
+        //                double.TryParse(lngStr, out userLng))
+        //            {
+        //                useGeoSearch = true;
+
+        //                // Дистанция в метрах (по умолчанию 10 км)
+        //                searchDistance = 10000; // 10 км по умолчанию
+        //                if (filter.TryGetValue("distance", out string distanceStr) &&
+        //                    double.TryParse(distanceStr, out double parsedDistance))
+        //                {
+        //                    searchDistance = parsedDistance;
+        //                }
+
+        //                // Создаем геопространственный фильтр
+        //                var centerPoint = new BsonDocument
+        //                {
+        //                    { "type", "Point" },
+        //                    { "coordinates", new BsonArray { userLng, userLat } }
+        //                };
+
+        //                //filters.Add(filterBuilder.Near("location", centerPoint, searchDistance));
+        //                // Альтернативный способ без GeoJson класса
+        //                filters.Add(filterBuilder.NearSphere("location", userLng, userLat, searchDistance));
+        //            }
+
+        //            // Общий текстовый поиск по нескольким полям
+        //            if (filter.TryGetValue("q", out string q) && !string.IsNullOrEmpty(q))
+        //            {
+        //                filters.Add(filterBuilder.Or(
+        //                    filterBuilder.Regex("name", new BsonRegularExpression(q, "i")),
+        //                    filterBuilder.Regex("address.province", new BsonRegularExpression(q, "i")),
+        //                    filterBuilder.Regex("address.city", new BsonRegularExpression(q, "i")),
+        //                    filterBuilder.Regex("url", new BsonRegularExpression(q, "i")),
+        //                    filterBuilder.Regex("description", new BsonRegularExpression(q, "i")),
+        //                    filterBuilder.Regex("category", new BsonRegularExpression(q, "i"))
+        //                ));
+        //            }
+
+        //            // Улучшенный фильтр по провинции
+        //            if (filter.TryGetValue("province", out string province) && !string.IsNullOrEmpty(province))
+        //            {
+        //                var provincePatterns = new List<FilterDefinition<BsonDocument>>();
+
+        //                // 1. Точное совпадение (case-insensitive)
+        //                provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression($"^{Regex.Escape(province)}$", "i")));
+
+        //                // 2. Поиск в начале строки + возможные суффиксы типа "Province", "State", etc.
+        //                provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression($"^{Regex.Escape(province)}\\s+(Province|State|Region)$", "i")));
+
+        //                // 3. Поиск провинции как подстроки
+        //                provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression(Regex.Escape(province), "i")));
+
+        //                filters.Add(filterBuilder.Or(provincePatterns));
+        //            }
+
+        //            // Улучшенный фильтр по городу
+        //            if (filter.TryGetValue("city", out string city) && !string.IsNullOrEmpty(city))
+        //            {
+        //                var cityPatterns = new List<FilterDefinition<BsonDocument>>();
+
+        //                // 1. Точное совпадение (case-insensitive)
+        //                cityPatterns.Add(filterBuilder.Regex("address.city", new BsonRegularExpression($"^{Regex.Escape(city)}$", "i")));
+
+        //                // 2. Поиск города как подстроки
+        //                cityPatterns.Add(filterBuilder.Regex("address.city", new BsonRegularExpression(Regex.Escape(city), "i")));
+
+        //                filters.Add(filterBuilder.Or(cityPatterns));
+        //            }
+
+        //            // Фильтр по названию заведения
+        //            if (filter.TryGetValue("name", out string name) && !string.IsNullOrEmpty(name))
+        //            {
+        //                filters.Add(filterBuilder.Regex("name", new BsonRegularExpression(Regex.Escape(name), "i")));
+        //            }
+
+        //            // Фильтр по URL
+        //            if (filter.TryGetValue("url", out string url) && !string.IsNullOrEmpty(url))
+        //            {
+        //                filters.Add(filterBuilder.Regex("url", new BsonRegularExpression(Regex.Escape(url), "i")));
+        //            }
+
+        //            // Фильтр по категории
+        //            if (filter.TryGetValue("category", out string category) && !string.IsNullOrEmpty(category))
+        //            {
+        //                filters.Add(filterBuilder.Regex("category", new BsonRegularExpression(Regex.Escape(category), "i")));
+        //            }
+
+        //            // Улучшенный фильтр по статусу - только если статус определен и не является пустой строкой
+        //            if (filter.TryGetValue("status", out string status) && !string.IsNullOrWhiteSpace(status))
+        //            {
+        //                filters.Add(filterBuilder.Eq("status", status));
+        //            }
+
+        //            // Фильтр по тегам
+        //            if (filter.TryGetValue("tags", out string tagsStr) && !string.IsNullOrEmpty(tagsStr))
+        //            {
+        //                var tagsList = tagsStr.Split(',').Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+
+        //                if (tagsList.Count > 0)
+        //                {
+        //                    // Определяем режим поиска тегов (по умолчанию "any")
+        //                    string tagsMode = "any";
+        //                    if (filter.TryGetValue("tagsMode", out string tagsModeValue) && !string.IsNullOrEmpty(tagsModeValue))
+        //                    {
+        //                        tagsMode = tagsModeValue.ToLower();
+        //                    }
+
+        //                    if (tagsMode == "all")
+        //                    {
+        //                        // Место должно содержать ВСЕ указанные теги
+        //                        filters.Add(filterBuilder.All("tags", tagsList));
+        //                    }
+        //                    else // "any" или любое другое значение
+        //                    {
+        //                        // Место должно содержать ЛЮБОЙ из указанных тегов
+        //                        filters.Add(filterBuilder.In("tags", tagsList));
+        //                    }
+        //                }
+        //            }
+
+        //            if (filters.Count > 0)
+        //            {
+        //                filterDefinition = filterBuilder.And(filters);
+        //            }
+        //        }
+
+        //        long totalCount = await _placeCollection.CountDocumentsAsync(filterDefinition);
+
+        //        // Определяем, нужно ли добавлять поле distance в projection и сортировку
+        //        ProjectionDefinition<BsonDocument> projection = null;
+        //        SortDefinition<BsonDocument> sortDefinition;
+
+        //        if (useGeoSearch)
+        //        {
+        //            // Добавляем вычисляемое поле distance при геопоиске
+        //            var distanceCalculation = new BsonDocument
+        //            {
+        //                ["$geoNear"] = new BsonDocument
+        //                {
+        //                    ["near"] = new BsonDocument
+        //                    {
+        //                        ["type"] = "Point",
+        //                        ["coordinates"] = new BsonArray { userLng, userLat }
+        //                    },
+        //                    ["distanceField"] = "distance",
+        //                    ["maxDistance"] = searchDistance,
+        //                    ["spherical"] = true,
+        //                    ["distanceMultiplier"] = 0.001 // Преобразуем метры в километры
+        //                }
+        //            };
+
+        //            // При геопоиске сортировка по умолчанию - по расстоянию
+        //            string sortField = "distance";
+        //            bool isDescending = false;
+
+        //            if (filter != null)
+        //            {
+        //                if (filter.TryGetValue("_sort", out string sort) && !string.IsNullOrEmpty(sort))
+        //                {
+        //                    sortField = sort;
+        //                    // Поддержка сортировки по вложенным полям
+        //                    if (sort == "address.city")
+        //                        sortField = "address.city";
+        //                    else if (sort == "address.province")
+        //                        sortField = "address.province";
+        //                }
+        //                if (filter.TryGetValue("_order", out string order) && !string.IsNullOrEmpty(order))
+        //                {
+        //                    isDescending = order.ToUpper() == "DESC";
+        //                }
+        //            }
+
+        //            sortDefinition = isDescending
+        //                ? Builders<BsonDocument>.Sort.Descending(sortField)
+        //                : Builders<BsonDocument>.Sort.Ascending(sortField);
+        //        }
+        //        else
+        //        {
+        //            // Обычная сортировка без геопоиска
+        //            string sortField = "name";
+        //            bool isDescending = false;
+
+        //            if (filter != null)
+        //            {
+        //                if (filter.TryGetValue("_sort", out string sort) && !string.IsNullOrEmpty(sort))
+        //                {
+        //                    sortField = sort;
+        //                    // Поддержка сортировки по вложенным полям
+        //                    if (sort == "address.city")
+        //                        sortField = "address.city";
+        //                    else if (sort == "address.province")
+        //                        sortField = "address.province";
+        //                }
+        //                if (filter.TryGetValue("_order", out string order) && !string.IsNullOrEmpty(order))
+        //                {
+        //                    isDescending = order.ToUpper() == "DESC";
+        //                }
+        //            }
+
+        //            sortDefinition = isDescending
+        //                ? Builders<BsonDocument>.Sort.Descending(sortField)
+        //                : Builders<BsonDocument>.Sort.Ascending(sortField);
+        //        }
+
+        //        // Выполняем запрос
+        //        List<BsonDocument> documents;
+
+        //        if (useGeoSearch)
+        //        {
+        //            // Используем aggregation pipeline для геопоиска с $geoNear
+        //            var pipeline = new List<BsonDocument>();
+
+        //            // Создаем фильтр для $geoNear query
+        //            BsonDocument geoNearQuery = new BsonDocument();
+
+        //            // Добавляем все фильтры кроме геопространственного
+        //            if (filter != null && filter.Count > 0)
+        //            {
+        //                var filterBuilder = Builders<BsonDocument>.Filter;
+        //                var nonGeoFilters = new List<FilterDefinition<BsonDocument>>();
+
+        //                // Общий текстовый поиск
+        //                if (filter.TryGetValue("q", out string q) && !string.IsNullOrEmpty(q))
+        //                {
+        //                    var textFilter = filterBuilder.Or(
+        //                        filterBuilder.Regex("name", new BsonRegularExpression(q, "i")),
+        //                        filterBuilder.Regex("address.province", new BsonRegularExpression(q, "i")),
+        //                        filterBuilder.Regex("address.city", new BsonRegularExpression(q, "i")),
+        //                        filterBuilder.Regex("url", new BsonRegularExpression(q, "i")),
+        //                        filterBuilder.Regex("description", new BsonRegularExpression(q, "i")),
+        //                        filterBuilder.Regex("category", new BsonRegularExpression(q, "i"))
+        //                    );
+        //                    nonGeoFilters.Add(textFilter);
+        //                }
+
+        //                // Фильтр по провинции
+        //                if (filter.TryGetValue("province", out string province) && !string.IsNullOrEmpty(province))
+        //                {
+        //                    var provinceFilter = filterBuilder.Or(
+        //                        filterBuilder.Regex("address.province", new BsonRegularExpression($"^{Regex.Escape(province)}$", "i")),
+        //                        filterBuilder.Regex("address.province", new BsonRegularExpression($"^{Regex.Escape(province)}\\s+(Province|State|Region)$", "i")),
+        //                        filterBuilder.Regex("address.province", new BsonRegularExpression(Regex.Escape(province), "i"))
+        //                    );
+        //                    nonGeoFilters.Add(provinceFilter);
+        //                }
+
+        //                // Фильтр по городу
+        //                if (filter.TryGetValue("city", out string city) && !string.IsNullOrEmpty(city))
+        //                {
+        //                    var cityFilter = filterBuilder.Or(
+        //                        filterBuilder.Regex("address.city", new BsonRegularExpression($"^{Regex.Escape(city)}$", "i")),
+        //                        filterBuilder.Regex("address.city", new BsonRegularExpression(Regex.Escape(city), "i"))
+        //                    );
+        //                    nonGeoFilters.Add(cityFilter);
+        //                }
+
+        //                // Фильтр по названию
+        //                if (filter.TryGetValue("name", out string name) && !string.IsNullOrEmpty(name))
+        //                {
+        //                    nonGeoFilters.Add(filterBuilder.Regex("name", new BsonRegularExpression(Regex.Escape(name), "i")));
+        //                }
+
+        //                // Фильтр по URL
+        //                if (filter.TryGetValue("url", out string url) && !string.IsNullOrEmpty(url))
+        //                {
+        //                    nonGeoFilters.Add(filterBuilder.Regex("url", new BsonRegularExpression(Regex.Escape(url), "i")));
+        //                }
+
+        //                // Фильтр по категории
+        //                if (filter.TryGetValue("category", out string category) && !string.IsNullOrEmpty(category))
+        //                {
+        //                    nonGeoFilters.Add(filterBuilder.Regex("category", new BsonRegularExpression(Regex.Escape(category), "i")));
+        //                }
+
+        //                // Фильтр по статусу
+        //                if (filter.TryGetValue("status", out string status) && !string.IsNullOrWhiteSpace(status))
+        //                {
+        //                    nonGeoFilters.Add(filterBuilder.Eq("status", status));
+        //                }
+
+        //                // Фильтр по тегам
+        //                if (filter.TryGetValue("tags", out string tagsStr) && !string.IsNullOrEmpty(tagsStr))
+        //                {
+        //                    var tagsList = tagsStr.Split(',').Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+        //                    if (tagsList.Count > 0)
+        //                    {
+        //                        string tagsMode = "any";
+        //                        if (filter.TryGetValue("tagsMode", out string tagsModeValue) && !string.IsNullOrEmpty(tagsModeValue))
+        //                        {
+        //                            tagsMode = tagsModeValue.ToLower();
+        //                        }
+
+        //                        if (tagsMode == "all")
+        //                        {
+        //                            nonGeoFilters.Add(filterBuilder.All("tags", tagsList));
+        //                        }
+        //                        else
+        //                        {
+        //                            nonGeoFilters.Add(filterBuilder.In("tags", tagsList));
+        //                        }
+        //                    }
+        //                }
+
+        //                // Объединяем все фильтры
+        //                if (nonGeoFilters.Count > 0)
+        //                {
+        //                    var combinedFilter = filterBuilder.And(nonGeoFilters);
+        //                    geoNearQuery = combinedFilter.ToBsonDocument();
+        //                }
+        //            }
+
+        //            // $geoNear должен быть первым этапом в pipeline
+        //            pipeline.Add(new BsonDocument("$geoNear", new BsonDocument
+        //            {
+        //                ["near"] = new BsonDocument
+        //                {
+        //                    ["type"] = "Point",
+        //                    ["coordinates"] = new BsonArray { userLng, userLat }
+        //                },
+        //                ["distanceField"] = "distance",
+        //                ["maxDistance"] = searchDistance,
+        //                ["spherical"] = true,
+        //                ["distanceMultiplier"] = 0.001, // Преобразуем метры в километры
+        //                ["query"] = geoNearQuery
+        //            }));
+
+        //            // Добавляем сортировку
+        //            if (sortDefinition != null)
+        //            {
+        //                // Создаем BsonDocument для сортировки вручную
+        //                BsonDocument sortDoc = new BsonDocument();
+
+        //                // Определяем поле и направление сортировки
+        //                string sortField = "distance"; // по умолчанию для геопоиска
+        //                int sortDirection = 1; // 1 для ascending, -1 для descending
+
+        //                if (filter != null)
+        //                {
+        //                    if (filter.TryGetValue("_sort", out string sort) && !string.IsNullOrEmpty(sort))
+        //                    {
+        //                        sortField = sort;
+        //                        if (sort == "address.city")
+        //                            sortField = "address.city";
+        //                        else if (sort == "address.province")
+        //                            sortField = "address.province";
+        //                    }
+        //                    if (filter.TryGetValue("_order", out string order) && !string.IsNullOrEmpty(order))
+        //                    {
+        //                        sortDirection = order.ToUpper() == "DESC" ? -1 : 1;
+        //                    }
+        //                }
+
+        //                sortDoc[sortField] = sortDirection;
+        //                pipeline.Add(new BsonDocument("$sort", sortDoc));
+        //            }
+
+        //            // Пагинация
+        //            if (filter != null)
+        //            {
+        //                if (filter.TryGetValue("page", out string pageStr) &&
+        //                    filter.TryGetValue("perPage", out string perPageStr) &&
+        //                    int.TryParse(pageStr, out int page) &&
+        //                    int.TryParse(perPageStr, out int perPage))
+        //                {
+        //                    int skip = (page - 1) * perPage;
+        //                    pipeline.Add(new BsonDocument("$skip", skip));
+        //                    pipeline.Add(new BsonDocument("$limit", perPage));
+        //                }
+        //            }
+
+        //            documents = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+        //        }
+        //        else
+        //        {
+        //            // Обычный запрос без геопоиска
+        //            IFindFluent<BsonDocument, BsonDocument> query = _placeCollection.Find(filterDefinition).Sort(sortDefinition);
+
+        //            // Пагинация
+        //            if (filter != null)
+        //            {
+        //                if (filter.TryGetValue("page", out string pageStr) &&
+        //                    filter.TryGetValue("perPage", out string perPageStr) &&
+        //                    int.TryParse(pageStr, out int page) &&
+        //                    int.TryParse(perPageStr, out int perPage))
+        //                {
+        //                    int skip = (page - 1) * perPage;
+        //                    query = query.Skip(skip).Limit(perPage);
+        //                }
+        //            }
+
+        //            documents = await query.ToListAsync();
+        //        }
+
+        //        // Формирование массива мест с корректным форматом id
+        //        var placesList = new List<object>();
+
+        //        foreach (var document in documents)
+        //        {
+        //            var jsonString = document.ToJson();
+        //            var jsonDoc = JsonDocument.Parse(jsonString);
+
+        //            // Преобразуем весь документ в словарь
+        //            var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString);
+
+        //            // Изменяем формат идентификатора
+        //            if (dict.ContainsKey("_id"))
+        //            {
+        //                var idObj = dict["_id"] as JsonElement?;
+        //                if (idObj.HasValue && idObj.Value.ValueKind == JsonValueKind.Object)
+        //                {
+        //                    if (idObj.Value.TryGetProperty("$oid", out var oidElement))
+        //                    {
+        //                        dict["id"] = oidElement.GetString();
+        //                    }
+        //                }
+        //                dict.Remove("_id");
+        //            }
+
+        //            // При геопоиске поле distance уже добавлено MongoDB, округляем его
+        //            if (useGeoSearch && dict.ContainsKey("distance"))
+        //            {
+        //                if (dict["distance"] is JsonElement distanceElement &&
+        //                    distanceElement.TryGetDouble(out double distanceValue))
+        //                {
+        //                    dict["distance"] = Math.Round(distanceValue, 2);
+        //                }
+        //            }
+
+        //            placesList.Add(dict);
+        //            jsonDoc.Dispose();
+        //        }
+
+        //        // Формирование результирующего JSON документа
+        //        var result = new
+        //        {
+        //            success = true,
+        //            data = new
+        //            {
+        //                totalCount = totalCount,
+        //                places = placesList
+        //            }
+        //        };
+
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(result));
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        var errorResult = new
+        //        {
+        //            success = false,
+        //            error = $"An error occurred: {ex.Message}"
+        //        };
+
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResult));
+        //    }
+        //}
+
+        public async Task<JsonDocument> GetPlacesWithGeoWithStatusWithTagsAsync(Dictionary<string, string> filter = null)
+        {
+            try
+            {
+                bool useGeoSearch = false;
+                double userLat = 0, userLng = 0, searchDistance = 10000;
+
+                // Проверяем, нужен ли геопоиск
+                if (filter != null && filter.Count > 0)
+                {
+                    if (filter.TryGetValue("latitude", out string latStr) &&
+                        filter.TryGetValue("longitude", out string lngStr) &&
+                        double.TryParse(latStr, out userLat) &&
+                        double.TryParse(lngStr, out userLng))
+                    {
+                        useGeoSearch = true;
+
+                        // Дистанция в метрах (по умолчанию 10 км)
+                        searchDistance = 10000;
+                        if (filter.TryGetValue("distance", out string distanceStr) &&
+                            double.TryParse(distanceStr, out double parsedDistance))
+                        {
+                            searchDistance = parsedDistance;
+                        }
+                    }
+                }
+
+                List<BsonDocument> documents;
+                long totalCount;
+
+                if (useGeoSearch)
+                {
+                    // === ГЕОПОИСК С AGGREGATION PIPELINE ===
+                    var pipeline = new List<BsonDocument>();
+
+                    // Создаем query для $geoNear (все фильтры кроме геопространственного)
+                    BsonDocument geoNearQuery = new BsonDocument();
+
+                    if (filter != null && filter.Count > 0)
+                    {
+                        var queryConditions = new List<BsonDocument>();
+
+                        // Общий текстовый поиск
+                        if (filter.TryGetValue("q", out string q) && !string.IsNullOrEmpty(q))
+                        {
+                            queryConditions.Add(new BsonDocument("$or", new BsonArray
+                            {
+                                new BsonDocument("name", new BsonDocument("$regex", new BsonRegularExpression(q, "i"))),
+                                new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression(q, "i"))),
+                                new BsonDocument("address.city", new BsonDocument("$regex", new BsonRegularExpression(q, "i"))),
+                                new BsonDocument("url", new BsonDocument("$regex", new BsonRegularExpression(q, "i"))),
+                                new BsonDocument("description", new BsonDocument("$regex", new BsonRegularExpression(q, "i"))),
+                                new BsonDocument("category", new BsonDocument("$regex", new BsonRegularExpression(q, "i")))
+                            }));
+                        }
+
+                        // Фильтр по провинции
+                        if (filter.TryGetValue("province", out string province) && !string.IsNullOrEmpty(province))
+                        {
+                            queryConditions.Add(new BsonDocument("$or", new BsonArray
+                            {
+                                new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression($"^{Regex.Escape(province)}$", "i"))),
+                                new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression($"^{Regex.Escape(province)}\\s+(Province|State|Region)$", "i"))),
+                                new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression(Regex.Escape(province), "i")))
+                            }));
+                        }
+
+                        // Фильтр по городу
+                        if (filter.TryGetValue("city", out string city) && !string.IsNullOrEmpty(city))
+                        {
+                            queryConditions.Add(new BsonDocument("$or", new BsonArray
+                            {
+                                new BsonDocument("address.city", new BsonDocument("$regex", new BsonRegularExpression($"^{Regex.Escape(city)}$", "i"))),
+                                new BsonDocument("address.city", new BsonDocument("$regex", new BsonRegularExpression(Regex.Escape(city), "i")))
+                            }));
+                        }
+
+                        // Фильтр по названию
+                        if (filter.TryGetValue("name", out string name) && !string.IsNullOrEmpty(name))
+                        {
+                            queryConditions.Add(new BsonDocument("name", new BsonDocument("$regex", new BsonRegularExpression(Regex.Escape(name), "i"))));
+                        }
+
+                        // Фильтр по URL
+                        if (filter.TryGetValue("url", out string url) && !string.IsNullOrEmpty(url))
+                        {
+                            queryConditions.Add(new BsonDocument("url", new BsonDocument("$regex", new BsonRegularExpression(Regex.Escape(url), "i"))));
+                        }
+
+                        // Фильтр по категории
+                        if (filter.TryGetValue("category", out string category) && !string.IsNullOrEmpty(category))
+                        {
+                            queryConditions.Add(new BsonDocument("category", new BsonDocument("$regex", new BsonRegularExpression(Regex.Escape(category), "i"))));
+                        }
+
+                        // Фильтр по статусу
+                        if (filter.TryGetValue("status", out string status) && !string.IsNullOrWhiteSpace(status))
+                        {
+                            queryConditions.Add(new BsonDocument("status", status));
+                        }
+
+                        // Фильтр по тегам
+                        if (filter.TryGetValue("tags", out string tagsStr) && !string.IsNullOrEmpty(tagsStr))
+                        {
+                            var tagsList = tagsStr.Split(',').Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+                            if (tagsList.Count > 0)
+                            {
+                                string tagsMode = "any";
+                                if (filter.TryGetValue("tagsMode", out string tagsModeValue) && !string.IsNullOrEmpty(tagsModeValue))
+                                {
+                                    tagsMode = tagsModeValue.ToLower();
+                                }
+
+                                if (tagsMode == "all")
+                                {
+                                    queryConditions.Add(new BsonDocument("tags", new BsonDocument("$all", new BsonArray(tagsList))));
+                                }
+                                else
+                                {
+                                    queryConditions.Add(new BsonDocument("tags", new BsonDocument("$in", new BsonArray(tagsList))));
+                                }
+                            }
+                        }
+
+                        // Объединяем все условия через $and
+                        if (queryConditions.Count > 0)
+                        {
+                            geoNearQuery = new BsonDocument("$and", new BsonArray(queryConditions));
+                        }
+                    }
+
+                    // Добавляем $geoNear этап
+                    pipeline.Add(new BsonDocument("$geoNear", new BsonDocument
+                    {
+                        ["near"] = new BsonDocument
+                        {
+                            ["type"] = "Point",
+                            ["coordinates"] = new BsonArray { userLng, userLat }
+                        },
+                        ["distanceField"] = "distance",
+                        ["maxDistance"] = searchDistance,
+                        ["spherical"] = true,
+                        ["distanceMultiplier"] = 0.001, // Преобразуем метры в километры
+                        ["query"] = geoNearQuery
+                    }));
+
+                    // Добавляем сортировку
+                    string sortField = "distance"; // по умолчанию для геопоиска
+                    int sortDirection = 1;
+
+                    if (filter != null)
+                    {
+                        if (filter.TryGetValue("_sort", out string sort) && !string.IsNullOrEmpty(sort))
+                        {
+                            sortField = sort;
+                            if (sort == "address.city")
+                                sortField = "address.city";
+                            else if (sort == "address.province")
+                                sortField = "address.province";
+                        }
+                        if (filter.TryGetValue("_order", out string order) && !string.IsNullOrEmpty(order))
+                        {
+                            sortDirection = order.ToUpper() == "DESC" ? -1 : 1;
+                        }
+                    }
+
+                    BsonDocument sortDoc = new BsonDocument(sortField, sortDirection);
+                    pipeline.Add(new BsonDocument("$sort", sortDoc));
+
+                    // Сначала получаем общее количество для пагинации
+                    var countPipeline = new List<BsonDocument>(pipeline);
+                    countPipeline.Add(new BsonDocument("$count", "total"));
+
+                    var countResult = await _placeCollection.Aggregate<BsonDocument>(countPipeline).FirstOrDefaultAsync();
+                    totalCount = countResult?.GetValue("total", 0).ToInt64() ?? 0;
+
+                    // Добавляем пагинацию к основному pipeline
+                    if (filter != null)
+                    {
+                        if (filter.TryGetValue("page", out string pageStr) &&
+                            filter.TryGetValue("perPage", out string perPageStr) &&
+                            int.TryParse(pageStr, out int page) &&
+                            int.TryParse(perPageStr, out int perPage))
+                        {
+                            int skip = (page - 1) * perPage;
+                            pipeline.Add(new BsonDocument("$skip", skip));
+                            pipeline.Add(new BsonDocument("$limit", perPage));
+                        }
+                    }
+
+                    documents = await _placeCollection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+                }
+                else
+                {
+                    // === ОБЫЧНЫЙ ПОИСК БЕЗ ГЕОПРОСТРАНСТВЕННОГО ===
+                    FilterDefinition<BsonDocument> filterDefinition = Builders<BsonDocument>.Filter.Empty;
+
+                    if (filter != null && filter.Count > 0)
+                    {
+                        var filterBuilder = Builders<BsonDocument>.Filter;
+                        var filters = new List<FilterDefinition<BsonDocument>>();
+
+                        // Общий текстовый поиск по нескольким полям
+                        if (filter.TryGetValue("q", out string q) && !string.IsNullOrEmpty(q))
+                        {
+                            filters.Add(filterBuilder.Or(
+                                filterBuilder.Regex("name", new BsonRegularExpression(q, "i")),
+                                filterBuilder.Regex("address.province", new BsonRegularExpression(q, "i")),
+                                filterBuilder.Regex("address.city", new BsonRegularExpression(q, "i")),
+                                filterBuilder.Regex("url", new BsonRegularExpression(q, "i")),
+                                filterBuilder.Regex("description", new BsonRegularExpression(q, "i")),
+                                filterBuilder.Regex("category", new BsonRegularExpression(q, "i"))
+                            ));
+                        }
+
+                        // Фильтр по провинции
+                        if (filter.TryGetValue("province", out string province) && !string.IsNullOrEmpty(province))
+                        {
+                            var provincePatterns = new List<FilterDefinition<BsonDocument>>();
+                            provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression($"^{Regex.Escape(province)}$", "i")));
+                            provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression($"^{Regex.Escape(province)}\\s+(Province|State|Region)$", "i")));
+                            provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression(Regex.Escape(province), "i")));
+                            filters.Add(filterBuilder.Or(provincePatterns));
+                        }
+
+                        // Фильтр по городу
+                        if (filter.TryGetValue("city", out string city) && !string.IsNullOrEmpty(city))
+                        {
+                            var cityPatterns = new List<FilterDefinition<BsonDocument>>();
+                            cityPatterns.Add(filterBuilder.Regex("address.city", new BsonRegularExpression($"^{Regex.Escape(city)}$", "i")));
+                            cityPatterns.Add(filterBuilder.Regex("address.city", new BsonRegularExpression(Regex.Escape(city), "i")));
+                            filters.Add(filterBuilder.Or(cityPatterns));
+                        }
+
+                        // Фильтр по названию заведения
+                        if (filter.TryGetValue("name", out string name) && !string.IsNullOrEmpty(name))
+                        {
+                            filters.Add(filterBuilder.Regex("name", new BsonRegularExpression(Regex.Escape(name), "i")));
+                        }
+
+                        // Фильтр по URL
+                        if (filter.TryGetValue("url", out string url) && !string.IsNullOrEmpty(url))
+                        {
+                            filters.Add(filterBuilder.Regex("url", new BsonRegularExpression(Regex.Escape(url), "i")));
+                        }
+
+                        // Фильтр по категории
+                        if (filter.TryGetValue("category", out string category) && !string.IsNullOrEmpty(category))
+                        {
+                            filters.Add(filterBuilder.Regex("category", new BsonRegularExpression(Regex.Escape(category), "i")));
+                        }
+
+                        // Фильтр по статусу
+                        if (filter.TryGetValue("status", out string status) && !string.IsNullOrWhiteSpace(status))
+                        {
+                            filters.Add(filterBuilder.Eq("status", status));
+                        }
+
+                        // Фильтр по тегам
+                        if (filter.TryGetValue("tags", out string tagsStr) && !string.IsNullOrEmpty(tagsStr))
+                        {
+                            var tagsList = tagsStr.Split(',').Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+
+                            if (tagsList.Count > 0)
+                            {
+                                string tagsMode = "any";
+                                if (filter.TryGetValue("tagsMode", out string tagsModeValue) && !string.IsNullOrEmpty(tagsModeValue))
+                                {
+                                    tagsMode = tagsModeValue.ToLower();
+                                }
+
+                                if (tagsMode == "all")
+                                {
+                                    filters.Add(filterBuilder.All("tags", tagsList));
+                                }
+                                else
+                                {
+                                    filters.Add(filterBuilder.In("tags", tagsList));
+                                }
+                            }
+                        }
+
+                        if (filters.Count > 0)
+                        {
+                            filterDefinition = filterBuilder.And(filters);
+                        }
+                    }
+
+                    totalCount = await _placeCollection.CountDocumentsAsync(filterDefinition);
+
+                    // Обычная сортировка
+                    string sortField = "name";
+                    bool isDescending = false;
+
+                    if (filter != null)
+                    {
+                        if (filter.TryGetValue("_sort", out string sort) && !string.IsNullOrEmpty(sort))
+                        {
+                            sortField = sort;
+                            if (sort == "address.city")
+                                sortField = "address.city";
+                            else if (sort == "address.province")
+                                sortField = "address.province";
+                        }
+                        if (filter.TryGetValue("_order", out string order) && !string.IsNullOrEmpty(order))
+                        {
+                            isDescending = order.ToUpper() == "DESC";
+                        }
+                    }
+
+                    var sortDefinition = isDescending
+                        ? Builders<BsonDocument>.Sort.Descending(sortField)
+                        : Builders<BsonDocument>.Sort.Ascending(sortField);
+
+                    IFindFluent<BsonDocument, BsonDocument> query = _placeCollection.Find(filterDefinition).Sort(sortDefinition);
+
+                    // Пагинация
+                    if (filter != null)
+                    {
+                        if (filter.TryGetValue("page", out string pageStr) &&
+                            filter.TryGetValue("perPage", out string perPageStr) &&
+                            int.TryParse(pageStr, out int page) &&
+                            int.TryParse(perPageStr, out int perPage))
+                        {
+                            int skip = (page - 1) * perPage;
+                            query = query.Skip(skip).Limit(perPage);
+                        }
+                    }
+
+                    documents = await query.ToListAsync();
+                }
+
+                // Формирование массива мест с корректным форматом id
+                var placesList = new List<object>();
+
+                foreach (var document in documents)
+                {
+                    var jsonString = document.ToJson();
+                    var jsonDoc = JsonDocument.Parse(jsonString);
+
+                    // Преобразуем весь документ в словарь
+                    var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString);
+
+                    // Изменяем формат идентификатора
+                    if (dict.ContainsKey("_id"))
+                    {
+                        var idObj = dict["_id"] as JsonElement?;
+                        if (idObj.HasValue && idObj.Value.ValueKind == JsonValueKind.Object)
+                        {
+                            if (idObj.Value.TryGetProperty("$oid", out var oidElement))
+                            {
+                                dict["id"] = oidElement.GetString();
+                            }
+                        }
+                        dict.Remove("_id");
+                    }
+
+                    // При геопоиске поле distance уже добавлено MongoDB, округляем его
+                    if (useGeoSearch && dict.ContainsKey("distance"))
+                    {
+                        if (dict["distance"] is JsonElement distanceElement &&
+                            distanceElement.TryGetDouble(out double distanceValue))
+                        {
+                            dict["distance"] = Math.Round(distanceValue, 2);
+                        }
+                    }
+
+                    placesList.Add(dict);
+                    jsonDoc.Dispose();
+                }
+
+                // Формирование результирующего JSON документа
+                var result = new
+                {
+                    success = true,
+                    data = new
+                    {
+                        totalCount = totalCount,
+                        places = placesList
+                    }
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(result));
+            }
+            catch (Exception ex)
+            {
+                var errorResult = new
+                {
+                    success = false,
+                    error = $"An error occurred: {ex.Message}"
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResult));
+            }
+        }
+
+
     }
 }
 

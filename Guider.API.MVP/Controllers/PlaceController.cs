@@ -201,7 +201,29 @@ namespace Guider.API.MVP.Controllers
             return Ok(JsonSerializer.Deserialize<object>(result.RootElement.GetRawText()));
         }
 
-       
+
+        /// <summary>
+        /// Получить место по URL.
+        /// </summary>
+        /// <remarks>
+        /// Пример запроса:
+        /// 
+        ///     GET /places/url/coffee-house-nicoya
+        /// 
+        /// Пример успешного ответа:
+        /// 
+        ///     {
+        ///         "id": "664b1e2f8f1b2c001e3e4a1a",
+        ///         "name": "Coffee House"
+        ///     }
+        /// </remarks>
+        /// <param name="url">URL места</param>
+        /// <param name="status">Статус (опционально)</param>
+        /// <returns>Объект места или сообщение об ошибке</returns>
+        /// <response code="200">Успешный запрос. Возвращает объект места</response>
+        /// <response code="400">Некорректные параметры запроса</response>
+        /// <response code="404">Место не найдено</response>
+        /// <response code="500">Внутренняя ошибка сервера</response>
         [HttpGet("url/{url}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<ActionResult> GetByUrl([FromRoute] string url, [FromQuery] string status = null)
@@ -253,7 +275,7 @@ namespace Guider.API.MVP.Controllers
         /// Можно фильтровать по статусу и учитывать только открытые заведения.
         /// 
         /// Пример запроса:
-        ///
+        /// 
         ///     GET /places/geo
         ///     Headers:
         ///         X-Latitude: 10.139
@@ -261,9 +283,9 @@ namespace Guider.API.MVP.Controllers
         ///         X-Max-Distance: 5000
         ///         X-Is-Open: true
         ///         X-Status: active
-        ///
+        /// 
         /// Пример успешного ответа (код 200):
-        ///
+        /// 
         ///     [
         ///         {
         ///             "id": "664b1e2f8f1b2c001e3e4a1a",
@@ -276,27 +298,18 @@ namespace Guider.API.MVP.Controllers
         ///             "location": { "lat": 10.139, "lng": -85.452 },
         ///             "img_link": "https://example.com/image.jpg",
         ///             "distance": 1200.5
-        ///         },
-        ///         ...
+        ///         }
         ///     ]
-        ///
-        /// Пример ответа при ошибке (код 400):
-        ///
-        ///     {
-        ///         "error": "Invalid latitude or longitude."
-        ///     }
-        ///
-        /// Пример ответа при внутренней ошибке (код 500):
-        ///
-        ///     {
-        ///         "error": "Ошибка при получении ближайших мест: <текст ошибки>"
-        ///     }
         /// </remarks>
         /// <param name="lat">Широта (по умолчанию 10.539500881521633)</param>
         /// <param name="lng">Долгота (по умолчанию -85.68964788238951)</param>
         /// <param name="maxDistance">Максимальное расстояние в метрах (по умолчанию 10000)</param>
         /// <param name="isOpen">Учитывать только открытые заведения (по умолчанию false)</param>
         /// <param name="status">Статус заведения (опционально)</param>
+        /// <returns>Массив объектов мест с расстоянием до них</returns>
+        /// <response code="200">Успешный запрос. Возвращает массив мест</response>
+        /// <response code="400">Некорректные параметры запроса или координаты</response>
+        /// <response code="500">Внутренняя ошибка сервера</response>
         [HttpGet("geo")]
         public async Task<IActionResult> GetNearbyPlaces(
             [FromHeader(Name = "X-Latitude")] decimal lat = 10.539500881521633m,
@@ -354,7 +367,35 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-         
+        /// <summary>
+        /// Получить места по ключевым словам.
+        /// </summary>
+        /// <remarks>
+        /// Пример запроса:
+        /// 
+        ///     GET /places/keywords?filterKeywords=кофе&amp;filterKeywords=WiFi&amp;lat=10.139&amp;lng=-85.452
+        /// 
+        /// Пример успешного ответа:
+        /// 
+        ///     [
+        ///         {
+        ///             "id": "664b1e2f8f1b2c001e3e4a1a",
+        ///             "name": "Coffee House"
+        ///         }
+        ///     ]
+        /// </remarks>
+        /// <param name="lat">Широта</param>
+        /// <param name="lng">Долгота</param>
+        /// <param name="maxDistanceMeters">Максимальное расстояние в метрах</param>
+        /// <param name="limit">Максимальное количество результатов</param>
+        /// <param name="filterKeywords">Ключевые слова для поиска</param>
+        /// <param name="searchAllKeywords">Искать по всем ключевым словам</param>
+        /// <param name="isOpen">Только открытые</param>
+        /// <param name="status">Статус</param>
+        /// <returns>Список мест</returns>
+        /// <response code="200">Успешный запрос. Возвращает массив мест</response>
+        /// <response code="400">Некорректные параметры запроса или пустой список ключевых слов</response>
+        /// <response code="500">Внутренняя ошибка сервера</response>
         [HttpGet("keywords")]
         public async Task<IActionResult> GetPlacesWithAllKeywords(
             [FromQuery] decimal? lat = 10.539500881521633m,
@@ -443,19 +484,26 @@ namespace Guider.API.MVP.Controllers
 
 
         /// <summary>
-        /// Получить доступные теги, которые еще не выбраны и которые содержатся во описании 
-        /// бизнеосв в выбранной категории.
-        /// Этот метод позволяет получить список доступных тегов, которые можно использовать
-        /// для фильтрации мест. Теги могут быть отфильтрованы по категории и/или с учетом
-        /// уже выбранных тегов. Если категория не указана, возвращаются теги для всех категорий.
-        /// 
-        /// Пример использования:
-        /// - Укажите категорию, чтобы получить теги, относящиеся только к этой категории.
-        /// - Передайте список выбранных тегов, чтобы исключить их из результата.
+        /// Получить доступные теги для мест.
         /// </summary>
-        /// <param name="category">Категория, для которой нужно получить теги (опционально).</param>
-        /// <param name="selectedTags">Список уже выбранных тегов, которые нужно исключить из результата (опционально).</param>
-        /// <returns>Список доступных тегов в формате JSON, обернутый в ApiResponse.</returns>
+        /// <remarks>
+        /// Пример запроса:
+        /// 
+        ///     GET /places/tags-on-places?category=food&amp;selectedTags=кофе&amp;selectedTags=WiFi
+        /// 
+        /// Пример успешного ответа:
+        /// 
+        ///     {
+        ///         "statusCode": 200,
+        ///         "isSuccess": true,
+        ///         "result": [ "кофе", "WiFi", "завтрак" ]
+        ///     }
+        /// </remarks>
+        /// <param name="category">Категория</param>
+        /// <param name="selectedTags">Список выбранных тегов</param>
+        /// <returns>Список доступных тегов</returns>
+        /// <response code="200">Успешный запрос. Возвращает список тегов</response>
+        /// <response code="500">Внутренняя ошибка сервера</response>
         [HttpGet("tags-on-places")]
         public async Task<ActionResult> GetAvailableTags(
            [FromQuery] string? category = null,
@@ -493,7 +541,32 @@ namespace Guider.API.MVP.Controllers
         }
 
 
-       
+        /// <summary>
+        /// Создать новое место.
+        /// </summary>
+        /// <remarks>
+        /// Пример тела запроса:
+        /// 
+        ///     {
+        ///         "name": "New Place",
+        ///         "province": "Guanacaste",
+        ///         "city": "Nicoya",
+        ///         "address": "Main street, Nicoya",
+        ///         "tags": ["кофе", "WiFi"],
+        ///         "location": { "lat": 10.139, "lng": -85.452 },
+        ///         "img_link": "https://example.com/image.jpg"
+        ///     }
+        /// 
+        /// Пример успешного ответа (201):
+        /// 
+        ///     {
+        ///         "id": "664b1e2f8f1b2c001e3e4a1a"
+        ///     }
+        /// </remarks>
+        /// <param name="jsonDocument">Данные нового места (JSON)</param>
+        /// <returns>Созданный объект места</returns>
+        /// <response code="201">Место успешно создано</response>
+        /// <response code="400">Некорректные данные запроса</response>
         [HttpPost]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Create([FromBody] JsonDocument jsonDocument)
@@ -539,7 +612,28 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-        
+        /// <summary>
+        /// Обновить место по идентификатору.
+        /// </summary>
+        /// <remarks>
+        /// Пример тела запроса:
+        /// 
+        ///     {
+        ///         "name": "Updated Place",
+        ///         "tags": ["кофе", "WiFi", "завтрак"]
+        ///     }
+        /// 
+        /// Пример успешного ответа:
+        /// 
+        ///     {
+        ///         "id": "664b1e2f8f1b2c001e3e4a1a"
+        ///     }
+        /// </remarks>
+        /// <param name="id">ID места</param>
+        /// <param name="jsonDocument">Данные для обновления (JSON)</param>
+        /// <returns>Обновленный объект места</returns>
+        /// <response code="200">Место успешно обновлено</response>
+        /// <response code="400">Некорректные данные запроса или ID</response>
         [HttpPut("{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Update(string id, [FromBody] JsonDocument jsonDocument)
@@ -592,6 +686,17 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
+        /// <summary>
+        /// Удалить место по идентификатору.
+        /// </summary>
+        /// <remarks>
+        /// Пример запроса:
+        /// DELETE /places/664b1e2f8f1b2c001e3e4a1a
+        ///
+        /// Пример успешного ответа (204 No Content)
+        /// </remarks>
+        /// <param name="id">ID места</param>
+        /// <returns>204 No Content или сообщение об ошибке</returns>
         [HttpDelete("{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<IActionResult> Delete(string id)
@@ -616,6 +721,84 @@ namespace Guider.API.MVP.Controllers
 
             // Успешное удаление
             return NoContent();
+        }
+
+        [HttpGet("with-geo-status-tags")]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        public async Task<IActionResult> GetPlacesWithGeoWithStatusWithTags(
+            [FromQuery] string q = null,
+            [FromQuery] string province = null,
+            [FromQuery] string city = null,
+            [FromQuery] string name = null,
+            [FromQuery] string url = null,
+            [FromQuery] string category = null,
+            [FromQuery] string status = null,
+            [FromQuery] string tags = null,
+            [FromQuery] string tagsMode = "any",
+            [FromQuery] double? latitude = null,
+            [FromQuery] double? longitude = null,
+            [FromQuery] double? distance = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int perPage = 20,
+            [FromQuery] string sortField = "name",
+            [FromQuery] string sortOrder = "ASC")
+        {
+            var filter = new Dictionary<string, string>();
+
+            // Основные фильтры поиска
+            if (!string.IsNullOrEmpty(q)) filter["q"] = q;
+            if (!string.IsNullOrEmpty(province)) filter["province"] = province;
+            if (!string.IsNullOrEmpty(city)) filter["city"] = city;
+            if (!string.IsNullOrEmpty(name)) filter["name"] = name;
+            if (!string.IsNullOrEmpty(url)) filter["url"] = url;
+            if (!string.IsNullOrEmpty(category)) filter["category"] = category;
+            if (!string.IsNullOrEmpty(status)) filter["status"] = status;
+
+            // Фильтры по тегам
+            if (!string.IsNullOrEmpty(tags)) filter["tags"] = tags;
+            if (!string.IsNullOrEmpty(tagsMode)) filter["tagsMode"] = tagsMode;
+
+            // Геопространственные параметры
+            if (latitude.HasValue) filter["latitude"] = latitude.Value.ToString();
+            if (longitude.HasValue) filter["longitude"] = longitude.Value.ToString();
+            if (distance.HasValue) filter["distance"] = distance.Value.ToString();
+
+            // Параметры сортировки и пагинации
+            filter["_sort"] = sortField;
+            filter["_order"] = sortOrder;
+            filter["page"] = page.ToString();
+            filter["perPage"] = perPage.ToString();
+
+            try
+            {
+                var result = await _placeService.GetPlacesWithGeoWithStatusWithTagsAsync(filter);
+
+                if (result.RootElement.TryGetProperty("success", out var successElement) &&
+                    successElement.GetBoolean())
+                {
+                    var dataElement = result.RootElement.GetProperty("data");
+                    var totalCount = dataElement.GetProperty("totalCount").GetInt64();
+                    var placesElement = dataElement.GetProperty("places");
+
+                    // Добавляем заголовки для пагинации
+                    Response.Headers.Add("X-Total-Count", totalCount.ToString());
+                    Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
+
+                    // Десериализуем массив мест
+                    var placesArray = JsonSerializer.Deserialize<object[]>(placesElement.GetRawText());
+
+                    return Ok(placesArray);
+                }
+                else
+                {
+                    var errorMessage = result.RootElement.GetProperty("error").GetString();
+                    return BadRequest(new { error = errorMessage });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = $"Ошибка при получении списка мест с геопоиском: {ex.Message}" });
+            }
         }
     }
 }
