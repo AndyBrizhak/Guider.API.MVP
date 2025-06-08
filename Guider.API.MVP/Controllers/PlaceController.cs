@@ -468,7 +468,7 @@ namespace Guider.API.MVP.Controllers
         /// <response code="201">Место успешно создано</response>
         /// <response code="400">Некорректные данные запроса</response>
         [HttpPost]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Create([FromBody] JsonDocument jsonDocument)
         {
             try
@@ -535,7 +535,7 @@ namespace Guider.API.MVP.Controllers
         /// <response code="200">Место успешно обновлено</response>
         /// <response code="400">Некорректные данные запроса или ID</response>
         [HttpPut("{id}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> Update(string id, [FromBody] JsonDocument jsonDocument)
         {
             try
@@ -598,7 +598,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="id">ID места</param>
         /// <returns>204 No Content или сообщение об ошибке</returns>
         [HttpDelete("{id}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
         public async Task<IActionResult> Delete(string id)
         {
             var deleteResult = await _placeService.DeleteAsync(id);
