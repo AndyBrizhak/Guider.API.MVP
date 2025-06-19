@@ -70,7 +70,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="sortOrder">Порядок сортировки: ASC или DESC (по умолчанию ASC)</param>
         /// <returns>Массив объектов мест</returns>
         [HttpGet]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         public async Task<IActionResult> GetPlaces(
         [FromQuery] string q = null,
         [FromQuery] string province = null,
