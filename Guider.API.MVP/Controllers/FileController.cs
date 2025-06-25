@@ -26,85 +26,85 @@ namespace Guider.API.MVP.Controllers
         /// <param name="file">Файл для загрузки</param>
         /// <param name="fileName">Имя файла (без расширения)</param>
         /// <returns>URL файла или сообщение об ошибке</returns>
-        [HttpPost("upload")]
-        [Consumes("multipart/form-data")]
-        public async Task<IActionResult> UploadFile(IFormFile file, [FromForm] string fileName)
-        {
-            try
-            {
-                if (file == null || file.Length == 0)
-                {
-                    return BadRequest("Файл не выбран");
-                }
+        //[HttpPost("upload")]
+        //[Consumes("multipart/form-data")]
+        //public async Task<IActionResult> UploadFile(IFormFile file, [FromForm] string fileName)
+        //{
+        //    try
+        //    {
+        //        if (file == null || file.Length == 0)
+        //        {
+        //            return BadRequest("Файл не выбран");
+        //        }
 
-                if (string.IsNullOrEmpty(fileName))
-                {
-                    return BadRequest("Имя файла не указано");
-                }
+        //        if (string.IsNullOrEmpty(fileName))
+        //        {
+        //            return BadRequest("Имя файла не указано");
+        //        }
 
-                // Получаем расширение из оригинального файла
-                var fileExtension = Path.GetExtension(file.FileName);
-                if (string.IsNullOrEmpty(fileExtension))
-                {
-                    return BadRequest("Не удалось определить расширение файла");
-                }
+        //        // Получаем расширение из оригинального файла
+        //        var fileExtension = Path.GetExtension(file.FileName);
+        //        if (string.IsNullOrEmpty(fileExtension))
+        //        {
+        //            return BadRequest("Не удалось определить расширение файла");
+        //        }
 
-                // Генерируем уникальное имя файла если не указано
-                var uniqueFileName = string.IsNullOrEmpty(fileName)
-                    ? Guid.NewGuid().ToString()
-                    : fileName;
+        //        // Генерируем уникальное имя файла если не указано
+        //        var uniqueFileName = string.IsNullOrEmpty(fileName)
+        //            ? Guid.NewGuid().ToString()
+        //            : fileName;
 
-                var result = await _minioService.UploadFileAsync(file, uniqueFileName, fileExtension);
+        //        var result = await _minioService.UploadFileAsync(file, uniqueFileName, fileExtension);
 
-                // Проверяем, является ли результат URL (успешная загрузка) или сообщением об ошибке
-                if (result.StartsWith("http://") || result.StartsWith("https://"))
-                {
-                    return Ok(new { success = true, url = result, message = "Файл успешно загружен" });
-                }
-                else
-                {
-                    return BadRequest(new { success = false, message = result });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Ошибка при загрузке файла");
-                return StatusCode(500, new { success = false, message = "Внутренняя ошибка сервера" });
-            }
-        }
+        //        // Проверяем, является ли результат URL (успешная загрузка) или сообщением об ошибке
+        //        if (result.StartsWith("http://") || result.StartsWith("https://"))
+        //        {
+        //            return Ok(new { success = true, url = result, message = "Файл успешно загружен" });
+        //        }
+        //        else
+        //        {
+        //            return BadRequest(new { success = false, message = result });
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Ошибка при загрузке файла");
+        //        return StatusCode(500, new { success = false, message = "Внутренняя ошибка сервера" });
+        //    }
+        //}
 
         /// <summary>
         /// Удаляет файл из хранилища
         /// </summary>
         /// <param name="fileUrl">URL файла для удаления</param>
         /// <returns>Результат операции</returns>
-        [HttpDelete("delete")]
-        public async Task<IActionResult> DeleteFile([FromQuery] string fileUrl)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(fileUrl))
-                {
-                    return BadRequest(new { success = false, message = "URL файла не указан" });
-                }
+        //[HttpDelete("delete")]
+        //public async Task<IActionResult> DeleteFile([FromQuery] string fileUrl)
+        //{
+        //    try
+        //    {
+        //        if (string.IsNullOrEmpty(fileUrl))
+        //        {
+        //            return BadRequest(new { success = false, message = "URL файла не указан" });
+        //        }
 
-                var result = await _minioService.DeleteFileAsync(fileUrl);
+        //        var result = await _minioService.DeleteFileAsync(fileUrl);
 
-                if (result == "Файл успешно удален")
-                {
-                    return Ok(new { success = true, message = result });
-                }
-                else
-                {
-                    return BadRequest(new { success = false, message = result });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Ошибка при удалении файла");
-                return StatusCode(500, new { success = false, message = "Внутренняя ошибка сервера" });
-            }
-        }
+        //        if (result == "Файл успешно удален")
+        //        {
+        //            return Ok(new { success = true, message = result });
+        //        }
+        //        else
+        //        {
+        //            return BadRequest(new { success = false, message = result });
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Ошибка при удалении файла");
+        //        return StatusCode(500, new { success = false, message = "Внутренняя ошибка сервера" });
+        //    }
+        //}
 
         /// <summary>
         /// Проверяет существование файла
