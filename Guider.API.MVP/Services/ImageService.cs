@@ -11,10 +11,14 @@ namespace Guider.API.MVP.Services
     {
         private readonly string _baseImagePath;
         private readonly IMongoCollection<BsonDocument> _imageCollection;
+        private readonly IMinioService _minioService;
 
-        public ImageService(IConfiguration configuration, IOptions<MongoDbSettings> mongoSettings)
+        public ImageService(IConfiguration configuration, 
+                            IOptions<MongoDbSettings> mongoSettings, 
+                            IMinioService minioService)
         {
             _baseImagePath = configuration["StaticFiles:ImagesPath"] ?? "wwwroot/images";
+            _minioService = minioService;
 
             if (!Directory.Exists(_baseImagePath))
             {
@@ -125,10 +129,10 @@ namespace Guider.API.MVP.Services
             // Определяем путь для хранения изображения
             string directoryPath = BuildDirectoryPath(province, city, place);
 
-            if (!Directory.Exists(directoryPath))
-            {
-                Directory.CreateDirectory(directoryPath);
-            }
+            //if (!Directory.Exists(directoryPath))
+            //{
+            //    Directory.CreateDirectory(directoryPath);
+            //}
 
             // Проверка на дубликаты имен файлов в MongoDB
             string imageNameWithoutExtension = Path.GetFileNameWithoutExtension(imageName);
@@ -155,11 +159,24 @@ namespace Guider.API.MVP.Services
 
             try
             {
-                // Сохраняем файл на диск
-                using (var fileStream = new FileStream(fullPath, FileMode.Create))
+                // Загружаем файл в MinIO
+                var uploadResult = await _minioService.UploadFileAsync(imageFile, imageNameWithoutExtension, fileExtension);
+
+                // Проверяем, что загрузка прошла успешно
+                if (uploadResult.StartsWith("Ошибка"))
                 {
-                    await imageFile.CopyToAsync(fileStream);
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new
+                    {
+                        Success = false,
+                        Message = uploadResult
+                    }));
                 }
+
+                // Сохраняем файл на диск
+                //using (var fileStream = new FileStream(fullPath, FileMode.Create))
+                //{
+                //    await imageFile.CopyToAsync(fileStream);
+                //}
 
                 // Создаем запись в MongoDB
                 var imageRecord = new BsonDocument
@@ -265,18 +282,33 @@ namespace Guider.API.MVP.Services
                 };
 
                 // Удаляем файл с диска, если он существует
-                string filePath = imageRecord["FilePath"].AsString;
-                string absolutePath = Path.Combine(_baseImagePath, filePath);
+                //string filePath = imageRecord["FilePath"].AsString;
+                //string absolutePath = Path.Combine(_baseImagePath, filePath);
 
-                if (File.Exists(absolutePath))
+                //if (File.Exists(absolutePath))
+                //{
+                //    File.Delete(absolutePath);
+                //}
+
+                // Получаем URL файла из записи MongoDB
+                string fileUrl = imageRecord["FilePath"].AsString;
+
+                // Удаляем файл из MinIO
+                var deleteResult = await _minioService.DeleteFileAsync(fileUrl);
+
+                // Проверяем результат удаления из MinIO (логируем, но не останавливаем процесс)
+                if (deleteResult.StartsWith("Ошибка"))
                 {
-                    File.Delete(absolutePath);
+                    // Файл может быть уже удален или не существовать, продолжаем удаление записи из БД
+                    Console.WriteLine($"Предупреждение при удалении файла из MinIO: {deleteResult}");
                 }
 
                 // Удаляем запись из MongoDB
-                var deleteResult = await _imageCollection.DeleteOneAsync(filter);
+                //var deleteResult = await _imageCollection.DeleteOneAsync(filter);
+                var mongoDeleteResult = await _imageCollection.DeleteOneAsync(filter);
 
-                if (deleteResult.DeletedCount == 0)
+                //if (deleteResult.DeletedCount == 0)
+                if (mongoDeleteResult.DeletedCount == 0)
                 {
                     var deleteFailResponse = new Dictionary<string, object>
                     {
