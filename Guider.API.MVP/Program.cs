@@ -250,6 +250,35 @@ builder.Services.AddSwaggerGen(c =>
     c.OperationFilter<FileUploadOperationFilter>();
 });
 
+// Конфигурация MinIO
+builder.Services.Configure<MinioSettings>(
+    builder.Configuration.GetSection("MinioSettings"));
+
+// Валидация конфигурации MinIO
+var minioSettings = builder.Configuration.GetSection("MinioSettings").Get<MinioSettings>();
+if (minioSettings == null || string.IsNullOrEmpty(minioSettings.Endpoint) ||
+    string.IsNullOrEmpty(minioSettings.AccessKey) || string.IsNullOrEmpty(minioSettings.SecretKey))
+{
+    throw new InvalidOperationException(
+        "MinIO settings are not properly configured. " +
+        "Please check MinioSettings section in appsettings.json");
+}
+
+// Регистрация MinIO сервиса
+builder.Services.AddScoped<IMinioService, MinioService>();
+
+// Диагностика MinIO настроек (только в Development)
+if (builder.Environment.IsDevelopment())
+{
+    Console.WriteLine($"✅ MinIO Endpoint: {minioSettings.Endpoint}:{minioSettings.Port}");
+    Console.WriteLine($"✅ MinIO Bucket: {minioSettings.BucketName}");
+    Console.WriteLine($"✅ MinIO SSL: {minioSettings.UseSSL}");
+    var maskedAccessKey = minioSettings.AccessKey.Length > 10
+        ? $"{minioSettings.AccessKey.Substring(0, 10)}..."
+        : minioSettings.AccessKey;
+    Console.WriteLine($"✅ MinIO Access Key: {maskedAccessKey}");
+}
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -264,6 +293,8 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine("Миграция завершена.");
     }
 }
+
+
 
 
 
