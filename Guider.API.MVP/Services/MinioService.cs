@@ -22,10 +22,11 @@ namespace Guider.API.MVP.Services
 
             // Создаем MinIO клиент
             _minioClient = new MinioClient()
-                .WithEndpoint(_minioSettings.Endpoint)
-                .WithCredentials(_minioSettings.AccessKey, _minioSettings.SecretKey)
-                .WithSSL(_minioSettings.UseSSL)
-                .Build();
+            .WithEndpoint(_minioSettings.Endpoint, _minioSettings.Port)
+            .WithCredentials(_minioSettings.AccessKey, _minioSettings.SecretKey)
+            .WithSSL(_minioSettings.UseSSL)
+            .Build();
+
 
             // Инициализируем bucket при создании сервиса
             _ = Task.Run(async () => await EnsureBucketExistsAsync());
@@ -50,7 +51,7 @@ namespace Guider.API.MVP.Services
                 }
 
                 // Формируем полное имя файла с расширением
-                var fullFileName = $"{fileName}.{fileExtension.TrimStart('.')}";
+                var fullFileName = $"public/{fileName}.{fileExtension.TrimStart('.')}";
 
                 // Определяем Content-Type
                 var contentType = GetContentType(fileExtension);
@@ -68,11 +69,12 @@ namespace Guider.API.MVP.Services
                     .WithObjectSize(file.Length)
                     .WithContentType(contentType);
 
-                await _minioClient.PutObjectAsync(putObjectArgs);
+               var response = await _minioClient.PutObjectAsync(putObjectArgs);
 
                 // Возвращаем URL файла
-                var fileUrl = GetFileUrl(fullFileName);
-                _logger.LogInformation($"Файл {fullFileName} успешно загружен в MinIO");
+                
+                _logger.LogInformation($"Ответ от MinIO: Size={response.Size}, ETag={response.Etag}");
+                var fileUrl = $"{_minioSettings.Endpoint}/{_minioSettings.BucketName}/{fullFileName}";
 
                 return fileUrl;
             }
@@ -152,7 +154,7 @@ namespace Guider.API.MVP.Services
         public string GetFileUrl(string fileName)
         {
             var protocol = _minioSettings.UseSSL ? "https" : "http";
-            var port = _minioSettings.Port.HasValue ? $":{_minioSettings.Port}" : "";
+            var port = _minioSettings.Port/*.HasValue ? $":{_minioSettings.Port}" : ""*/;
             return $"{protocol}://{_minioSettings.Endpoint}{port}/{_minioSettings.BucketName}/{fileName}";
         }
 
@@ -238,7 +240,7 @@ namespace Guider.API.MVP.Services
     public class MinioSettings
     {
         public string Endpoint { get; set; } = string.Empty;
-        public int? Port { get; set; }
+        public int Port { get; set; }
         public string AccessKey { get; set; } = string.Empty;
         public string SecretKey { get; set; } = string.Empty;
         public string BucketName { get; set; } = "uploads";
