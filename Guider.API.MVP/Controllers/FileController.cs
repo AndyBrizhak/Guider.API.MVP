@@ -111,13 +111,36 @@ namespace Guider.API.MVP.Controllers
         /// </summary>
         /// <param name="fileName">Имя файла</param>
         /// <returns>Результат проверки</returns>
+        //[HttpGet("exists/{fileName}")]
+        //public async Task<IActionResult> CheckFileExists(string fileName)
+        //{
+        //    try
+        //    {
+        //        var exists = await _minioService.FileExistsAsync(fileName);
+        //        return Ok(new { exists = exists, fileName = fileName });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, $"Ошибка при проверке существования файла {fileName}");
+        //        return StatusCode(500, new { success = false, message = "Внутренняя ошибка сервера" });
+        //    }
+        //}
+
         [HttpGet("exists/{fileName}")]
         public async Task<IActionResult> CheckFileExists(string fileName)
         {
             try
             {
                 var exists = await _minioService.FileExistsAsync(fileName);
-                return Ok(new { exists = exists, fileName = fileName });
+
+                if (exists)
+                {
+                    return Ok(new { exists = true, fileName = fileName });
+                }
+                else
+                {
+                    return NotFound(new { exists = false, fileName = fileName, message = "Файл не найден в хранилище" });
+                }
             }
             catch (Exception ex)
             {

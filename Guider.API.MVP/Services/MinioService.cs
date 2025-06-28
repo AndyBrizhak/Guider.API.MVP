@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Options;
 using Minio;
 using Minio.DataModel.Args;
+using Minio.Exceptions;
 using System.Net;
 
 namespace Guider.API.MVP.Services
@@ -131,6 +132,22 @@ namespace Guider.API.MVP.Services
         /// <summary>
         /// Проверяет существование файла в хранилище
         /// </summary>
+        //public async Task<bool> FileExistsAsync(string fileName)
+        //{
+        //    try
+        //    {
+        //        var statObjectArgs = new StatObjectArgs()
+        //            .WithBucket(_minioSettings.BucketName)
+        //            .WithObject(fileName);
+
+        //        await _minioClient.StatObjectAsync(statObjectArgs);
+        //        return true;
+        //    }
+        //    catch (Exception)
+        //    {
+        //        return false;
+        //    }
+        //}
         public async Task<bool> FileExistsAsync(string fileName)
         {
             try
@@ -139,11 +156,25 @@ namespace Guider.API.MVP.Services
                     .WithBucket(_minioSettings.BucketName)
                     .WithObject(fileName);
 
-                await _minioClient.StatObjectAsync(statObjectArgs);
-                return true;
+                var result = await _minioClient.StatObjectAsync(statObjectArgs);
+
+                // Логируем успешный результат
+                _logger.LogInformation($"Файл {fileName} найден в хранилище. Размер: {result.Size} байт, последнее изменение: {result.LastModified}");
+
+                // Проверяем истинность результата (если StatObjectAsync выполнился без исключения, файл существует)
+                bool fileExists = result != null;
+                _logger.LogDebug($"Результат проверки существования файла {fileName}: {fileExists}");
+
+                return fileExists;
             }
-            catch (Exception)
+            catch (ObjectNotFoundException ex)
             {
+                _logger.LogInformation($"Файл {fileName} не найден в хранилище MinIO");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Ошибка при проверке существования файла {fileName} в MinIO");
                 return false;
             }
         }
