@@ -40,27 +40,50 @@ namespace Guider.API.MVP.Services
         {
             try
             {
+                _logger.LogInformation($"Начало загрузки файла: {fileName}.{fileExtension}");
+
+                // Базовые проверки файла
                 if (file == null || file.Length == 0)
                 {
+                    _logger.LogWarning("Попытка загрузки пустого файла или файл не выбран");
                     return "Ошибка: Файл не выбран или пустой";
                 }
 
                 // Проверяем размер файла (максимум 10MB)
                 if (file.Length > 10 * 1024 * 1024)
                 {
+                    _logger.LogWarning($"Размер файла {fileName} превышает лимит: {file.Length} байт (максимум 10MB)");
                     return "Ошибка: Размер файла превышает 10MB";
                 }
 
+                _logger.LogInformation($"Размер файла: {file.Length} байт, Content-Type: {file.ContentType}");
+
                 // Формируем полное имя файла с расширением
                 var fullFileName = $"public/{fileName}.{fileExtension.TrimStart('.')}";
+                _logger.LogInformation($"Полное имя файла в хранилище: {fullFileName}");
+
+                // Проверяем существование файла перед загрузкой
+                _logger.LogInformation($"Проверка существования файла {fullFileName} перед загрузкой...");
+                var fileExistsBefore = await FileExistsAsync(fullFileName);
+
+                if (fileExistsBefore)
+                {
+                    _logger.LogWarning($"Файл {fullFileName} уже существует в хранилище. Загрузка отменена.");
+                    return "Ошибка: Файл с таким именем уже существует в хранилище";
+                }
+
+                _logger.LogInformation($"Файл {fullFileName} не существует, продолжаем загрузку");
 
                 // Определяем Content-Type
                 var contentType = GetContentType(fileExtension);
+                _logger.LogInformation($"Определен Content-Type: {contentType}");
 
                 // Проверяем существование bucket
+                _logger.LogInformation("Проверка существования bucket...");
                 await EnsureBucketExistsAsync();
 
                 // Загружаем файл
+                _logger.LogInformation($"Начинаем загрузку файла в MinIO...");
                 using var stream = file.OpenReadStream();
 
                 var putObjectArgs = new PutObjectArgs()
@@ -70,18 +93,44 @@ namespace Guider.API.MVP.Services
                     .WithObjectSize(file.Length)
                     .WithContentType(contentType);
 
-               var response = await _minioClient.PutObjectAsync(putObjectArgs);
+                var response = await _minioClient.PutObjectAsync(putObjectArgs);
 
-                // Возвращаем URL файла
-                
-                _logger.LogInformation($"Ответ от MinIO: Size={response.Size}, ETag={response.Etag}");
-                var fileUrl = $"{_minioSettings.Endpoint}/{_minioSettings.BucketName}/{fullFileName}";
+                // Логируем все доступные свойства ответа от MinIO
+                _logger.LogInformation($"Файл успешно загружен в MinIO:");
+                _logger.LogInformation($"  - Размер: {response.Size} байт");
+                _logger.LogInformation($"  - ETag: {response.Etag}");
+                _logger.LogInformation($"  - Bucket: {_minioSettings.BucketName}");
+                _logger.LogInformation($"  - Object Name: {fullFileName}");
+                _logger.LogInformation($"  - Content-Type: {contentType}");
+
+                // Проверяем существование файла после загрузки
+                _logger.LogInformation($"Проверка существования файла {fullFileName} после загрузки...");
+                var fileExistsAfter = await FileExistsAsync(fullFileName);
+
+                if (!fileExistsAfter)
+                {
+                    _logger.LogError($"Файл {fullFileName} не найден в хранилище после загрузки!");
+                    return "Ошибка: Файл не был сохранен в хранилище";
+                }
+
+                _logger.LogInformation($"Файл {fullFileName} успешно сохранен и подтвержден в хранилище");
+
+                // Формируем полный URL файла с правильным протоколом и портом
+                var protocol = _minioSettings.UseSSL ? "https" : "http";
+                var portPart = _minioSettings.Port > 0 ? $":{_minioSettings.Port}" : "";
+                var fileUrl = $"{protocol}://{_minioSettings.Endpoint}{portPart}/{_minioSettings.BucketName}/{fullFileName}";
+
+                _logger.LogInformation($"Сформирован URL файла: {fileUrl}");
+                _logger.LogInformation($"Загрузка файла {fileName}.{fileExtension} завершена успешно");
 
                 return fileUrl;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Ошибка при загрузке файла {fileName}");
+                _logger.LogError(ex, $"Критическая ошибка при загрузке файла {fileName}: {ex.Message}");
+                _logger.LogError($"Тип исключения: {ex.GetType().Name}");
+                _logger.LogError($"Stack Trace: {ex.StackTrace}");
+
                 return $"Ошибка при загрузке файла: {ex.Message}";
             }
         }
@@ -129,52 +178,55 @@ namespace Guider.API.MVP.Services
             }
         }
 
+        
         /// <summary>
         /// Проверяет существование файла в хранилище
         /// </summary>
-        //public async Task<bool> FileExistsAsync(string fileName)
-        //{
-        //    try
-        //    {
-        //        var statObjectArgs = new StatObjectArgs()
-        //            .WithBucket(_minioSettings.BucketName)
-        //            .WithObject(fileName);
-
-        //        await _minioClient.StatObjectAsync(statObjectArgs);
-        //        return true;
-        //    }
-        //    catch (Exception)
-        //    {
-        //        return false;
-        //    }
-        //}
+        /// <param name="fileName">Имя файла для проверки</param>
+        /// <returns>True если файл существует, False если не существует</returns>
         public async Task<bool> FileExistsAsync(string fileName)
         {
             try
             {
+                _logger.LogDebug($"Проверка существования файла: {fileName}");
+
                 var statObjectArgs = new StatObjectArgs()
                     .WithBucket(_minioSettings.BucketName)
                     .WithObject(fileName);
 
                 var result = await _minioClient.StatObjectAsync(statObjectArgs);
 
-                // Логируем успешный результат
-                _logger.LogInformation($"Файл {fileName} найден в хранилище. Размер: {result.Size} байт, последнее изменение: {result.LastModified}");
+                // Файл найден - логируем детали
+                _logger.LogDebug($"Файл {fileName} найден в хранилище. Размер: {result.Size} байт, последнее изменение: {result.LastModified}");
 
-                // Проверяем истинность результата (если StatObjectAsync выполнился без исключения, файл существует)
+                // Дополнительная проверка на случай, если результат null (хотя это маловероятно)
                 bool fileExists = result != null;
                 _logger.LogDebug($"Результат проверки существования файла {fileName}: {fileExists}");
 
                 return fileExists;
             }
-            catch (ObjectNotFoundException ex)
+            catch (ObjectNotFoundException)
             {
-                _logger.LogInformation($"Файл {fileName} не найден в хранилище MinIO");
+                // Это нормальная ситуация - файл просто не существует
+                _logger.LogDebug($"Файл {fileName} не найден в хранилище MinIO (это нормально)");
+                return false;
+            }
+            catch (BucketNotFoundException)
+            {
+                // Bucket не существует - это тоже не критическая ошибка для проверки файла
+                _logger.LogWarning($"Bucket '{_minioSettings.BucketName}' не найден при проверке файла {fileName}");
+                return false;
+            }
+            catch (MinioException minioEx)
+            {
+                // Специфичные ошибки MinIO - логируем как предупреждения
+                _logger.LogWarning(minioEx, $"MinIO ошибка при проверке существования файла {fileName}: {minioEx.Message}");
                 return false;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Ошибка при проверке существования файла {fileName} в MinIO");
+                // Только неожиданные системные ошибки логируем как ошибки
+                _logger.LogError(ex, $"Неожиданная системная ошибка при проверке существования файла {fileName} в MinIO: {ex.Message}");
                 return false;
             }
         }
@@ -185,8 +237,12 @@ namespace Guider.API.MVP.Services
         public string GetFileUrl(string fileName)
         {
             var protocol = _minioSettings.UseSSL ? "https" : "http";
-            var port = _minioSettings.Port/*.HasValue ? $":{_minioSettings.Port}" : ""*/;
-            return $"{protocol}://{_minioSettings.Endpoint}{port}/{_minioSettings.BucketName}/{fileName}";
+            var portPart = _minioSettings.Port > 0 ? $":{_minioSettings.Port}" : "";
+            var fileUrl = $"{protocol}://{_minioSettings.Endpoint}{portPart}/{_minioSettings.BucketName}/{fileName}";
+
+            _logger.LogDebug($"Сформирован URL для файла {fileName}: {fileUrl}");
+
+            return fileUrl;
         }
 
         /// <summary>
