@@ -138,27 +138,39 @@ namespace Guider.API.MVP.Services
         /// <summary>
         /// Удаляет файл из MinIO хранилища по URL
         /// </summary>
-        public async Task<string> DeleteFileAsync(string fileUrl)
+        public async Task<DeleteFileResult> DeleteFileAsync(string fileUrl)
         {
             try
             {
                 if (string.IsNullOrEmpty(fileUrl))
                 {
-                    return "Ошибка: URL файла не указан";
+                    return new DeleteFileResult
+                    {
+                        IsDeleted = false,
+                        Message = "URL файла не указан"
+                    };
                 }
 
                 // Извлекаем имя файла из URL
                 var fileName = ExtractFileNameFromUrl(fileUrl);
                 if (string.IsNullOrEmpty(fileName))
                 {
-                    return "Ошибка: Не удалось извлечь имя файла из URL";
+                    return new DeleteFileResult
+                    {
+                        IsDeleted = false,
+                        Message = "Не удалось извлечь имя файла из URL"
+                    };
                 }
 
                 // Проверяем существование файла
                 var exists = await FileExistsAsync(fileName);
                 if (!exists)
                 {
-                    return "Файл не найден в хранилище";
+                    return new DeleteFileResult
+                    {
+                        IsDeleted = false,
+                        Message = "Файл не найден в хранилище MinIO"
+                    };
                 }
 
                 // Удаляем файл
@@ -169,16 +181,25 @@ namespace Guider.API.MVP.Services
                 await _minioClient.RemoveObjectAsync(removeObjectArgs);
 
                 _logger.LogInformation($"Файл {fileName} успешно удален из MinIO");
-                return "Файл успешно удален";
+
+                return new DeleteFileResult
+                {
+                    IsDeleted = true,
+                    Message = "Файл успешно удален из хранилища MinIO"
+                };
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Ошибка при удалении файла по URL: {fileUrl}");
-                return $"Ошибка при удалении файла: {ex.Message}";
+                return new DeleteFileResult
+                {
+                    IsDeleted = false,
+                    Message = $"Ошибка при удалении файла из хранилища: {ex.Message}"
+                };
             }
         }
 
-        
+
         /// <summary>
         /// Проверяет существование файла в хранилище
         /// </summary>
@@ -293,21 +314,25 @@ namespace Guider.API.MVP.Services
                 _ => "application/octet-stream"
             };
         }
-
+                
         /// <summary>
-        /// Извлекает имя файла из URL
+        /// Извлекает имя файла из URL с учетом структуры папок (провинция/город/место/файл)
         /// </summary>
         private string ExtractFileNameFromUrl(string fileUrl)
         {
             try
             {
                 var uri = new Uri(fileUrl);
-                var segments = uri.Segments;
+                var path = uri.AbsolutePath; // Получаем полный путь без домена
 
-                // Последний сегмент должен быть именем файла
-                if (segments.Length > 0)
+                // Убираем начальный слеш и название bucket
+                var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+                // Первый сегмент обычно bucket name, остальные - это наш путь
+                if (segments.Length > 1)
                 {
-                    var fileName = segments[segments.Length - 1];
+                    // Собираем путь начиная со второго элемента (пропускаем bucket name)
+                    var fileName = string.Join("/", segments.Skip(1));
                     return WebUtility.UrlDecode(fileName);
                 }
 
@@ -318,6 +343,15 @@ namespace Guider.API.MVP.Services
                 _logger.LogError(ex, $"Ошибка при извлечении имени файла из URL: {fileUrl}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Результат удаления файла из MinIO хранилища
+        /// </summary>
+        public class DeleteFileResult
+        {
+            public bool IsDeleted { get; set; }
+            public string Message { get; set; } = string.Empty;
         }
     }
 
@@ -333,4 +367,6 @@ namespace Guider.API.MVP.Services
         public string BucketName { get; set; } = "uploads";
         public bool UseSSL { get; set; } = false;
     }
+
+    
 }

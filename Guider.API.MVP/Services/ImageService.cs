@@ -244,7 +244,7 @@ namespace Guider.API.MVP.Services
                     var notFoundResponse = new Dictionary<string, object>
                     {
                         ["Success"] = false,
-                        ["Message"] = "Изображение не найдено"
+                        ["Message"] = "Изображение не найдено в базе данных"
                     };
 
                     var notFoundJson = JsonSerializer.Serialize(notFoundResponse, new JsonSerializerOptions
@@ -274,63 +274,82 @@ namespace Guider.API.MVP.Services
                     DeletedDate = DateTime.UtcNow
                 };
 
-                // Удаляем файл с диска, если он существует
-                //string filePath = imageRecord["FilePath"].AsString;
-                //string absolutePath = Path.Combine(_baseImagePath, filePath);
-
-                //if (File.Exists(absolutePath))
-                //{
-                //    File.Delete(absolutePath);
-                //}
-
                 // Получаем URL файла из записи MongoDB
                 string fileUrl = imageRecord["FilePath"].AsString;
 
                 // Удаляем файл из MinIO
-                var deleteResult = await _minioService.DeleteFileAsync(fileUrl);
-
-                // Проверяем результат удаления из MinIO (логируем, но не останавливаем процесс)
-                if (deleteResult.StartsWith("Ошибка"))
-                {
-                    // Файл может быть уже удален или не существовать, продолжаем удаление записи из БД
-                    Console.WriteLine($"Предупреждение при удалении файла из MinIO: {deleteResult}");
-                }
+                var minioDeleteResult = await _minioService.DeleteFileAsync(fileUrl);
 
                 // Удаляем запись из MongoDB
-                //var deleteResult = await _imageCollection.DeleteOneAsync(filter);
                 var mongoDeleteResult = await _imageCollection.DeleteOneAsync(filter);
 
-                //if (deleteResult.DeletedCount == 0)
-                if (mongoDeleteResult.DeletedCount == 0)
+                // Формируем детальный результат операции
+                string finalMessage;
+                bool operationSuccess = false;
+
+                if (mongoDeleteResult.DeletedCount > 0)
                 {
-                    var deleteFailResponse = new Dictionary<string, object>
+                    if (minioDeleteResult.IsDeleted)
                     {
-                        ["Success"] = false,
-                        ["Message"] = "Не удалось удалить запись из базы данных"
-                    };
-
-                    var deleteFailJson = JsonSerializer.Serialize(deleteFailResponse, new JsonSerializerOptions
+                        // Успешно удалено и из БД, и из хранилища
+                        finalMessage = "Изображение успешно удалено из базы данных и хранилища";
+                        operationSuccess = true;
+                    }
+                    else
                     {
-                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                    });
-
-                    return JsonDocument.Parse(deleteFailJson);
+                        // Удалено из БД, но проблемы с хранилищем
+                        finalMessage = $"Изображение удалено из базы данных, но возникла проблема с удалением из хранилища: {minioDeleteResult.Message}";
+                        operationSuccess = true; // Считаем успешным, так как основная запись удалена
+                    }
+                }
+                else
+                {
+                    if (minioDeleteResult.IsDeleted)
+                    {
+                        // Удалено из хранилища, но проблемы с БД
+                        finalMessage = "Файл удален из хранилища, но не удалось удалить запись из базы данных";
+                        operationSuccess = false;
+                    }
+                    else
+                    {
+                        // Проблемы и с БД, и с хранилищем
+                        finalMessage = $"Не удалось удалить запись из базы данных. Проблема с хранилищем: {minioDeleteResult.Message}";
+                        operationSuccess = false;
+                    }
                 }
 
-                // Успешное удаление
-                var successResponse = new Dictionary<string, object>
+                var response = new Dictionary<string, object>
                 {
-                    ["Success"] = true,
-                    ["Message"] = "Изображение и запись успешно удалены",
-                    ["ImageInfo"] = imageInfo
+                    ["Success"] = operationSuccess,
+                    ["Message"] = finalMessage,
+                    ["Details"] = new Dictionary<string, object>
+                    {
+                        ["DatabaseDeletion"] = new Dictionary<string, object>
+                        {
+                            ["Success"] = mongoDeleteResult.DeletedCount > 0,
+                            ["Message"] = mongoDeleteResult.DeletedCount > 0
+                                ? "Запись успешно удалена из базы данных"
+                                : "Не удалось удалить запись из базы данных"
+                        },
+                        ["StorageDeletion"] = new Dictionary<string, object>
+                        {
+                            ["Success"] = minioDeleteResult.IsDeleted,
+                            ["Message"] = minioDeleteResult.Message
+                        }
+                    }
                 };
 
-                var successJson = JsonSerializer.Serialize(successResponse, new JsonSerializerOptions
+                if (operationSuccess)
+                {
+                    response["ImageInfo"] = imageInfo;
+                }
+
+                var responseJson = JsonSerializer.Serialize(response, new JsonSerializerOptions
                 {
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 });
 
-                return JsonDocument.Parse(successJson);
+                return JsonDocument.Parse(responseJson);
             }
             catch (UnauthorizedAccessException ex)
             {
@@ -379,7 +398,7 @@ namespace Guider.API.MVP.Services
             }
         }
 
-       public async Task<JsonDocument> GetImagesAsync(Dictionary<string, string> filter = null)
+        public async Task<JsonDocument> GetImagesAsync(Dictionary<string, string> filter = null)
         {
             try
             {
