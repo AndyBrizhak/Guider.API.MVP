@@ -59,7 +59,7 @@ namespace Guider.API.MVP.Services
                 _logger.LogInformation($"Размер файла: {file.Length} байт, Content-Type: {file.ContentType}");
 
                 // Формируем полное имя файла с расширением
-                var fullFileName = $"public/{fileName}.{fileExtension.TrimStart('.')}";
+                var fullFileName = $"{fileName}.{fileExtension.TrimStart('.')}";
                 _logger.LogInformation($"Полное имя файла в хранилище: {fullFileName}");
 
                 // Проверяем существование файла перед загрузкой
