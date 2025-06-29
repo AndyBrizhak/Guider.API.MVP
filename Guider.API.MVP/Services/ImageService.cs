@@ -126,14 +126,6 @@ namespace Guider.API.MVP.Services
                 }));
             }
 
-            // Определяем путь для хранения изображения
-            string directoryPath = BuildDirectoryPath(province, city, place);
-
-            //if (!Directory.Exists(directoryPath))
-            //{
-            //    Directory.CreateDirectory(directoryPath);
-            //}
-
             // Проверка на дубликаты имен файлов в MongoDB
             string imageNameWithoutExtension = Path.GetFileNameWithoutExtension(imageName);
             var duplicateFilter = Builders<BsonDocument>.Filter.Regex("ImageName",
@@ -154,13 +146,26 @@ namespace Guider.API.MVP.Services
                 ? $"{imageName}{fileExtension}"
                 : imageName;
 
-            string fullPath = Path.Combine(directoryPath, fullImageName);
-            string relativePath = BuildRelativePath(province, city, place, fullImageName);
-
             try
             {
+                // Формируем имя файла с путем для MinIO, если указаны location параметры
+                string minioFileName = imageNameWithoutExtension;
+                var pathParts = new List<string>();
+
+                if (!string.IsNullOrEmpty(province))
+                    pathParts.Add(province);
+                if (!string.IsNullOrEmpty(city))
+                    pathParts.Add(city);
+                if (!string.IsNullOrEmpty(place))
+                    pathParts.Add(place);
+
+                if (pathParts.Count > 0)
+                {
+                    minioFileName = string.Join("/", pathParts) + "/" + imageNameWithoutExtension;
+                }
+
                 // Загружаем файл в MinIO
-                var uploadResult = await _minioService.UploadFileAsync(imageFile, imageNameWithoutExtension, fileExtension);
+                var uploadResult = await _minioService.UploadFileAsync(imageFile, minioFileName, fileExtension);
 
                 // Проверяем, что загрузка прошла успешно
                 if (uploadResult.StartsWith("Ошибка"))
@@ -172,12 +177,6 @@ namespace Guider.API.MVP.Services
                     }));
                 }
 
-                // Сохраняем файл на диск
-                //using (var fileStream = new FileStream(fullPath, FileMode.Create))
-                //{
-                //    await imageFile.CopyToAsync(fileStream);
-                //}
-
                 // Создаем запись в MongoDB
                 var imageRecord = new BsonDocument
                 {
@@ -186,7 +185,7 @@ namespace Guider.API.MVP.Services
                     ["Place"] = string.IsNullOrEmpty(place) ? BsonNull.Value : (BsonValue)place,
                     ["ImageName"] = fullImageName,
                     ["OriginalFileName"] = imageFile.FileName,
-                    ["FilePath"] = relativePath,
+                    ["FilePath"] = uploadResult, // Используем uploadResult вместо relativePath
                     ["FileSize"] = imageFile.Length,
                     ["ContentType"] = imageFile.ContentType,
                     ["Extension"] = fileExtension,
@@ -201,18 +200,12 @@ namespace Guider.API.MVP.Services
                 return JsonDocument.Parse(JsonSerializer.Serialize(new
                 {
                     Success = true,
-                    Path = relativePath,
+                    Path = uploadResult, // Возвращаем uploadResult
                     Id = imageRecord["_id"].ToString()
                 }));
             }
             catch (Exception ex)
             {
-                // Если произошла ошибка при сохранении в MongoDB, удаляем файл
-                if (File.Exists(fullPath))
-                {
-                    try { File.Delete(fullPath); } catch { }
-                }
-
                 return JsonDocument.Parse(JsonSerializer.Serialize(new
                 {
                     Success = false,
@@ -386,41 +379,7 @@ namespace Guider.API.MVP.Services
             }
         }
 
-        private string BuildDirectoryPath(string? province, string? city, string? place)
-        {
-            var pathParts = new List<string> { _baseImagePath };
-
-            if (!string.IsNullOrEmpty(province))
-                pathParts.Add(province);
-
-            if (!string.IsNullOrEmpty(city))
-                pathParts.Add(city);
-
-            if (!string.IsNullOrEmpty(place))
-                pathParts.Add(place);
-
-            return Path.Combine(pathParts.ToArray());
-        }
-
-        private string BuildRelativePath(string? province, string? city, string? place, string imageName)
-        {
-            var pathParts = new List<string>();
-
-            if (!string.IsNullOrEmpty(province))
-                pathParts.Add(province);
-
-            if (!string.IsNullOrEmpty(city))
-                pathParts.Add(city);
-
-            if (!string.IsNullOrEmpty(place))
-                pathParts.Add(place);
-
-            pathParts.Add(imageName);
-
-            return Path.Combine(pathParts.ToArray()).Replace("\\", "/");
-        }
-
-        public async Task<JsonDocument> GetImagesAsync(Dictionary<string, string> filter = null)
+       public async Task<JsonDocument> GetImagesAsync(Dictionary<string, string> filter = null)
         {
             try
             {
