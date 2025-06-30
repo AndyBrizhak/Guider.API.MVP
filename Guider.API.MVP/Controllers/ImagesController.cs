@@ -356,5 +356,127 @@ namespace Guider.API.MVP.Controllers
             }
             
         }
+
+        /// <summary>
+        /// Обновляет изображение и его метаданные по идентификатору.
+        /// </summary>
+        /// <remarks>
+        /// Позволяет обновить изображение и связанные с ним метаданные. Все поля являются необязательными,
+        /// будут обновлены только переданные поля.
+        /// 
+        /// Expects multipart/form-data with the following fields:
+        /// - newImageName (string, optional): Новое название изображения.
+        /// - newImageFile (file, optional): Новый файл изображения для замены.
+        /// - province (string, optional): Province name.
+        /// - city (string, optional): City name.
+        /// - place (string, optional): Place name.
+        /// - description (string, optional): Description of the image.
+        /// - tags (string, optional): Tags for the image (comma-separated).
+        /// </remarks>
+        /// <param name="id">Уникальный идентификатор изображения.</param>
+        /// <param name="request">Запрос на обновление изображения.</param>
+        /// <returns>Обновленные метаданные изображения или сообщение об ошибке.</returns>
+        /// <response code="200">Изображение успешно обновлено.</response>
+        /// <response code="400">Некорректные данные или неподдерживаемый тип файла.</response>
+        /// <response code="404">Изображение не найдено.</response>
+        /// <response code="500">Внутренняя ошибка сервера.</response>
+        [HttpPut("{id}")]
+        [Consumes("multipart/form-data")]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        public async Task<IActionResult> UpdateImage(string id, [FromForm] ImageUpdateRequest request)
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return BadRequest(new
+                {
+                    error = "Некорректный параметр",
+                    message = "ID изображения не может быть пустым"
+                });
+            }
+
+            // Валидация модели
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new
+                {
+                    error = "Некорректные данные",
+                    message = string.Join("; ", ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage))
+                });
+            }
+
+            // Проверка типа файла, если передан новый файл
+            if (request.NewImageFile != null && request.NewImageFile.Length > 0)
+            {
+                var allowedTypes = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif", "image/bmp", "image/webp" };
+                if (!allowedTypes.Contains(request.NewImageFile.ContentType?.ToLower()))
+                {
+                    return BadRequest(new
+                    {
+                        error = "Неподдерживаемый тип файла",
+                        message = $"Тип файла {request.NewImageFile.ContentType} не поддерживается"
+                    });
+                }
+
+                // Проверка размера файла (10MB)
+                if (request.NewImageFile.Length > 10485760)
+                {
+                    return BadRequest(new
+                    {
+                        error = "Слишком большой файл",
+                        message = "Размер файла не должен превышать 10MB"
+                    });
+                }
+            }
+
+            try
+            {
+                var result = await _imageService.UpdateImageAsync(
+                    id,
+                    request.NewImageName,
+                    request.NewImageFile,
+                    request.Province,
+                    request.City,
+                    request.Place,
+                    request.Description,
+                    request.Tags);
+
+                if (result.RootElement.TryGetProperty("Success", out var successElement) &&
+                    successElement.GetBoolean() == false)
+                {
+                    var errorMessage = result.RootElement.TryGetProperty("Message", out var messageElement)
+                        ? messageElement.GetString()
+                        : "Неизвестная ошибка при обновлении изображения";
+
+                    if (errorMessage.Contains("не найдено"))
+                    {
+                        return NotFound(new { error = "Изображение не найдено", message = errorMessage });
+                    }
+
+                    return BadRequest(new { error = errorMessage, message = errorMessage });
+                }
+
+                // Извлечение обновленных данных
+                var updatedImage = result.RootElement.GetProperty("Image");
+                var updateMessage = result.RootElement.TryGetProperty("Message", out var msgElement)
+                    ? msgElement.GetString()
+                    : "Изображение успешно обновлено";
+
+                return Ok(new
+                {
+                    message = updateMessage,
+                    image = JsonSerializer.Deserialize<object>(updatedImage.GetRawText())
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    error = "Внутренняя ошибка сервера",
+                    message = "Произошла ошибка при обновлении изображения"
+                });
+            }
+        }
     }
 }

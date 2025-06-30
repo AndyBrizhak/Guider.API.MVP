@@ -552,6 +552,245 @@ namespace Guider.API.MVP.Services
             }
         }
 
+        public async Task<JsonDocument> UpdateImageAsync(string id, string? newImageName = null,
+            IFormFile? newImageFile = null, string? province = null,
+            string? city = null, string? place = null, string? description = null,
+            string? tags = null)
+        {
+            try
+            {
+                // Проверка формата ID
+                if (!ObjectId.TryParse(id, out var objectId))
+                {
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new
+                    {
+                        Success = false,
+                        Message = "Неверный формат ID"
+                    }));
+                }
+
+                // Поиск существующей записи в MongoDB
+                var filter = Builders<BsonDocument>.Filter.Eq("_id", objectId);
+                var existingRecord = await _imageCollection.Find(filter).FirstOrDefaultAsync();
+
+                if (existingRecord == null)
+                {
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new
+                    {
+                        Success = false,
+                        Message = "Изображение не найдено в базе данных"
+                    }));
+                }
+
+                // Получаем текущий URL файла
+                string currentFileUrl = existingRecord["FilePath"].AsString;
+                bool needToUpdateFile = newImageFile != null && newImageFile.Length > 0;
+
+                // Если есть новый файл, проверяем его расширение
+                string? newFileExtension = null;
+                if (needToUpdateFile)
+                {
+                    string[] allowedExtensions = { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
+                    newFileExtension = Path.GetExtension(newImageFile!.FileName).ToLowerInvariant();
+
+                    if (!allowedExtensions.Contains(newFileExtension))
+                    {
+                        return JsonDocument.Parse(JsonSerializer.Serialize(new
+                        {
+                            Success = false,
+                            Message = $"Недопустимый формат файла. Разрешены только следующие форматы: {string.Join(", ", allowedExtensions)}"
+                        }));
+                    }
+                }
+
+                // Если изменяется имя файла, проверяем на дубликаты
+                if (!string.IsNullOrEmpty(newImageName))
+                {
+                    string newImageNameWithoutExtension = Path.GetFileNameWithoutExtension(newImageName);
+                    string currentImageName = existingRecord["ImageName"].AsString;
+                    string currentImageNameWithoutExtension = Path.GetFileNameWithoutExtension(currentImageName);
+
+                    // Проверяем только если имя действительно изменилось
+                    if (!string.Equals(newImageNameWithoutExtension, currentImageNameWithoutExtension, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var duplicateFilter = Builders<BsonDocument>.Filter.And(
+                            Builders<BsonDocument>.Filter.Regex("ImageName", new BsonRegularExpression($"^{Regex.Escape(newImageNameWithoutExtension)}", "i")),
+                            Builders<BsonDocument>.Filter.Ne("_id", objectId)
+                        );
+                        var duplicateDocument = await _imageCollection.Find(duplicateFilter).FirstOrDefaultAsync();
+
+                        if (duplicateDocument != null)
+                        {
+                            return JsonDocument.Parse(JsonSerializer.Serialize(new
+                            {
+                                Success = false,
+                                Message = $"Файл с названием '{newImageNameWithoutExtension}' уже существует"
+                            }));
+                        }
+                    }
+                }
+
+                string? newFileUrl = null;
+                bool fileUpdateSuccess = true;
+                string fileUpdateMessage = "";
+
+                // Если нужно обновить файл
+                if (needToUpdateFile)
+                {
+                    // Формируем новое имя файла
+                    string finalImageName = !string.IsNullOrEmpty(newImageName) ? newImageName : existingRecord["ImageName"].AsString;
+                    string imageNameWithoutExtension = Path.GetFileNameWithoutExtension(finalImageName);
+
+                    // Формируем путь в MinIO
+                    string minioFileName = imageNameWithoutExtension;
+                    var pathParts = new List<string>();
+
+                    string finalProvince = province ?? (existingRecord.Contains("Province") && !existingRecord["Province"].IsBsonNull ? existingRecord["Province"].AsString : null);
+                    string finalCity = city ?? (existingRecord.Contains("City") && !existingRecord["City"].IsBsonNull ? existingRecord["City"].AsString : null);
+                    string finalPlace = place ?? (existingRecord.Contains("Place") && !existingRecord["Place"].IsBsonNull ? existingRecord["Place"].AsString : null);
+
+                    if (!string.IsNullOrEmpty(finalProvince))
+                        pathParts.Add(finalProvince);
+                    if (!string.IsNullOrEmpty(finalCity))
+                        pathParts.Add(finalCity);
+                    if (!string.IsNullOrEmpty(finalPlace))
+                        pathParts.Add(finalPlace);
+
+                    if (pathParts.Count > 0)
+                    {
+                        minioFileName = string.Join("/", pathParts) + "/" + imageNameWithoutExtension;
+                    }
+
+                    // Загружаем новый файл
+                    var uploadResult = await _minioService.UploadFileAsync(newImageFile!, minioFileName, newFileExtension!);
+
+                    if (uploadResult.StartsWith("Ошибка"))
+                    {
+                        fileUpdateSuccess = false;
+                        fileUpdateMessage = uploadResult;
+                    }
+                    else
+                    {
+                        newFileUrl = uploadResult;
+
+                        // Удаляем старый файл только после успешной загрузки нового
+                        var deleteResult = await _minioService.DeleteFileAsync(currentFileUrl);
+                        if (!deleteResult.IsDeleted)
+                        {
+                            fileUpdateMessage = $"Новый файл загружен, но не удалось удалить старый файл: {deleteResult.Message}";
+                        }
+                    }
+                }
+
+                // Если обновление файла провалилось, возвращаем ошибку
+                if (needToUpdateFile && !fileUpdateSuccess)
+                {
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new
+                    {
+                        Success = false,
+                        Message = fileUpdateMessage
+                    }));
+                }
+
+                // Формируем обновленную запись
+                var updateBuilder = Builders<BsonDocument>.Update;
+                var updates = new List<UpdateDefinition<BsonDocument>>();
+
+                // Обновляем поля только если они переданы
+                if (!string.IsNullOrEmpty(newImageName))
+                {
+                    string fullImageName = string.IsNullOrEmpty(Path.GetExtension(newImageName))
+                        ? $"{newImageName}{(needToUpdateFile ? newFileExtension! : Path.GetExtension(existingRecord["ImageName"].AsString))}"
+                        : newImageName;
+                    updates.Add(updateBuilder.Set("ImageName", fullImageName));
+                }
+
+                if (province != null)
+                    updates.Add(updateBuilder.Set("Province", string.IsNullOrEmpty(province) ? BsonNull.Value : (BsonValue)province));
+
+                if (city != null)
+                    updates.Add(updateBuilder.Set("City", string.IsNullOrEmpty(city) ? BsonNull.Value : (BsonValue)city));
+
+                if (place != null)
+                    updates.Add(updateBuilder.Set("Place", string.IsNullOrEmpty(place) ? BsonNull.Value : (BsonValue)place));
+
+                if (description != null)
+                    updates.Add(updateBuilder.Set("Description", string.IsNullOrEmpty(description) ? BsonNull.Value : (BsonValue)description));
+
+                if (tags != null)
+                    updates.Add(updateBuilder.Set("Tags", string.IsNullOrEmpty(tags) ? BsonNull.Value : (BsonValue)tags));
+
+                // Если был загружен новый файл, обновляем связанные поля
+                if (needToUpdateFile && newFileUrl != null)
+                {
+                    updates.Add(updateBuilder.Set("FilePath", newFileUrl));
+                    updates.Add(updateBuilder.Set("OriginalFileName", newImageFile!.FileName));
+                    updates.Add(updateBuilder.Set("FileSize", newImageFile.Length));
+                    updates.Add(updateBuilder.Set("ContentType", newImageFile.ContentType));
+                    updates.Add(updateBuilder.Set("Extension", newFileExtension!));
+                }
+
+                // Всегда обновляем дату изменения
+                updates.Add(updateBuilder.Set("UpdateDate", DateTime.UtcNow));
+
+                // Выполняем обновление в MongoDB
+                if (updates.Count > 0)
+                {
+                    var combinedUpdate = updateBuilder.Combine(updates);
+                    var updateResult = await _imageCollection.UpdateOneAsync(filter, combinedUpdate);
+
+                    if (updateResult.ModifiedCount == 0)
+                    {
+                        return JsonDocument.Parse(JsonSerializer.Serialize(new
+                        {
+                            Success = false,
+                            Message = "Не удалось обновить запись в базе данных"
+                        }));
+                    }
+                }
+
+                // Получаем обновленную запись
+                var updatedRecord = await _imageCollection.Find(filter).FirstOrDefaultAsync();
+
+                var updatedImageObj = new
+                {
+                    id = updatedRecord["_id"].ToString(),
+                    Province = updatedRecord.Contains("Province") && !updatedRecord["Province"].IsBsonNull ? updatedRecord["Province"].AsString : null,
+                    City = updatedRecord.Contains("City") && !updatedRecord["City"].IsBsonNull ? updatedRecord["City"].AsString : null,
+                    Place = updatedRecord.Contains("Place") && !updatedRecord["Place"].IsBsonNull ? updatedRecord["Place"].AsString : null,
+                    ImageName = updatedRecord["ImageName"].AsString,
+                    OriginalFileName = updatedRecord["OriginalFileName"].AsString,
+                    FilePath = updatedRecord["FilePath"].AsString,
+                    FileSize = updatedRecord["FileSize"].AsInt64,
+                    ContentType = updatedRecord["ContentType"].AsString,
+                    Extension = updatedRecord["Extension"].AsString,
+                    Description = updatedRecord.Contains("Description") && !updatedRecord["Description"].IsBsonNull ? updatedRecord["Description"].AsString : null,
+                    Tags = updatedRecord.Contains("Tags") && !updatedRecord["Tags"].IsBsonNull ? updatedRecord["Tags"].AsString : null,
+                    UploadDate = updatedRecord["UploadDate"].ToUniversalTime(),
+                    UpdateDate = updatedRecord["UpdateDate"].ToUniversalTime()
+                };
+
+                var result = new
+                {
+                    Success = true,
+                    Message = needToUpdateFile ?
+                        (string.IsNullOrEmpty(fileUpdateMessage) ? "Изображение успешно обновлено" : $"Изображение обновлено. {fileUpdateMessage}") :
+                        "Данные изображения успешно обновлены",
+                    Image = updatedImageObj
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(result));
+            }
+            catch (Exception ex)
+            {
+                return JsonDocument.Parse(JsonSerializer.Serialize(new
+                {
+                    Success = false,
+                    Message = $"Ошибка при обновлении изображения: {ex.Message}"
+                }));
+            }
+        }
+
 
     }
 
