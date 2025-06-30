@@ -552,10 +552,11 @@ namespace Guider.API.MVP.Services
             }
         }
 
+        
         public async Task<JsonDocument> UpdateImageAsync(string id, string? newImageName = null,
-            IFormFile? newImageFile = null, string? province = null,
-            string? city = null, string? place = null, string? description = null,
-            string? tags = null)
+                    IFormFile? newImageFile = null, string? province = null,
+                    string? city = null, string? place = null, string? description = null,
+                    string? tags = null)
         {
             try
             {
@@ -661,23 +662,55 @@ namespace Guider.API.MVP.Services
                         minioFileName = string.Join("/", pathParts) + "/" + imageNameWithoutExtension;
                     }
 
-                    // Загружаем новый файл
-                    var uploadResult = await _minioService.UploadFileAsync(newImageFile!, minioFileName, newFileExtension!);
+                    // Формируем полное имя файла с расширением для проверки в хранилище
+                    string fullMinioFileName = $"{minioFileName}.{newFileExtension!.TrimStart('.')}";
 
-                    if (uploadResult.StartsWith("Ошибка"))
-                    {
-                        fileUpdateSuccess = false;
-                        fileUpdateMessage = uploadResult;
-                    }
-                    else
-                    {
-                        newFileUrl = uploadResult;
+                    // 1. Проверяем существование файла с новым именем в хранилище
+                    bool newFileExists = await _minioService.FileExistsAsync(fullMinioFileName);
 
-                        // Удаляем старый файл только после успешной загрузки нового
-                        var deleteResult = await _minioService.DeleteFileAsync(currentFileUrl);
-                        if (!deleteResult.IsDeleted)
+                    if (newFileExists)
+                    {
+                        // 2. Если файл существует, удаляем его
+                        var deleteExistingResult = await _minioService.DeleteFileAsync(_minioService.GetFileUrl(fullMinioFileName));
+
+                        if (!deleteExistingResult.IsDeleted)
                         {
-                            fileUpdateMessage = $"Новый файл загружен, но не удалось удалить старый файл: {deleteResult.Message}";
+                            fileUpdateSuccess = false;
+                            fileUpdateMessage = $"Не удалось удалить существующий файл с новым именем: {deleteExistingResult.Message}";
+                        }
+                        else
+                        {
+                            // 3. Проверяем, что файл действительно удален
+                            bool fileStillExists = await _minioService.FileExistsAsync(fullMinioFileName);
+
+                            if (fileStillExists)
+                            {
+                                fileUpdateSuccess = false;
+                                fileUpdateMessage = "Файл с новым именем не был полностью удален из хранилища";
+                            }
+                        }
+                    }
+
+                    // 4. Если все проверки прошли успешно, загружаем новый файл
+                    if (fileUpdateSuccess)
+                    {
+                        var uploadResult = await _minioService.UploadFileAsync(newImageFile!, minioFileName, newFileExtension!);
+
+                        if (uploadResult.StartsWith("Ошибка"))
+                        {
+                            fileUpdateSuccess = false;
+                            fileUpdateMessage = uploadResult;
+                        }
+                        else
+                        {
+                            newFileUrl = uploadResult;
+
+                            // Удаляем старый файл только после успешной загрузки нового
+                            //var deleteResult = await _minioService.DeleteFileAsync(currentFileUrl);
+                            //if (!deleteResult.IsDeleted)
+                            //{
+                            //    fileUpdateMessage = $"Новый файл загружен, но не удалось удалить старый файл: {deleteResult.Message}";
+                            //}
                         }
                     }
                 }
