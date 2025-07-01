@@ -458,16 +458,21 @@ namespace Guider.API.MVP.Controllers
                 }
 
                 // Извлечение обновленных данных
-                var updatedImage = result.RootElement.GetProperty("Image");
-                var updateMessage = result.RootElement.TryGetProperty("Message", out var msgElement)
-                    ? msgElement.GetString()
-                    : "Изображение успешно обновлено";
+                //var updatedImage = result.RootElement.GetProperty("Image");
+                //var updateMessage = result.RootElement.TryGetProperty("Message", out var msgElement)
+                //    ? msgElement.GetString()
+                //    : "Изображение успешно обновлено";
 
-                return Ok(new
-                {
-                    message = updateMessage,
-                    image = JsonSerializer.Deserialize<object>(updatedImage.GetRawText())
-                });
+                //return Ok(new
+                //{
+                //    message = updateMessage,
+                //    image = JsonSerializer.Deserialize<object>(updatedImage.GetRawText())
+                //});
+
+                // Извлечение обновленных данных
+                var updatedImage = result.RootElement.GetProperty("Image");
+
+                return Ok(JsonSerializer.Deserialize<object>(updatedImage.GetRawText()));
             }
             catch (Exception ex)
             {
