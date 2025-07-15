@@ -566,3 +566,5 @@ Thumbs.db
 *.jpg
 /Guider.API.MVP/wwwroot/images/Guanacaste/sardinal/frespan/test.png
 /Guider.API.MVP/wwwroot/images/Guanacaste/playa_del_coco/hacienda_el_viejo_wetlands/waterfall-on-el-viego-wetlands.png
+/Guider.API.MVP/appsettings.Development.json
+/Guider.API.MVP/.gitignore
