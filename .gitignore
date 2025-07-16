@@ -577,3 +577,4 @@ Thumbs.db
 /Guider.API.MVP/.env
 /.gitignore
 /.gitignore
+/Guider.API.MVP/env_production.sh
