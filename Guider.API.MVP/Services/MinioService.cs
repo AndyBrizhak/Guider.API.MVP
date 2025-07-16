@@ -16,9 +16,10 @@ namespace Guider.API.MVP.Services
         private readonly MinioSettings _minioSettings;
         private readonly ILogger<MinioService> _logger;
 
-        public MinioService(IOptions<MinioSettings> minioSettings, ILogger<MinioService> logger)
+        public MinioService(/*IOptions<MinioSettings> minioSettings*/MinioSettings minioSettings, ILogger<MinioService> logger)
         {
-            _minioSettings = minioSettings.Value;
+            //_minioSettings = minioSettings.Value;
+            _minioSettings = minioSettings ?? throw new ArgumentNullException(nameof(minioSettings));
             _logger = logger;
 
             // Создаем MinIO клиент
