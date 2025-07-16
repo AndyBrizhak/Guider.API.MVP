@@ -37,6 +37,7 @@
     <None Remove=".env.local-old" />
     <None Remove=".env.local.example" />
     <None Remove=".gitignore" />
+    <None Remove="env_production.sh" />
   </ItemGroup>
 
   <ItemGroup>
