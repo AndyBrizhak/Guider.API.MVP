@@ -29,20 +29,13 @@
     <None Remove="wwwroot\images\string\**" />
   </ItemGroup>
 
-  
-  <ItemGroup>
-    <Content Remove="appsettings.Development.json" />
-  </ItemGroup>
-
 
 
   <ItemGroup>
-    <Content Remove="appsettings.Development.json" />
-  </ItemGroup>
-
-
-
-  <ItemGroup>
+    <None Remove=".env" />
+    <None Remove=".env.local" />
+    <None Remove=".env.local-old" />
+    <None Remove=".env.local.example" />
     <None Remove=".gitignore" />
   </ItemGroup>
 
