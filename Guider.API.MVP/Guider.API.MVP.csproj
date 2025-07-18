@@ -34,11 +34,12 @@
   <ItemGroup>
     <None Remove=".env" />
     <None Remove=".env .docker" />
+    <None Remove=".env .local.old" />
     <None Remove=".env.local" />
     <None Remove=".env.local-old" />
     <None Remove=".env.local.example" />
     <None Remove=".gitignore" />
-    <None Remove="Dockerfile" />
+    <None Remove="Dockerfile - old" />
     <None Remove="env_production.sh" />
     <None Remove="kill-guider-processes.bat" />
     <None Remove="readme.txt" />
@@ -55,6 +56,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
     <PackageReference Include="Minio" Version="6.0.4" />
     <PackageReference Include="MongoDB.Driver" Version="3.2.1" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
