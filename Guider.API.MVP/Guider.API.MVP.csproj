@@ -33,12 +33,18 @@
 
   <ItemGroup>
     <None Remove=".env" />
+    <None Remove=".env .docker" />
     <None Remove=".env.local" />
     <None Remove=".env.local-old" />
     <None Remove=".env.local.example" />
     <None Remove=".gitignore" />
     <None Remove="Dockerfile" />
     <None Remove="env_production.sh" />
+    <None Remove="kill-guider-processes.bat" />
+    <None Remove="readme.txt" />
+    <None Remove="setup-local-dev.bat" />
+    <None Remove="setup-local-dev.sh" />
+    <None Remove="setup_local_script.sh" />
   </ItemGroup>
 
   <ItemGroup>
