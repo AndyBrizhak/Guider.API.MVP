@@ -39,6 +39,7 @@
     <None Remove=".env" />
     <None Remove=".env .docker" />
     <None Remove=".env .local.old" />
+    <None Remove=".env.docker" />
     <None Remove=".env.local" />
     <None Remove=".env.local-old" />
     <None Remove=".env.local.example" />

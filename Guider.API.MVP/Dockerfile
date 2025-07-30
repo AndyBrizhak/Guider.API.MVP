@@ -2,7 +2,10 @@
 
 # This stage is used when running from VS in fast mode (Default for Debug configuration)
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-noble AS base
-USER $APP_UID
+USER root
+# Создаем папку для приложения и устанавливаем права
+RUN mkdir -p /app && chown -R app:app /app
+USER app
 WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
@@ -27,7 +30,17 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 
-# Копируем .env.docker файл как .env.local для контейнера
-COPY .env.docker .env.local
+# Копируем .env.docker файл в контейнер
+COPY .env.docker .env.docker
+
+# Устанавливаем переменные окружения по умолчанию для ASP.NET Core
+ENV ASPNETCORE_ENVIRONMENT=Development
+ENV ASPNETCORE_URLS=http://+:8080;https://+:8081
+ENV ASPNETCORE_HTTPS_PORT=8081
+
+# Создаем папку для логов и статических файлов
+USER root
+RUN mkdir -p /app/wwwroot/images && chown -R app:app /app/wwwroot
+USER app
 
 ENTRYPOINT ["dotnet", "Guider.API.MVP.dll"]
