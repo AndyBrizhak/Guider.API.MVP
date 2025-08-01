@@ -22,12 +22,31 @@ namespace Guider.API.MVP.Services
             _minioSettings = minioSettings ?? throw new ArgumentNullException(nameof(minioSettings));
             _logger = logger;
 
-            // Создаем MinIO клиент
-            _minioClient = new MinioClient()
-            .WithEndpoint(_minioSettings.Endpoint, _minioSettings.Port)
-            .WithCredentials(_minioSettings.AccessKey, _minioSettings.SecretKey)
-            .WithSSL(_minioSettings.UseSSL)
-            .Build();
+            //// Создаем MinIO клиент
+            //_minioClient = new MinioClient()
+            //.WithEndpoint(_minioSettings.Endpoint, _minioSettings.Port)
+            //.WithCredentials(_minioSettings.AccessKey, _minioSettings.SecretKey)
+            //.WithSSL(_minioSettings.UseSSL)
+            //.Build();
+
+            // Создаем MinIO клиент с учетом настроек endpoint и port
+            var minioClientBuilder = new MinioClient()
+                .WithCredentials(_minioSettings.AccessKey, _minioSettings.SecretKey)
+                .WithSSL(_minioSettings.UseSSL);
+
+            // Проверяем, указан ли порт в настройках
+            if (_minioSettings.Port > 0)
+            {
+                // Если порт указан, используем endpoint с портом
+                minioClientBuilder = minioClientBuilder.WithEndpoint(_minioSettings.Endpoint, _minioSettings.Port);
+            }
+            else
+            {
+                // Если порт не указан, используем только endpoint (URL)
+                minioClientBuilder = minioClientBuilder.WithEndpoint(_minioSettings.Endpoint);
+            }
+
+            _minioClient = minioClientBuilder.Build();
 
 
             // Инициализируем bucket при создании сервиса

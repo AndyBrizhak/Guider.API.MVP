@@ -282,7 +282,7 @@ var minioSettings = new MinioSettings
         ?? builder.Configuration["MinioSettings:Endpoint"],
     Port = int.TryParse(Environment.GetEnvironmentVariable("MINIOSETTINGS__PORT"), out var port)
         ? port
-        : (builder.Configuration.GetValue<int?>("MinioSettings:Port") ?? 9000),
+        : (builder.Configuration.GetValue<int?>("MinioSettings:Port") ?? 0),
     AccessKey = Environment.GetEnvironmentVariable("MINIOSETTINGS__ACCESSKEY")
         ?? builder.Configuration["MinioSettings:AccessKey"],
     SecretKey = Environment.GetEnvironmentVariable("MINIOSETTINGS__SECRETKEY")
