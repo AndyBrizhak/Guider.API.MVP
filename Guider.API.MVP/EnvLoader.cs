@@ -1,6 +1,4 @@
-﻿
-
-namespace Guider.API.MVP
+﻿namespace Guider.API.MVP
 {
     public class EnvLoader
     {
@@ -153,6 +151,9 @@ namespace Guider.API.MVP
             // Маппинг MongoDB коллекций
             mappedCount += SetupMongoCollectionVariables();
 
+            // Маппинг MinIO настроек
+            mappedCount += SetupMinioVariables();
+
             // Проверка и логирование ключевых настроек
             mappedCount += ValidateAndLogKeySettings();
 
@@ -200,6 +201,65 @@ namespace Guider.API.MVP
         }
 
         /// <summary>
+        /// Настраивает переменные окружения для MinIO с дополнительной обработкой порта
+        /// </summary>
+        private static int SetupMinioVariables()
+        {
+            Console.WriteLine("\n🔧 Настройка переменных MinIO:");
+
+            int mappedCount = 0;
+
+            // Проверяем и устанавливаем порт MinIO если он задан как отдельная переменная
+            var minioPort = Environment.GetEnvironmentVariable("MINIO_PORT")
+                ?? Environment.GetEnvironmentVariable("MINIOSETTINGS__PORT");
+
+            if (!string.IsNullOrEmpty(minioPort))
+            {
+                // Убеждаемся, что переменная MINIOSETTINGS__PORT установлена
+                var existingPort = Environment.GetEnvironmentVariable("MINIOSETTINGS__PORT");
+                if (string.IsNullOrEmpty(existingPort))
+                {
+                    Environment.SetEnvironmentVariable("MINIOSETTINGS__PORT", minioPort);
+                    mappedCount++;
+                    Console.WriteLine($"  🔄 MINIO_PORT -> MINIOSETTINGS__PORT = {minioPort}");
+                }
+            }
+
+            // Дополнительная проверка и маппинг всех MinIO настроек
+            var minioMappings = new Dictionary<string, string>
+            {
+                ["MINIO_ENDPOINT"] = "MINIOSETTINGS__ENDPOINT",
+                ["MINIO_ACCESS_KEY"] = "MINIOSETTINGS__ACCESSKEY",
+                ["MINIO_SECRET_KEY"] = "MINIOSETTINGS__SECRETKEY",
+                ["MINIO_BUCKET_NAME"] = "MINIOSETTINGS__BUCKETNAME",
+                ["MINIO_USE_SSL"] = "MINIOSETTINGS__USESSL"
+            };
+
+            foreach (var mapping in minioMappings)
+            {
+                var envValue = Environment.GetEnvironmentVariable(mapping.Key);
+                if (!string.IsNullOrEmpty(envValue))
+                {
+                    var targetKey = mapping.Value;
+                    var existingValue = Environment.GetEnvironmentVariable(targetKey);
+
+                    if (string.IsNullOrEmpty(existingValue))
+                    {
+                        Environment.SetEnvironmentVariable(targetKey, envValue);
+                        mappedCount++;
+
+                        var displayValue = ShouldMaskValue(targetKey) && envValue.Length > 10
+                            ? $"{envValue.Substring(0, 10)}..."
+                            : envValue;
+                        Console.WriteLine($"  🔄 {mapping.Key} -> {targetKey} = {displayValue}");
+                    }
+                }
+            }
+
+            return mappedCount;
+        }
+
+        /// <summary>
         /// Валидирует и логирует ключевые настройки
         /// </summary>
         private static int ValidateAndLogKeySettings()
@@ -212,10 +272,12 @@ namespace Guider.API.MVP
                 ["MongoDB Database"] = new[] { "MONGODB_DATABASE_NAME", "MONGODBSETTINGS__DATABASENAME" },
                 ["PostgreSQL Connection"] = new[] { "CONNECTIONSTRINGS__POSTGRESQL" },
                 ["JWT Secret"] = new[] { "API_SECRET_KEY", "APISETTINGS__SECRET" },
-                ["MinIO Endpoint"] = new[] { "MINIOSETTINGS__ENDPOINT" },
-                ["MinIO AccessKey"] = new[] { "MINIOSETTINGS__ACCESSKEY" },
-                ["MinIO SecretKey"] = new[] { "MINIOSETTINGS__SECRETKEY" },
-                ["MinIO Bucket"] = new[] { "MINIOSETTINGS__BUCKETNAME" }
+                ["MinIO Endpoint"] = new[] { "MINIOSETTINGS__ENDPOINT", "MINIO_ENDPOINT" },
+                ["MinIO Port"] = new[] { "MINIOSETTINGS__PORT", "MINIO_PORT" },
+                ["MinIO AccessKey"] = new[] { "MINIOSETTINGS__ACCESSKEY", "MINIO_ACCESS_KEY" },
+                ["MinIO SecretKey"] = new[] { "MINIOSETTINGS__SECRETKEY", "MINIO_SECRET_KEY" },
+                ["MinIO Bucket"] = new[] { "MINIOSETTINGS__BUCKETNAME", "MINIO_BUCKET_NAME" },
+                ["MinIO UseSSL"] = new[] { "MINIOSETTINGS__USESSL", "MINIO_USE_SSL" }
             };
 
             int validatedCount = 0;
@@ -252,7 +314,52 @@ namespace Guider.API.MVP
                 }
             }
 
+            // Дополнительная диагностика для MinIO
+            DiagnoseMinioConfiguration();
+
             return validatedCount;
+        }
+
+        /// <summary>
+        /// Дополнительная диагностика конфигурации MinIO
+        /// </summary>
+        private static void DiagnoseMinioConfiguration()
+        {
+            Console.WriteLine("\n🔍 Дополнительная диагностика MinIO:");
+
+            var endpoint = Environment.GetEnvironmentVariable("MINIOSETTINGS__ENDPOINT");
+            var port = Environment.GetEnvironmentVariable("MINIOSETTINGS__PORT");
+            var accessKey = Environment.GetEnvironmentVariable("MINIOSETTINGS__ACCESSKEY");
+            var secretKey = Environment.GetEnvironmentVariable("MINIOSETTINGS__SECRETKEY");
+            var bucketName = Environment.GetEnvironmentVariable("MINIOSETTINGS__BUCKETNAME");
+            var useSSL = Environment.GetEnvironmentVariable("MINIOSETTINGS__USESSL");
+
+            Console.WriteLine($"  - Endpoint: {(string.IsNullOrEmpty(endpoint) ? "❌ ОТСУТСТВУЕТ" : endpoint)}");
+            Console.WriteLine($"  - Port: {(string.IsNullOrEmpty(port) ? "❌ ОТСУТСТВУЕТ" : port)}");
+            Console.WriteLine($"  - AccessKey: {(string.IsNullOrEmpty(accessKey) ? "❌ ОТСУТСТВУЕТ" : "✅ УСТАНОВЛЕН")}");
+            Console.WriteLine($"  - SecretKey: {(string.IsNullOrEmpty(secretKey) ? "❌ ОТСУТСТВУЕТ" : "✅ УСТАНОВЛЕН")}");
+            Console.WriteLine($"  - BucketName: {(string.IsNullOrEmpty(bucketName) ? "❌ ОТСУТСТВУЕТ" : bucketName)}");
+            Console.WriteLine($"  - UseSSL: {(string.IsNullOrEmpty(useSSL) ? "❌ ОТСУТСТВУЕТ" : useSSL)}");
+
+            // Проверяем корректность порта
+            if (!string.IsNullOrEmpty(port))
+            {
+                if (int.TryParse(port, out var portNumber))
+                {
+                    Console.WriteLine($"  ✅ Порт корректно распознан как число: {portNumber}");
+                }
+                else
+                {
+                    Console.WriteLine($"  ❌ ОШИБКА: Порт '{port}' не является корректным числом!");
+                }
+            }
+
+            // Формируем полный URL для проверки
+            if (!string.IsNullOrEmpty(endpoint) && !string.IsNullOrEmpty(port))
+            {
+                var fullUrl = $"{endpoint}:{port}";
+                Console.WriteLine($"  🌐 Полный URL MinIO: {fullUrl}");
+            }
         }
     }
 }
