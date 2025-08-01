@@ -22,12 +22,31 @@ namespace Guider.API.MVP.Services
             _minioSettings = minioSettings ?? throw new ArgumentNullException(nameof(minioSettings));
             _logger = logger;
 
-            // Создаем MinIO клиент
-            _minioClient = new MinioClient()
-            .WithEndpoint(_minioSettings.Endpoint, _minioSettings.Port)
-            .WithCredentials(_minioSettings.AccessKey, _minioSettings.SecretKey)
-            .WithSSL(_minioSettings.UseSSL)
-            .Build();
+            //// Создаем MinIO клиент
+            //_minioClient = new MinioClient()
+            //.WithEndpoint(_minioSettings.Endpoint, _minioSettings.Port)
+            //.WithCredentials(_minioSettings.AccessKey, _minioSettings.SecretKey)
+            //.WithSSL(_minioSettings.UseSSL)
+            //.Build();
+
+            // Создаем MinIO клиент с учетом настроек endpoint и port
+            var minioClientBuilder = new MinioClient()
+                .WithCredentials(_minioSettings.AccessKey, _minioSettings.SecretKey)
+                .WithSSL(_minioSettings.UseSSL);
+
+            // Проверяем, указан ли порт в настройках
+            if (_minioSettings.Port > 0)
+            {
+                // Если порт указан, используем endpoint с портом
+                minioClientBuilder = minioClientBuilder.WithEndpoint(_minioSettings.Endpoint, _minioSettings.Port);
+            }
+            else
+            {
+                // Если порт не указан, используем только endpoint (URL)
+                minioClientBuilder = minioClientBuilder.WithEndpoint(_minioSettings.Endpoint);
+            }
+
+            _minioClient = minioClientBuilder.Build();
 
 
             // Инициализируем bucket при создании сервиса
@@ -218,36 +237,43 @@ namespace Guider.API.MVP.Services
 
                 var result = await _minioClient.StatObjectAsync(statObjectArgs);
 
-                // Файл найден - логируем детали
-                _logger.LogDebug($"Файл {fileName} найден в хранилище. Размер: {result.Size} байт, последнее изменение: {result.LastModified}");
+                // Проверяем, что результат не null и содержит валидные данные
+                // Файл считается существующим, если есть размер > 0 и ETag не пустой
+                bool fileExists = result != null &&
+                                 result.Size > 0 &&
+                                 !string.IsNullOrEmpty(result.ETag);
 
-                // Дополнительная проверка на случай, если результат null (хотя это маловероятно)
-                bool fileExists = result != null;
+                if (fileExists)
+                {
+                    _logger.LogDebug($"Файл {fileName} найден в хранилище. Размер: {result.Size} байт, ETag: {result.ETag}, последнее изменение: {result.LastModified}");
+                }
+                else
+                {
+                    _logger.LogDebug($"Файл {fileName} не существует или имеет невалидные данные. Размер: {result?.Size}, ETag: '{result?.ETag}'");
+                }
+
                 _logger.LogDebug($"Результат проверки существования файла {fileName}: {fileExists}");
 
                 return fileExists;
             }
             catch (ObjectNotFoundException)
             {
-                // Это нормальная ситуация - файл просто не существует
-                _logger.LogDebug($"Файл {fileName} не найден в хранилище MinIO (это нормально)");
+                // На случай, если в некоторых случаях все еще выбрасывается исключение
+                _logger.LogDebug($"Файл {fileName} не найден в хранилище MinIO (ObjectNotFoundException)");
                 return false;
             }
             catch (BucketNotFoundException)
             {
-                // Bucket не существует - это тоже не критическая ошибка для проверки файла
                 _logger.LogWarning($"Bucket '{_minioSettings.BucketName}' не найден при проверке файла {fileName}");
                 return false;
             }
             catch (MinioException minioEx)
             {
-                // Специфичные ошибки MinIO - логируем как предупреждения
                 _logger.LogWarning(minioEx, $"MinIO ошибка при проверке существования файла {fileName}: {minioEx.Message}");
                 return false;
             }
             catch (Exception ex)
             {
-                // Только неожиданные системные ошибки логируем как ошибки
                 _logger.LogError(ex, $"Неожиданная системная ошибка при проверке существования файла {fileName} в MinIO: {ex.Message}");
                 return false;
             }
