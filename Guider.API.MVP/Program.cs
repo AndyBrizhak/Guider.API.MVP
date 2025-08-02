@@ -1,4 +1,5 @@
-﻿using Guider.API.MVP;
+﻿
+using Guider.API.MVP;
 using Guider.API.MVP.Data;
 using Guider.API.MVP.Services;
 using Microsoft.AspNetCore.Identity;
@@ -25,53 +26,96 @@ var builder = WebApplication.CreateBuilder(args);
 // Добавление конфигурации из переменных окружения
 builder.Configuration.AddEnvironmentVariables();
 
-// Диагностика конфигурации
+// Диагностика конфигурации в режиме разработки
 if (builder.Environment.IsDevelopment())
 {
     Console.WriteLine("🔧 === DEVELOPMENT CONFIGURATION DEBUG ===");
     Console.WriteLine($"Environment: {builder.Environment.EnvironmentName}");
     Console.WriteLine($"Content Root: {builder.Environment.ContentRootPath}");
 
-    // Показываем источники конфигурации
-    Console.WriteLine("\n📚 Configuration Sources:");
-    foreach (var source in builder.Configuration.Sources)
+    // Диагностика ключевых настроек из переменных окружения
+    Console.WriteLine("\n🔍 Environment Variables Status:");
+
+    // PostgreSQL диагностика
+    var postgresEnv = Environment.GetEnvironmentVariable("CONNECTIONSTRINGS__POSTGRESQL");
+    Console.WriteLine($"  PostgreSQL Connection: {(string.IsNullOrEmpty(postgresEnv) ? "❌ MISSING" : "✅ OK")}");
+
+    // MongoDB диагностика
+    var mongoConnectionEnv = Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING")
+        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__CONNECTIONSTRING");
+    var mongoDatabaseEnv = Environment.GetEnvironmentVariable("MONGODB_DATABASE_NAME")
+        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__DATABASENAME");
+    Console.WriteLine($"  MongoDB Connection: {(string.IsNullOrEmpty(mongoConnectionEnv) ? "❌ MISSING" : "✅ OK")}");
+    Console.WriteLine($"  MongoDB Database: {(string.IsNullOrEmpty(mongoDatabaseEnv) ? "❌ MISSING" : "✅ OK")}");
+
+    // JWT диагностика
+    var jwtSecretEnv = Environment.GetEnvironmentVariable("API_SECRET_KEY")
+        ?? Environment.GetEnvironmentVariable("APISETTINGS__SECRET");
+    Console.WriteLine($"  JWT Secret: {(string.IsNullOrEmpty(jwtSecretEnv) ? "❌ MISSING" : "✅ OK")}");
+
+    // MinIO диагностика с детальной проверкой
+    Console.WriteLine("\n🗄️  MinIO Configuration:");
+    var minioEndpoint = Environment.GetEnvironmentVariable("MINIOSETTINGS__ENDPOINT");
+    var minioPortStr = Environment.GetEnvironmentVariable("MINIOSETTINGS__PORT");
+    var minioAccessKey = Environment.GetEnvironmentVariable("MINIOSETTINGS__ACCESSKEY");
+    var minioSecretKey = Environment.GetEnvironmentVariable("MINIOSETTINGS__SECRETKEY");
+    var minioBucket = Environment.GetEnvironmentVariable("MINIOSETTINGS__BUCKETNAME");
+    var minioUseSSL = Environment.GetEnvironmentVariable("MINIOSETTINGS__USESSL");
+
+    Console.WriteLine($"  Endpoint: {(string.IsNullOrEmpty(minioEndpoint) ? "❌ MISSING" : "✅ OK")}");
+
+    // Специальная проверка порта
+    bool portConfigured = false;
+    int portValue = 0;
+    if (!string.IsNullOrEmpty(minioPortStr))
     {
-        Console.WriteLine($"  - {source.GetType().Name}");
+        if (int.TryParse(minioPortStr, out portValue) && portValue > 0)
+        {
+            portConfigured = true;
+            Console.WriteLine($"  Port: ✅ OK ({portValue})");
+        }
+        else
+        {
+            Console.WriteLine($"  Port: ❌ INVALID ({minioPortStr})");
+        }
+    }
+    else
+    {
+        Console.WriteLine($"  Port: ⚪ NOT SET (will use default)");
     }
 
-    // Диагностика ключевых настроек
-    var allSources = new Dictionary<string, string>
-    {
-        ["MongoDB (ENV)"] = Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING") ?? "не установлена",
-        ["MongoDB (Config)"] = builder.Configuration["MongoDBSettings:ConnectionString"] ?? "не найдена",
-        ["PostgreSQL (ENV)"] = Environment.GetEnvironmentVariable("CONNECTIONSTRINGS__POSTGRESQL") ?? "не установлена",
-        ["PostgreSQL (Config)"] = builder.Configuration.GetConnectionString("PostgreSQL") ?? "не найдена",
-        ["JWT (ENV)"] = Environment.GetEnvironmentVariable("API_SECRET_KEY") ?? "не установлена",
-        ["JWT (Config)"] = builder.Configuration["ApiSettings:Secret"] ?? "не найдена"
-    };
+    Console.WriteLine($"  AccessKey: {(string.IsNullOrEmpty(minioAccessKey) ? "❌ MISSING" : "✅ OK")}");
+    Console.WriteLine($"  SecretKey: {(string.IsNullOrEmpty(minioSecretKey) ? "❌ MISSING" : "✅ OK")}");
+    Console.WriteLine($"  BucketName: {(string.IsNullOrEmpty(minioBucket) ? "❌ MISSING" : "✅ OK")}");
+    Console.WriteLine($"  UseSSL: {(string.IsNullOrEmpty(minioUseSSL) ? "❌ MISSING" : $"✅ OK ({minioUseSSL})")}");
 
-    Console.WriteLine("\n🔍 Configuration Values:");
-    foreach (var kvp in allSources)
+    // Формируем полный URL MinIO для информации
+    if (!string.IsNullOrEmpty(minioEndpoint))
     {
-        var value = kvp.Value;
-        var displayValue = value.Length > 20 ? $"{value.Substring(0, 20)}..." : value;
-        Console.WriteLine($"  {kvp.Key}: {displayValue}");
+        var protocol = minioUseSSL?.ToLower() == "true" ? "https" : "http";
+        if (portConfigured)
+        {
+            Console.WriteLine($"  Full URL: {protocol}://{minioEndpoint}:{portValue}");
+        }
+        else
+        {
+            Console.WriteLine($"  Full URL: {protocol}://{minioEndpoint} (default port)");
+        }
     }
+
     Console.WriteLine("==========================================\n");
 }
 
 // Add services to the container.
 
-// PostgreSQL - приоритет переменным окружения
-var postgresConnection = Environment.GetEnvironmentVariable("CONNECTIONSTRINGS__POSTGRESQL")
-    ?? builder.Configuration.GetConnectionString("PostgreSQL");
+// PostgreSQL - только из переменных окружения
+var postgresConnection = Environment.GetEnvironmentVariable("CONNECTIONSTRINGS__POSTGRESQL");
 
 if (string.IsNullOrEmpty(postgresConnection))
 {
     throw new InvalidOperationException(
         "PostgreSQL connection string is not configured. " +
-        "Please set CONNECTIONSTRINGS__POSTGRESQL environment variable or " +
-        "configure ConnectionStrings:PostgreSQL in appsettings.json");
+        "Please set CONNECTIONSTRINGS__POSTGRESQL environment variable.");
 }
 
 // Диагностика подключения к PostgreSQL (только в Development)
@@ -115,17 +159,15 @@ builder.Services.Configure<IdentityOptions>(options =>
     options.User.RequireUniqueEmail = true;
 });
 
-// JWT настройки - приоритет переменным окружения
+// JWT настройки - только из переменных окружения
 var jwtSecret = Environment.GetEnvironmentVariable("API_SECRET_KEY")
-    ?? Environment.GetEnvironmentVariable("APISETTINGS__SECRET")
-    ?? builder.Configuration["ApiSettings:Secret"];
+    ?? Environment.GetEnvironmentVariable("APISETTINGS__SECRET");
 
 if (string.IsNullOrEmpty(jwtSecret))
 {
     throw new InvalidOperationException(
         "JWT Secret is not configured. " +
-        "Please set API_SECRET_KEY or APISETTINGS__SECRET environment variable or " +
-        "configure ApiSettings:Secret in appsettings.json");
+        "Please set API_SECRET_KEY or APISETTINGS__SECRET environment variable.");
 }
 
 builder.Services.AddAuthentication(u =>
@@ -147,61 +189,56 @@ builder.Services.AddAuthentication(u =>
 
 builder.Services.AddCors();
 
-// MongoDB настройки - приоритет переменным окружения
+// MongoDB настройки - только из переменных окружения
 builder.Services.Configure<Guider.API.MVP.Data.MongoDbSettings>(options =>
 {
-    // Приоритет: переменные окружения -> appsettings
+    // Только переменные окружения
     options.ConnectionString = Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING")
-        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__CONNECTIONSTRING")
-        ?? builder.Configuration["MongoDBSettings:ConnectionString"];
+        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__CONNECTIONSTRING");
 
     options.DatabaseName = Environment.GetEnvironmentVariable("MONGODB_DATABASE_NAME")
-        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__DATABASENAME")
-        ?? builder.Configuration["MongoDBSettings:DatabaseName"];
+        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__DATABASENAME");
 
     // Настройка коллекций из переменных окружения
     options.Collections = new Dictionary<string, string>();
 
     var places = Environment.GetEnvironmentVariable("MONGODB_PLACES_COLLECTION")
-        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__PLACES")
-        ?? builder.Configuration["MongoDBSettings:Collections:Places"];
+        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__PLACES");
     if (!string.IsNullOrEmpty(places))
         options.Collections["Places"] = places;
 
     var cities = Environment.GetEnvironmentVariable("MONGODB_CITIES_COLLECTION")
-        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__CITIES")
-        ?? builder.Configuration["MongoDBSettings:Collections:Cities"];
+        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__CITIES");
     if (!string.IsNullOrEmpty(cities))
         options.Collections["Cities"] = cities;
 
     var provinces = Environment.GetEnvironmentVariable("MONGODB_PROVINCES_COLLECTION")
-        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__PROVINCES")
-        ?? builder.Configuration["MongoDBSettings:Collections:Provinces"];
+        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__PROVINCES");
     if (!string.IsNullOrEmpty(provinces))
         options.Collections["Provinces"] = provinces;
 
     var tags = Environment.GetEnvironmentVariable("MONGODB_TAGS_COLLECTION")
-        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__TAGS")
-        ?? builder.Configuration["MongoDBSettings:Collections:Tags"];
+        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__TAGS");
     if (!string.IsNullOrEmpty(tags))
         options.Collections["Tags"] = tags;
 
     var images = Environment.GetEnvironmentVariable("MONGODB_IMAGES_COLLECTION")
-        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__IMAGES")
-        ?? builder.Configuration["MongoDBSettings:Collections:Images"];
+        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__IMAGES");
     if (!string.IsNullOrEmpty(images))
         options.Collections["Images"] = images;
 
     if (string.IsNullOrEmpty(options.ConnectionString))
     {
         throw new InvalidOperationException(
-            "MongoDB ConnectionString is not configured.");
+            "MongoDB ConnectionString is not configured. " +
+            "Please set MONGODB_CONNECTION_STRING or MONGODBSETTINGS__CONNECTIONSTRING environment variable.");
     }
 
     if (string.IsNullOrEmpty(options.DatabaseName))
     {
         throw new InvalidOperationException(
-            "MongoDB DatabaseName is not configured.");
+            "MongoDB DatabaseName is not configured. " +
+            "Please set MONGODB_DATABASE_NAME or MONGODBSETTINGS__DATABASENAME environment variable.");
     }
 
     // Логирование для отладки (только в Development)
@@ -275,33 +312,48 @@ builder.Services.AddSwaggerGen(c =>
     c.OperationFilter<FileUploadOperationFilter>();
 });
 
-// Конфигурация MinIO - приоритет переменным окружения
+// Конфигурация MinIO - только из переменных окружения
 var minioSettings = new MinioSettings
 {
-    Endpoint = Environment.GetEnvironmentVariable("MINIOSETTINGS__ENDPOINT")
-        ?? builder.Configuration["MinioSettings:Endpoint"],
-    Port = int.TryParse(Environment.GetEnvironmentVariable("MINIOSETTINGS__PORT"), out var port)
+    Endpoint = Environment.GetEnvironmentVariable("MINIOSETTINGS__ENDPOINT"),
+    Port = int.TryParse(Environment.GetEnvironmentVariable("MINIOSETTINGS__PORT"), out var port) && port > 0
         ? port
-        : (builder.Configuration.GetValue<int?>("MinioSettings:Port") ?? 0),
-    AccessKey = Environment.GetEnvironmentVariable("MINIOSETTINGS__ACCESSKEY")
-        ?? builder.Configuration["MinioSettings:AccessKey"],
-    SecretKey = Environment.GetEnvironmentVariable("MINIOSETTINGS__SECRETKEY")
-        ?? builder.Configuration["MinioSettings:SecretKey"],
-    BucketName = Environment.GetEnvironmentVariable("MINIOSETTINGS__BUCKETNAME")
-        ?? builder.Configuration["MinioSettings:BucketName"],
+        : 0, // 0 означает использование порта по умолчанию
+    AccessKey = Environment.GetEnvironmentVariable("MINIOSETTINGS__ACCESSKEY"),
+    SecretKey = Environment.GetEnvironmentVariable("MINIOSETTINGS__SECRETKEY"),
+    BucketName = Environment.GetEnvironmentVariable("MINIOSETTINGS__BUCKETNAME"),
     UseSSL = bool.TryParse(Environment.GetEnvironmentVariable("MINIOSETTINGS__USESSL"), out var useSSL)
         ? useSSL
-        : (builder.Configuration.GetValue<bool?>("MinioSettings:UseSSL") ?? false)
+        : false
 };
 
-// Валидация конфигурации MinIO
-if (string.IsNullOrEmpty(minioSettings.Endpoint) ||
-    string.IsNullOrEmpty(minioSettings.AccessKey) ||
-    string.IsNullOrEmpty(minioSettings.SecretKey) ||
-    string.IsNullOrEmpty(minioSettings.BucketName))
+// Валидация конфигурации MinIO (порт не валидируется, может быть 0)
+if (string.IsNullOrEmpty(minioSettings.Endpoint))
 {
     throw new InvalidOperationException(
-        "MinIO settings are not properly configured.");
+        "MinIO Endpoint is not configured. " +
+        "Please set MINIOSETTINGS__ENDPOINT environment variable.");
+}
+
+if (string.IsNullOrEmpty(minioSettings.AccessKey))
+{
+    throw new InvalidOperationException(
+        "MinIO AccessKey is not configured. " +
+        "Please set MINIOSETTINGS__ACCESSKEY environment variable.");
+}
+
+if (string.IsNullOrEmpty(minioSettings.SecretKey))
+{
+    throw new InvalidOperationException(
+        "MinIO SecretKey is not configured. " +
+        "Please set MINIOSETTINGS__SECRETKEY environment variable.");
+}
+
+if (string.IsNullOrEmpty(minioSettings.BucketName))
+{
+    throw new InvalidOperationException(
+        "MinIO BucketName is not configured. " +
+        "Please set MINIOSETTINGS__BUCKETNAME environment variable.");
 }
 
 // Регистрация MinIO настроек
@@ -311,13 +363,32 @@ builder.Services.AddScoped<IMinioService, MinioService>();
 // Диагностика MinIO настроек (только в Development)
 if (builder.Environment.IsDevelopment())
 {
-    Console.WriteLine("🔍 MinIO Configuration Validation:");
-    Console.WriteLine($"  - Endpoint: {(string.IsNullOrEmpty(minioSettings.Endpoint) ? "❌ MISSING" : "✅ OK")}");
-    Console.WriteLine($"  - Port: {minioSettings.Port}");
-    Console.WriteLine($"  - AccessKey: {(string.IsNullOrEmpty(minioSettings.AccessKey) ? "❌ MISSING" : "✅ OK")}");
-    Console.WriteLine($"  - SecretKey: {(string.IsNullOrEmpty(minioSettings.SecretKey) ? "❌ MISSING" : "✅ OK")}");
-    Console.WriteLine($"  - BucketName: {(string.IsNullOrEmpty(minioSettings.BucketName) ? "❌ MISSING" : "✅ OK")}");
-    Console.WriteLine($"  - UseSSL: {minioSettings.UseSSL}");
+    Console.WriteLine("🗄️  MinIO Configuration Summary:");
+    Console.WriteLine($"  - Endpoint: ✅ {minioSettings.Endpoint}");
+
+    if (minioSettings.Port > 0)
+    {
+        Console.WriteLine($"  - Port: ✅ {minioSettings.Port}");
+    }
+    else
+    {
+        Console.WriteLine($"  - Port: ⚪ Using default port");
+    }
+
+    Console.WriteLine($"  - AccessKey: ✅ {(minioSettings.AccessKey.Length > 10 ? minioSettings.AccessKey.Substring(0, 10) + "..." : minioSettings.AccessKey)}");
+    Console.WriteLine($"  - SecretKey: ✅ {(minioSettings.SecretKey.Length > 10 ? minioSettings.SecretKey.Substring(0, 10) + "..." : "***")}");
+    Console.WriteLine($"  - BucketName: ✅ {minioSettings.BucketName}");
+    Console.WriteLine($"  - UseSSL: ✅ {minioSettings.UseSSL}");
+
+    var protocol = minioSettings.UseSSL ? "https" : "http";
+    if (minioSettings.Port > 0)
+    {
+        Console.WriteLine($"  - Full URL: {protocol}://{minioSettings.Endpoint}:{minioSettings.Port}");
+    }
+    else
+    {
+        Console.WriteLine($"  - Full URL: {protocol}://{minioSettings.Endpoint} (default port)");
+    }
 }
 
 var app = builder.Build();
