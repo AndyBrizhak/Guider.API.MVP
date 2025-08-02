@@ -52,57 +52,6 @@ if (builder.Environment.IsDevelopment())
     var jwtSecretEnv = Environment.GetEnvironmentVariable("API_SECRET_KEY")
         ?? Environment.GetEnvironmentVariable("APISETTINGS__SECRET");
     Console.WriteLine($"  JWT Secret: {(string.IsNullOrEmpty(jwtSecretEnv) ? "❌ MISSING" : "✅ OK")}");
-
-    // MinIO диагностика с детальной проверкой
-    Console.WriteLine("\n🗄️  MinIO Configuration:");
-    var minioEndpoint = Environment.GetEnvironmentVariable("MINIOSETTINGS__ENDPOINT");
-    var minioPortStr = Environment.GetEnvironmentVariable("MINIOSETTINGS__PORT");
-    var minioAccessKey = Environment.GetEnvironmentVariable("MINIOSETTINGS__ACCESSKEY");
-    var minioSecretKey = Environment.GetEnvironmentVariable("MINIOSETTINGS__SECRETKEY");
-    var minioBucket = Environment.GetEnvironmentVariable("MINIOSETTINGS__BUCKETNAME");
-    var minioUseSSL = Environment.GetEnvironmentVariable("MINIOSETTINGS__USESSL");
-
-    Console.WriteLine($"  Endpoint: {(string.IsNullOrEmpty(minioEndpoint) ? "❌ MISSING" : "✅ OK")}");
-
-    // Специальная проверка порта
-    bool portConfigured = false;
-    int portValue = 0;
-    if (!string.IsNullOrEmpty(minioPortStr))
-    {
-        if (int.TryParse(minioPortStr, out portValue) && portValue > 0)
-        {
-            portConfigured = true;
-            Console.WriteLine($"  Port: ✅ OK ({portValue})");
-        }
-        else
-        {
-            Console.WriteLine($"  Port: ❌ INVALID ({minioPortStr})");
-        }
-    }
-    else
-    {
-        Console.WriteLine($"  Port: ⚪ NOT SET (will use default)");
-    }
-
-    Console.WriteLine($"  AccessKey: {(string.IsNullOrEmpty(minioAccessKey) ? "❌ MISSING" : "✅ OK")}");
-    Console.WriteLine($"  SecretKey: {(string.IsNullOrEmpty(minioSecretKey) ? "❌ MISSING" : "✅ OK")}");
-    Console.WriteLine($"  BucketName: {(string.IsNullOrEmpty(minioBucket) ? "❌ MISSING" : "✅ OK")}");
-    Console.WriteLine($"  UseSSL: {(string.IsNullOrEmpty(minioUseSSL) ? "❌ MISSING" : $"✅ OK ({minioUseSSL})")}");
-
-    // Формируем полный URL MinIO для информации
-    if (!string.IsNullOrEmpty(minioEndpoint))
-    {
-        var protocol = minioUseSSL?.ToLower() == "true" ? "https" : "http";
-        if (portConfigured)
-        {
-            Console.WriteLine($"  Full URL: {protocol}://{minioEndpoint}:{portValue}");
-        }
-        else
-        {
-            Console.WriteLine($"  Full URL: {protocol}://{minioEndpoint} (default port)");
-        }
-    }
-
     Console.WriteLine("==========================================\n");
 }
 
@@ -356,40 +305,7 @@ if (string.IsNullOrEmpty(minioSettings.BucketName))
         "Please set MINIOSETTINGS__BUCKETNAME environment variable.");
 }
 
-// Регистрация MinIO настроек
-builder.Services.AddSingleton(minioSettings);
 builder.Services.AddScoped<IMinioService, MinioService>();
-
-// Диагностика MinIO настроек (только в Development)
-if (builder.Environment.IsDevelopment())
-{
-    Console.WriteLine("🗄️  MinIO Configuration Summary:");
-    Console.WriteLine($"  - Endpoint: ✅ {minioSettings.Endpoint}");
-
-    if (minioSettings.Port > 0)
-    {
-        Console.WriteLine($"  - Port: ✅ {minioSettings.Port}");
-    }
-    else
-    {
-        Console.WriteLine($"  - Port: ⚪ Using default port");
-    }
-
-    Console.WriteLine($"  - AccessKey: ✅ {(minioSettings.AccessKey.Length > 10 ? minioSettings.AccessKey.Substring(0, 10) + "..." : minioSettings.AccessKey)}");
-    Console.WriteLine($"  - SecretKey: ✅ {(minioSettings.SecretKey.Length > 10 ? minioSettings.SecretKey.Substring(0, 10) + "..." : "***")}");
-    Console.WriteLine($"  - BucketName: ✅ {minioSettings.BucketName}");
-    Console.WriteLine($"  - UseSSL: ✅ {minioSettings.UseSSL}");
-
-    var protocol = minioSettings.UseSSL ? "https" : "http";
-    if (minioSettings.Port > 0)
-    {
-        Console.WriteLine($"  - Full URL: {protocol}://{minioSettings.Endpoint}:{minioSettings.Port}");
-    }
-    else
-    {
-        Console.WriteLine($"  - Full URL: {protocol}://{minioSettings.Endpoint} (default port)");
-    }
-}
 
 var app = builder.Build();
 
@@ -404,7 +320,6 @@ if (app.Environment.IsDevelopment())
     Console.WriteLine($"PostgreSQL configured: ✅");
     Console.WriteLine($"JWT configured: ✅");
     Console.WriteLine($"MongoDB configured: ✅");
-    Console.WriteLine($"MinIO configured: ✅");
     Console.WriteLine("===============================");
 }
 
