@@ -262,8 +262,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 
-
-builder.Services.AddScoped<IMinioService, MinioService>();
+builder.Services.AddSingleton<IMinioService, MinioService>();
 
 var app = builder.Build();
 
