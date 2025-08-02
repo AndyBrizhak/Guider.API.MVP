@@ -261,49 +261,7 @@ builder.Services.AddSwaggerGen(c =>
     c.OperationFilter<FileUploadOperationFilter>();
 });
 
-// Конфигурация MinIO - только из переменных окружения
-var minioSettings = new MinioSettings
-{
-    Endpoint = Environment.GetEnvironmentVariable("MINIOSETTINGS__ENDPOINT"),
-    Port = int.TryParse(Environment.GetEnvironmentVariable("MINIOSETTINGS__PORT"), out var port) && port > 0
-        ? port
-        : 0, // 0 означает использование порта по умолчанию
-    AccessKey = Environment.GetEnvironmentVariable("MINIOSETTINGS__ACCESSKEY"),
-    SecretKey = Environment.GetEnvironmentVariable("MINIOSETTINGS__SECRETKEY"),
-    BucketName = Environment.GetEnvironmentVariable("MINIOSETTINGS__BUCKETNAME"),
-    UseSSL = bool.TryParse(Environment.GetEnvironmentVariable("MINIOSETTINGS__USESSL"), out var useSSL)
-        ? useSSL
-        : false
-};
 
-// Валидация конфигурации MinIO (порт не валидируется, может быть 0)
-if (string.IsNullOrEmpty(minioSettings.Endpoint))
-{
-    throw new InvalidOperationException(
-        "MinIO Endpoint is not configured. " +
-        "Please set MINIOSETTINGS__ENDPOINT environment variable.");
-}
-
-if (string.IsNullOrEmpty(minioSettings.AccessKey))
-{
-    throw new InvalidOperationException(
-        "MinIO AccessKey is not configured. " +
-        "Please set MINIOSETTINGS__ACCESSKEY environment variable.");
-}
-
-if (string.IsNullOrEmpty(minioSettings.SecretKey))
-{
-    throw new InvalidOperationException(
-        "MinIO SecretKey is not configured. " +
-        "Please set MINIOSETTINGS__SECRETKEY environment variable.");
-}
-
-if (string.IsNullOrEmpty(minioSettings.BucketName))
-{
-    throw new InvalidOperationException(
-        "MinIO BucketName is not configured. " +
-        "Please set MINIOSETTINGS__BUCKETNAME environment variable.");
-}
 
 builder.Services.AddScoped<IMinioService, MinioService>();
 
