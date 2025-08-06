@@ -584,3 +584,7 @@ Thumbs.db
 /Guider.API.MVP/.env.docker
 /Guider.API.MVP/.env.local
 /Guider.API.MVP/HiddenFiles/.env.docker
+/Guider.API.MVP/HiddenFiles/Dockerfile.old
+/Guider.API.MVP/HiddenFiles/env_production.sh
+/.gitignore
+/.gitignore
