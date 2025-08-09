@@ -506,6 +506,7 @@ $RECYCLE.BIN/
 .env.local
 .env.production
 .env.staging
+.env.docker
 *.env
 
 # Local development settings (если создадите)
