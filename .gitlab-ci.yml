@@ -1,0 +1,39 @@
+---
+variables:
+  VERSION: 0.3.$CI_PIPELINE_ID
+  HOST: "stand"
+
+stages:
+  - pull
+  - deploy
+
+# обе стадии запускаются по очереди нажатием кнопки во вкладке pipelines, логи можно увидеть там же
+pull:
+  stage: pull
+  tags:
+    - "$HOST"
+  script:
+    - echo "Pulling from origin repository" 
+    - cd /home/$HOST/guider-api-mvp
+    - pwd
+    - git pull https://$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD@gtl.guider.pro/guider/backend/dotnet_mongodb/
+    - git log --oneline -5
+  only:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /make a pipeline/
+  when: manual
+
+deploy:
+  stage: deploy
+  tags:
+    - "$HOST"
+  script:
+    - echo "Deployment API $VERSION"
+    - sleep 10
+    - cd /home/$HOST
+    - docker compose down dotnet-mongo-api
+    - TAG=$VERSION docker compose up -d --build dotnet-mongo-api
+  only:
+    variables:
+      - $CI_COMMIT_MESSAGE =~ /make a pipeline/
+  when: manual
