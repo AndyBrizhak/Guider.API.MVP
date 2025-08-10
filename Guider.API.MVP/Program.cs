@@ -31,6 +31,14 @@ if (builder.Environment.IsDevelopment())
 {
     Console.WriteLine("🔧 === DEVELOPMENT CONFIGURATION DEBUG ===");
     Console.WriteLine($"Environment: {builder.Environment.EnvironmentName}");
+    // Показываем какие .env файлы доступны
+    var envFiles = new[] { ".env.local", ".env.docker", ".env" };
+    Console.WriteLine("\n📁 Доступные .env файлы:");
+    foreach (var file in envFiles)
+    {
+        var exists = File.Exists(file);
+        Console.WriteLine($"  - {file}: {(exists ? "✅" : "❌")}");
+    }
     Console.WriteLine($"Content Root: {builder.Environment.ContentRootPath}");
 
     // Диагностика ключевых настроек из переменных окружения

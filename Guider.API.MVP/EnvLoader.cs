@@ -34,30 +34,62 @@
         /// <summary>
         /// Выбирает файл переменных окружения по приоритету
         /// </summary>
+        //private static string SelectEnvironmentFile()
+        //{
+        //    var envFiles = new[]
+        //    {
+        //        new { Path = ".env.local", Description = "Локальная разработка (без Docker)" },
+        //        new { Path = ".env.docker", Description = "Docker с локальными БД" },
+        //        new { Path = ".env", Description = "Docker с удаленными БД" }
+        //    };
+
+        //    Console.WriteLine("\n🔍 Проверка доступных файлов конфигурации:");
+
+        //    foreach (var envFile in envFiles)
+        //    {
+        //        bool exists = File.Exists(envFile.Path);
+        //        string status = exists ? "✅ найден" : "❌ отсутствует";
+        //        Console.WriteLine($"  - {envFile.Path} ({envFile.Description}): {status}");
+
+        //        if (exists)
+        //        {
+        //            Console.WriteLine($"  → Выбран: {envFile.Path}");
+        //            return envFile.Path;
+        //        }
+        //    }
+
+        //    return null;
+        //}
+
+        /// <summary>
+        /// Выбирает первый найденный файл переменных окружения из доступных
+        /// </summary>
         private static string SelectEnvironmentFile()
         {
+            // Список файлов в порядке приоритета
             var envFiles = new[]
             {
-                new { Path = ".env.local", Description = "Локальная разработка (без Docker)" },
-                new { Path = ".env.docker", Description = "Docker с локальными БД" },
-                new { Path = ".env", Description = "Docker с удаленными БД" }
+                ".env.local",   // Локальная разработка
+                ".env.docker",  // Docker окружение  
+                ".env"          // Универсальный fallback
             };
 
-            Console.WriteLine("\n🔍 Проверка доступных файлов конфигурации:");
+            Console.WriteLine("\n🔍 Поиск файлов конфигурации:");
 
             foreach (var envFile in envFiles)
             {
-                bool exists = File.Exists(envFile.Path);
+                bool exists = File.Exists(envFile);
                 string status = exists ? "✅ найден" : "❌ отсутствует";
-                Console.WriteLine($"  - {envFile.Path} ({envFile.Description}): {status}");
+                Console.WriteLine($"  - {envFile}: {status}");
 
                 if (exists)
                 {
-                    Console.WriteLine($"  → Выбран: {envFile.Path}");
-                    return envFile.Path;
+                    Console.WriteLine($"  → Выбран: {envFile}");
+                    return envFile;
                 }
             }
 
+            Console.WriteLine("⚠️ Файлы конфигурации не найдены!");
             return null;
         }
 
