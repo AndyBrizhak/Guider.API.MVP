@@ -7,7 +7,7 @@ USER root
 RUN mkdir -p /app && chown -R app:app /app
 USER app
 WORKDIR /app
-EXPOSE 8080
+#EXPOSE 8080
 EXPOSE 8081
 
 # This stage is used to build the service project
@@ -35,7 +35,8 @@ COPY .env.docker .env.docker
 
 # Устанавливаем переменные окружения по умолчанию для ASP.NET Core
 ENV ASPNETCORE_ENVIRONMENT=Development
-ENV ASPNETCORE_URLS=http://+:8080;https://+:8081
+#ENV ASPNETCORE_URLS=http://+:8080;https://+:8081
+ENV ASPNETCORE_URLS=https://+:8081
 ENV ASPNETCORE_HTTPS_PORT=8081
 
 # Создаем папку для логов и статических файлов

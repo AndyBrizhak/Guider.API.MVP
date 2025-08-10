@@ -40,7 +40,7 @@
             {
                 new { Path = ".env.local", Description = "Локальная разработка (без Docker)" },
                 new { Path = ".env.docker", Description = "Docker с локальными БД" },
-                new { Path = ".env", Description = "Продакшн Docker с удаленными БД" }
+                new { Path = ".env", Description = "Docker с удаленными БД" }
             };
 
             Console.WriteLine("\n🔍 Проверка доступных файлов конфигурации:");

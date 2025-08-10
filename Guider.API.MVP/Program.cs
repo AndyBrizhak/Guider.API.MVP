@@ -280,7 +280,9 @@ if (app.Environment.IsDevelopment())
     Console.WriteLine("===============================");
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
+
+// Включаем поддержку CORS для всех источников, методов и заголовков
 //app.UseCors(builder =>
 //{
 //    builder.AllowAnyOrigin()
