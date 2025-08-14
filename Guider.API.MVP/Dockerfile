@@ -30,7 +30,7 @@ COPY --from=publish /app/publish .
 
 # Копируем все доступные .env файлы в контейнер
 # Docker автоматически пропустит несуществующие файлы при использовании wildcards
-COPY .env* ./
+COPY .env* /app/
 
 # Устанавливаем переменные окружения по умолчанию для ASP.NET Core
 ENV ASPNETCORE_ENVIRONMENT=Development

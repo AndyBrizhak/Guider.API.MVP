@@ -6,8 +6,6 @@
 **/wwwroot/images/Guanacaste/
 **/wwwroot/images/Negros/
 **/wwwroot/images/string/
-.env
-.env.local
 *.user
 *.md
 Dockerfile
