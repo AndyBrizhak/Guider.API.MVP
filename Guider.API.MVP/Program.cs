@@ -150,7 +150,6 @@ builder.Services.AddAuthentication(u =>
 
 builder.Services.AddCors();
 
-// MongoDB настройки - только из переменных окружения
 builder.Services.Configure<Guider.API.MVP.Data.MongoDbSettings>(options =>
 {
     // Получаем значения переменных из .env.docker формата
@@ -160,23 +159,63 @@ builder.Services.Configure<Guider.API.MVP.Data.MongoDbSettings>(options =>
     // Настройка коллекций из переменных окружения в формате MONGODBSETTINGS__COLLECTIONS__*
     options.Collections = new Dictionary<string, string>();
 
+    // Places Collection
     var placesCollection = Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__PLACES");
+    if (builder.Environment.IsDevelopment())
+    {
+        if (!string.IsNullOrEmpty(placesCollection))
+            Console.WriteLine($"  ✅ Places Collection: {placesCollection}");
+        else
+            Console.WriteLine($"  ⚠️ Places Collection: NOT SET");
+    }
     if (!string.IsNullOrEmpty(placesCollection))
         options.Collections["Places"] = placesCollection;
 
+    // Cities Collection
     var citiesCollection = Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__CITIES");
+    if (builder.Environment.IsDevelopment())
+    {
+        if (!string.IsNullOrEmpty(citiesCollection))
+            Console.WriteLine($"  ✅ Cities Collection: {citiesCollection}");
+        else
+            Console.WriteLine($"  ⚠️ Cities Collection: NOT SET");
+    }
     if (!string.IsNullOrEmpty(citiesCollection))
         options.Collections["Cities"] = citiesCollection;
 
+    // Provinces Collection
     var provincesCollection = Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__PROVINCES");
+    if (builder.Environment.IsDevelopment())
+    {
+        if (!string.IsNullOrEmpty(provincesCollection))
+            Console.WriteLine($"  ✅ Provinces Collection: {provincesCollection}");
+        else
+            Console.WriteLine($"  ⚠️ Provinces Collection: NOT SET");
+    }
     if (!string.IsNullOrEmpty(provincesCollection))
         options.Collections["Provinces"] = provincesCollection;
 
+    // Tags Collection
     var tagsCollection = Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__TAGS");
+    if (builder.Environment.IsDevelopment())
+    {
+        if (!string.IsNullOrEmpty(tagsCollection))
+            Console.WriteLine($"  ✅ Tags Collection: {tagsCollection}");
+        else
+            Console.WriteLine($"  ⚠️ Tags Collection: NOT SET");
+    }
     if (!string.IsNullOrEmpty(tagsCollection))
         options.Collections["Tags"] = tagsCollection;
 
+    // Images Collection
     var imagesCollection = Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__IMAGES");
+    if (builder.Environment.IsDevelopment())
+    {
+        if (!string.IsNullOrEmpty(imagesCollection))
+            Console.WriteLine($"  ✅ Images Collection: {imagesCollection}");
+        else
+            Console.WriteLine($"  ⚠️ Images Collection: NOT SET");
+    }
     if (!string.IsNullOrEmpty(imagesCollection))
         options.Collections["Images"] = imagesCollection;
 
@@ -199,24 +238,32 @@ builder.Services.Configure<Guider.API.MVP.Data.MongoDbSettings>(options =>
     if (builder.Environment.IsDevelopment())
     {
         Console.WriteLine("🔧 MongoDB Configuration:");
-        var maskedConnection = options.ConnectionString.Length > 30
-            ? $"{options.ConnectionString.Substring(0, 30)}..."
-            : options.ConnectionString;
-        Console.WriteLine($"  ✅ Connection String: {maskedConnection}");
-        Console.WriteLine($"  ✅ Database Name: {options.DatabaseName}");
 
-        if (options.Collections != null && options.Collections.Any())
+        // Вывод замаскированной строки подключения
+        if (!string.IsNullOrEmpty(options.ConnectionString))
         {
-            Console.WriteLine("  ✅ Collections:");
-            foreach (var collection in options.Collections)
-            {
-                Console.WriteLine($"     - {collection.Key}: {collection.Value}");
-            }
+            var maskedConnection = options.ConnectionString.Length > 30
+                ? $"{options.ConnectionString.Substring(0, 30)}..."
+                : options.ConnectionString;
+            Console.WriteLine($"  ✅ Connection String: {maskedConnection}");
         }
         else
         {
-            Console.WriteLine("  ⚠️ No collections configured");
+            Console.WriteLine($"  ⚠️ Connection String: NOT SET");
         }
+
+        // Вывод названия базы данных
+        if (!string.IsNullOrEmpty(options.DatabaseName))
+        {
+            Console.WriteLine($"  ✅ Database Name: {options.DatabaseName}");
+        }
+        else
+        {
+            Console.WriteLine($"  ⚠️ Database Name: NOT SET");
+        }
+
+        Console.WriteLine($"  📊 Collections Status:");
+        Console.WriteLine($"     Total configured: {options.Collections.Count}");
         Console.WriteLine();
     }
 });
