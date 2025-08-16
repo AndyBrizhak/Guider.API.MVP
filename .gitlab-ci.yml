@@ -16,7 +16,7 @@ pull:
     - cd /home/$HOST/guider-api-mvp
     - pwd
     - git pull https://$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD@gtl.guider.pro/guider/backend/dotnet_mongodb/
-    - git log --oneline -15
+    - git log --oneline -10
   rules:
     - if: '$CI_COMMIT_BRANCH == "dev" && $CI_COMMIT_MESSAGE =~ /make a pipeline/'
       when: manual
