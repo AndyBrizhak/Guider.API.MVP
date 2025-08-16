@@ -27,40 +27,83 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddEnvironmentVariables();
 
 // Диагностика конфигурации в режиме разработки
+//if (builder.Environment.IsDevelopment())
+//{
+//    Console.WriteLine("🔧 === DEVELOPMENT CONFIGURATION DEBUG ===");
+//    Console.WriteLine($"Environment: {builder.Environment.EnvironmentName}");
+//    // Показываем какие .env файлы доступны
+//    var envFiles = new[] { ".env.local", ".env.docker", ".env" };
+//    Console.WriteLine("\n📁 Доступные .env файлы:");
+//    foreach (var file in envFiles)
+//    {
+//        var exists = File.Exists(file);
+//        Console.WriteLine($"  - {file}: {(exists ? "✅" : "❌")}");
+//    }
+//    Console.WriteLine($"Content Root: {builder.Environment.ContentRootPath}");
+
+//    // Диагностика ключевых настроек из переменных окружения
+//    Console.WriteLine("\n🔍 Environment Variables Status:");
+
+//    // PostgreSQL диагностика
+//    var postgresEnv = Environment.GetEnvironmentVariable("CONNECTIONSTRINGS__POSTGRESQL");
+//    Console.WriteLine($"  PostgreSQL Connection: {(string.IsNullOrEmpty(postgresEnv) ? "❌ MISSING" : "✅ OK")}");
+
+//    // MongoDB диагностика
+//    var mongoConnectionEnv = Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING")
+//        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__CONNECTIONSTRING");
+//    var mongoDatabaseEnv = Environment.GetEnvironmentVariable("MONGODB_DATABASE_NAME")
+//        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__DATABASENAME");
+//    Console.WriteLine($"  MongoDB Connection: {(string.IsNullOrEmpty(mongoConnectionEnv) ? "❌ MISSING" : "✅ OK")}");
+//    Console.WriteLine($"  MongoDB Database: {(string.IsNullOrEmpty(mongoDatabaseEnv) ? "❌ MISSING" : "✅ OK")}");
+
+//    // JWT диагностика
+//    var jwtSecretEnv = Environment.GetEnvironmentVariable("API_SECRET_KEY")
+//        ?? Environment.GetEnvironmentVariable("APISETTINGS__SECRET");
+//    Console.WriteLine($"  JWT Secret: {(string.IsNullOrEmpty(jwtSecretEnv) ? "❌ MISSING" : "✅ OK")}");
+//    Console.WriteLine("==========================================\n");
+//}
+
+// Диагностика конфигурации в режиме разработки
 if (builder.Environment.IsDevelopment())
 {
     Console.WriteLine("🔧 === DEVELOPMENT CONFIGURATION DEBUG ===");
-    Console.WriteLine($"Environment: {builder.Environment.EnvironmentName}");
-    // Показываем какие .env файлы доступны
-    var envFiles = new[] { ".env.local", ".env.docker", ".env" };
-    Console.WriteLine("\n📁 Доступные .env файлы:");
-    foreach (var file in envFiles)
-    {
-        var exists = File.Exists(file);
-        Console.WriteLine($"  - {file}: {(exists ? "✅" : "❌")}");
-    }
-    Console.WriteLine($"Content Root: {builder.Environment.ContentRootPath}");
+Console.WriteLine($"Environment: {builder.Environment.EnvironmentName}");
+// Показываем какие .env файлы доступны
+var envFiles = new[] { ".env.local", ".env.docker", ".env" };
+Console.WriteLine("\n📁 Доступные .env файлы:");
+foreach (var file in envFiles)
+{
+    var exists = File.Exists(file);
+    Console.WriteLine($"  - {file}: {(exists ? "✅" : "❌")}");
+}
+Console.WriteLine($"Content Root: {builder.Environment.ContentRootPath}");
 
-    // Диагностика ключевых настроек из переменных окружения
-    Console.WriteLine("\n🔍 Environment Variables Status:");
+// Диагностика ключевых настроек из переменных окружения
+Console.WriteLine("\n🔍 Environment Variables Status:");
 
-    // PostgreSQL диагностика
-    var postgresEnv = Environment.GetEnvironmentVariable("CONNECTIONSTRINGS__POSTGRESQL");
-    Console.WriteLine($"  PostgreSQL Connection: {(string.IsNullOrEmpty(postgresEnv) ? "❌ MISSING" : "✅ OK")}");
+// PostgreSQL диагностика
+var postgresEnv = Environment.GetEnvironmentVariable("CONNECTIONSTRINGS__POSTGRESQL");
+Console.WriteLine($"  PostgreSQL Connection: {(string.IsNullOrEmpty(postgresEnv) ? "❌ MISSING" : "✅ OK")}");
 
-    // MongoDB диагностика
-    var mongoConnectionEnv = Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING")
-        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__CONNECTIONSTRING");
-    var mongoDatabaseEnv = Environment.GetEnvironmentVariable("MONGODB_DATABASE_NAME")
-        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__DATABASENAME");
-    Console.WriteLine($"  MongoDB Connection: {(string.IsNullOrEmpty(mongoConnectionEnv) ? "❌ MISSING" : "✅ OK")}");
-    Console.WriteLine($"  MongoDB Database: {(string.IsNullOrEmpty(mongoDatabaseEnv) ? "❌ MISSING" : "✅ OK")}");
+// MongoDB диагностика
+var mongoConnectionEnv = Environment.GetEnvironmentVariable("MONGODBSETTINGS__CONNECTIONSTRING");
+var mongoDatabaseEnv = Environment.GetEnvironmentVariable("MONGODBSETTINGS__DATABASENAME");
+Console.WriteLine($"  MongoDB Connection: {(string.IsNullOrEmpty(mongoConnectionEnv) ? "❌ MISSING" : "✅ OK")}");
+Console.WriteLine($"  MongoDB Database: {(string.IsNullOrEmpty(mongoDatabaseEnv) ? "❌ MISSING" : "✅ OK")}");
 
-    // JWT диагностика
-    var jwtSecretEnv = Environment.GetEnvironmentVariable("API_SECRET_KEY")
-        ?? Environment.GetEnvironmentVariable("APISETTINGS__SECRET");
-    Console.WriteLine($"  JWT Secret: {(string.IsNullOrEmpty(jwtSecretEnv) ? "❌ MISSING" : "✅ OK")}");
-    Console.WriteLine("==========================================\n");
+// JWT диагностика
+var jwtSecretEnv = Environment.GetEnvironmentVariable("APISETTINGS__SECRET");
+Console.WriteLine($"  JWT Secret: {(string.IsNullOrEmpty(jwtSecretEnv) ? "❌ MISSING" : "✅ OK")}");
+
+// MinIO диагностика
+var minioEndpointEnv = Environment.GetEnvironmentVariable("MINIOSETTINGS__ENDPOINT");
+var minioAccessKeyEnv = Environment.GetEnvironmentVariable("MINIOSETTINGS__ACCESSKEY");
+var minioSecretKeyEnv = Environment.GetEnvironmentVariable("MINIOSETTINGS__SECRETKEY");
+Console.WriteLine($"  MinIO Endpoint: {(string.IsNullOrEmpty(minioEndpointEnv) ? "❌ MISSING" : "✅ OK")}");
+Console.WriteLine($"  MinIO AccessKey: {(string.IsNullOrEmpty(minioAccessKeyEnv) ? "❌ MISSING" : "✅ OK")}");
+Console.WriteLine($"  MinIO SecretKey: {(string.IsNullOrEmpty(minioSecretKeyEnv) ? "❌ MISSING" : "✅ OK")}");
+
+Console.WriteLine("==========================================\n");
 }
 
 // Add services to the container.
@@ -147,74 +190,145 @@ builder.Services.AddAuthentication(u =>
 builder.Services.AddCors();
 
 // MongoDB настройки - только из переменных окружения
+//builder.Services.Configure<Guider.API.MVP.Data.MongoDbSettings>(options =>
+//{
+//    // Только переменные окружения
+//    options.ConnectionString = Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING")
+//        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__CONNECTIONSTRING");
+
+//    options.DatabaseName = Environment.GetEnvironmentVariable("MONGODB_DATABASE_NAME")
+//        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__DATABASENAME");
+
+//    // Настройка коллекций из переменных окружения
+//    options.Collections = new Dictionary<string, string>();
+
+//    var places = Environment.GetEnvironmentVariable("MONGODB_PLACES_COLLECTION")
+//        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__PLACES");
+//    if (!string.IsNullOrEmpty(places))
+//        options.Collections["Places"] = places;
+
+//    var cities = Environment.GetEnvironmentVariable("MONGODB_CITIES_COLLECTION")
+//        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__CITIES");
+//    if (!string.IsNullOrEmpty(cities))
+//        options.Collections["Cities"] = cities;
+
+//    var provinces = Environment.GetEnvironmentVariable("MONGODB_PROVINCES_COLLECTION")
+//        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__PROVINCES");
+//    if (!string.IsNullOrEmpty(provinces))
+//        options.Collections["Provinces"] = provinces;
+
+//    var tags = Environment.GetEnvironmentVariable("MONGODB_TAGS_COLLECTION")
+//        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__TAGS");
+//    if (!string.IsNullOrEmpty(tags))
+//        options.Collections["Tags"] = tags;
+
+//    var images = Environment.GetEnvironmentVariable("MONGODB_IMAGES_COLLECTION")
+//        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__IMAGES");
+//    if (!string.IsNullOrEmpty(images))
+//        options.Collections["Images"] = images;
+
+//    if (string.IsNullOrEmpty(options.ConnectionString))
+//    {
+//        throw new InvalidOperationException(
+//            "MongoDB ConnectionString is not configured. " +
+//            "Please set MONGODB_CONNECTION_STRING or MONGODBSETTINGS__CONNECTIONSTRING environment variable.");
+//    }
+
+//    if (string.IsNullOrEmpty(options.DatabaseName))
+//    {
+//        throw new InvalidOperationException(
+//            "MongoDB DatabaseName is not configured. " +
+//            "Please set MONGODB_DATABASE_NAME or MONGODBSETTINGS__DATABASENAME environment variable.");
+//    }
+
+//    // Логирование для отладки (только в Development)
+//    if (builder.Environment.IsDevelopment())
+//    {
+//        var maskedConnection = options.ConnectionString.Length > 30
+//            ? $"{options.ConnectionString.Substring(0, 30)}..."
+//            : options.ConnectionString;
+//        Console.WriteLine($"✅ MongoDB Connection: {maskedConnection}");
+//        Console.WriteLine($"✅ MongoDB Database: {options.DatabaseName}");
+
+//        if (options.Collections != null && options.Collections.Any())
+//        {
+//            Console.WriteLine("✅ MongoDB Collections:");
+//            foreach (var collection in options.Collections)
+//            {
+//                Console.WriteLine($"   - {collection.Key}: {collection.Value}");
+//            }
+//        }
+//    }
+//});
+
+// MongoDB настройки - только из переменных окружения
 builder.Services.Configure<Guider.API.MVP.Data.MongoDbSettings>(options =>
 {
-    // Только переменные окружения
-    options.ConnectionString = Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING")
-        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__CONNECTIONSTRING");
+    // Получаем значения переменных из .env.docker формата
+    options.ConnectionString = Environment.GetEnvironmentVariable("MONGODBSETTINGS__CONNECTIONSTRING");
+    options.DatabaseName = Environment.GetEnvironmentVariable("MONGODBSETTINGS__DATABASENAME");
 
-    options.DatabaseName = Environment.GetEnvironmentVariable("MONGODB_DATABASE_NAME")
-        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__DATABASENAME");
-
-    // Настройка коллекций из переменных окружения
+    // Настройка коллекций из переменных окружения в формате MONGODBSETTINGS__COLLECTIONS__*
     options.Collections = new Dictionary<string, string>();
 
-    var places = Environment.GetEnvironmentVariable("MONGODB_PLACES_COLLECTION")
-        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__PLACES");
-    if (!string.IsNullOrEmpty(places))
-        options.Collections["Places"] = places;
+    var placesCollection = Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__PLACES");
+    if (!string.IsNullOrEmpty(placesCollection))
+        options.Collections["Places"] = placesCollection;
 
-    var cities = Environment.GetEnvironmentVariable("MONGODB_CITIES_COLLECTION")
-        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__CITIES");
-    if (!string.IsNullOrEmpty(cities))
-        options.Collections["Cities"] = cities;
+    var citiesCollection = Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__CITIES");
+    if (!string.IsNullOrEmpty(citiesCollection))
+        options.Collections["Cities"] = citiesCollection;
 
-    var provinces = Environment.GetEnvironmentVariable("MONGODB_PROVINCES_COLLECTION")
-        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__PROVINCES");
-    if (!string.IsNullOrEmpty(provinces))
-        options.Collections["Provinces"] = provinces;
+    var provincesCollection = Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__PROVINCES");
+    if (!string.IsNullOrEmpty(provincesCollection))
+        options.Collections["Provinces"] = provincesCollection;
 
-    var tags = Environment.GetEnvironmentVariable("MONGODB_TAGS_COLLECTION")
-        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__TAGS");
-    if (!string.IsNullOrEmpty(tags))
-        options.Collections["Tags"] = tags;
+    var tagsCollection = Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__TAGS");
+    if (!string.IsNullOrEmpty(tagsCollection))
+        options.Collections["Tags"] = tagsCollection;
 
-    var images = Environment.GetEnvironmentVariable("MONGODB_IMAGES_COLLECTION")
-        ?? Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__IMAGES");
-    if (!string.IsNullOrEmpty(images))
-        options.Collections["Images"] = images;
+    var imagesCollection = Environment.GetEnvironmentVariable("MONGODBSETTINGS__COLLECTIONS__IMAGES");
+    if (!string.IsNullOrEmpty(imagesCollection))
+        options.Collections["Images"] = imagesCollection;
 
+    // Валидация обязательных настроек
     if (string.IsNullOrEmpty(options.ConnectionString))
     {
         throw new InvalidOperationException(
             "MongoDB ConnectionString is not configured. " +
-            "Please set MONGODB_CONNECTION_STRING or MONGODBSETTINGS__CONNECTIONSTRING environment variable.");
+            "Please set MONGODBSETTINGS__CONNECTIONSTRING environment variable.");
     }
 
     if (string.IsNullOrEmpty(options.DatabaseName))
     {
         throw new InvalidOperationException(
             "MongoDB DatabaseName is not configured. " +
-            "Please set MONGODB_DATABASE_NAME or MONGODBSETTINGS__DATABASENAME environment variable.");
+            "Please set MONGODBSETTINGS__DATABASENAME environment variable.");
     }
 
-    // Логирование для отладки (только в Development)
+    // Диагностика MongoDB настроек (только в Development)
     if (builder.Environment.IsDevelopment())
     {
+        Console.WriteLine("🔧 MongoDB Configuration:");
         var maskedConnection = options.ConnectionString.Length > 30
             ? $"{options.ConnectionString.Substring(0, 30)}..."
             : options.ConnectionString;
-        Console.WriteLine($"✅ MongoDB Connection: {maskedConnection}");
-        Console.WriteLine($"✅ MongoDB Database: {options.DatabaseName}");
+        Console.WriteLine($"  ✅ Connection String: {maskedConnection}");
+        Console.WriteLine($"  ✅ Database Name: {options.DatabaseName}");
 
         if (options.Collections != null && options.Collections.Any())
         {
-            Console.WriteLine("✅ MongoDB Collections:");
+            Console.WriteLine("  ✅ Collections:");
             foreach (var collection in options.Collections)
             {
-                Console.WriteLine($"   - {collection.Key}: {collection.Value}");
+                Console.WriteLine($"     - {collection.Key}: {collection.Value}");
             }
         }
+        else
+        {
+            Console.WriteLine("  ⚠️ No collections configured");
+        }
+        Console.WriteLine();
     }
 });
 
