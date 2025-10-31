@@ -348,8 +348,8 @@ if (!app.Environment.IsDevelopment())
 
 // Используем разный CORS в зависимости от окружения
 
-if (app.Environment.IsDevelopment())
-{
+//if (app.Environment.IsDevelopment())
+//{
     // Включаем поддержку CORS для всех источников, методов и заголовков
     app.UseCors(builder =>
     {
@@ -357,22 +357,22 @@ if (app.Environment.IsDevelopment())
                .AllowAnyMethod()
                .AllowAnyHeader();
     });
-}
-else
-{
-    // Для Production: используем СТРОГИЙ список
-    app.UseCors(builder =>
-    {
-        builder.WithOrigins(
-            "https://api.guider.pro",      // Swagger UI
-            "https://guider.pro",          // NextJS клиент
-            "https://vip-test-2.guider.pro" // React Admin
+//}
+//else
+//{
+//    // Для Production: используем СТРОГИЙ список
+//    app.UseCors(builder =>
+//    {
+//        builder.WithOrigins(
+//            "https://api.guider.pro",      // Swagger UI
+//            "https://guider.pro",          // NextJS клиент
+//            "https://vip-test-2.guider.pro" // React Admin
             
-        )
-        .AllowAnyMethod()
-        .AllowAnyHeader();
-    });
-}
+//        )
+//        .AllowAnyMethod()
+//        .AllowAnyHeader();
+//    });
+//}
 
 app.UseStaticFiles();
 
