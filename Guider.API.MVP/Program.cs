@@ -338,12 +338,12 @@ if (app.Environment.IsDevelopment())
     Console.WriteLine("===============================");
 }
 
-if (!app.Environment.IsDevelopment())
-{
-    // В Production (Staging, UAT и т.д.) - ПРИНУДИТЕЛЬНО ИСПОЛЬЗУЕМ HTTPS.
+//if (!app.Environment.IsDevelopment())
+//{
+//    // В Production (Staging, UAT и т.д.) - ПРИНУДИТЕЛЬНО ИСПОЛЬЗУЕМ HTTPS.
     
-    app.UseHttpsRedirection();
-}
+//    app.UseHttpsRedirection();
+//}
 
 
 // Используем разный CORS в зависимости от окружения
