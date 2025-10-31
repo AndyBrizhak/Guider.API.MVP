@@ -338,27 +338,41 @@ if (app.Environment.IsDevelopment())
     Console.WriteLine("===============================");
 }
 
-//app.UseHttpsRedirection();
-
-// Включаем поддержку CORS для всех источников, методов и заголовков
-//app.UseCors(builder =>
-//{
-//    builder.AllowAnyOrigin()
-//           .AllowAnyMethod()
-//           .AllowAnyHeader();
-//});
-
-app.UseCors(builder =>
+if (!app.Environment.IsDevelopment())
 {
-    builder.WithOrigins(
-        "https://api.guider.pro",      // Swagger UI
-        "https://guider.pro",          // NextJS клиент
-        "https://vip-test-2.guider.pro", // React Admin
-        "http://localhost:3000"        // Локальная разработка
-    )
-    .AllowAnyMethod()
-    .AllowAnyHeader();
-});
+    // В Production (Staging, UAT и т.д.) - ПРИНУДИТЕЛЬНО ИСПОЛЬЗУЕМ HTTPS.
+    
+    app.UseHttpsRedirection();
+}
+
+
+// Используем разный CORS в зависимости от окружения
+
+if (app.Environment.IsDevelopment())
+{
+    // Включаем поддержку CORS для всех источников, методов и заголовков
+    app.UseCors(builder =>
+    {
+        builder.AllowAnyOrigin()
+               .AllowAnyMethod()
+               .AllowAnyHeader();
+    });
+}
+else
+{
+    // Для Production: используем СТРОГИЙ список
+    app.UseCors(builder =>
+    {
+        builder.WithOrigins(
+            "https://api.guider.pro",      // Swagger UI
+            "https://guider.pro",          // NextJS клиент
+            "https://vip-test-2.guider.pro" // React Admin
+            
+        )
+        .AllowAnyMethod()
+        .AllowAnyHeader();
+    });
+}
 
 app.UseStaticFiles();
 
