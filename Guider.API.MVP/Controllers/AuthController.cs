@@ -18,6 +18,9 @@ namespace Guider.API.MVP.Controllers
 {
     [Route("")]
     [ApiController]
+    // АТРИБУТЫ УРОВНЯ КОНТРОЛЛЕРА:
+    [Produces("application/json")] // Сообщаем Swagger, что мы всегда возвращаем JSON
+    [Tags("Authentication & User Management")] // Группируем все эндпоинты в одну категорию
     public class AuthController : ControllerBase
     {
         private readonly ApplicationDbContext _db;
@@ -42,40 +45,13 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// Authenticates a user based on the provided credentials and generates a JWT token.
+        /// Аутентифицирует пользователя и генерирует JWT токен.
         /// </summary>
         /// <remarks>
-        /// Sample request:
-        ///
-        ///     POST /login
-        ///     {
-        ///         "username": "user1",
-        ///         "password": "Password123!"
-        ///     }
-        ///
+        /// Принимает имя пользователя (которое может быть UserName или Email) и пароль.
         /// </remarks>
-        /// <param name="loginRequest">
-        /// The login credentials. Example:
-        /// <br/>
-        /// {<br/>
-        /// &nbsp;&nbsp;"username": "user1",<br/>
-        /// &nbsp;&nbsp;"password": "Password123!"<br/>
-        /// }
-        /// </param>
-        /// <returns>
-        /// Returns the authentication result in the following format:
-        /// <br/>
-        /// {<br/>
-        /// &nbsp;&nbsp;"token": "jwt_token_string",<br/>
-        /// &nbsp;&nbsp;"id": "user_id",<br/>
-        /// &nbsp;&nbsp;"username": "user1",<br/>
-        /// &nbsp;&nbsp;"email": "user1@example.com",<br/>
-        /// &nbsp;&nbsp;"role": "user"<br/>
-        /// }
-        /// </returns>
-        /// <response code="200">Authentication successful, JWT token returned</response>
-        /// <response code="400">Username or password not provided</response>
-        /// <response code="401">Invalid username or password</response>
+        /// <param name="loginRequest">Модель с данными для входа.</param>
+        /// <returns>Объект с JWT токеном и информацией о пользователе.</returns>
         [HttpPost("login")]
         public async Task<ActionResult> Login([FromBody] LoginRequest loginRequest)
         {
@@ -137,50 +113,34 @@ namespace Guider.API.MVP.Controllers
 
         public class LoginRequest
         {
+            /// <summary>
+            /// Имя пользователя ИЛИ Email.
+            /// </summary>
+            /// <example>admin</example>
             [JsonPropertyName("username")]
             public string Username { get; set; }
 
+            /// <summary>
+            /// Пароль.
+            /// </summary>
+            /// <example>Password123!</example>
             [JsonPropertyName("password")]
             public string Password { get; set; }
         }
 
         /// <summary>
-        /// Creates a new user account.
+        /// Создает новую учетную запись пользователя.
         /// </summary>
         /// <remarks>
-        /// Sample request:
-        ///
-        ///     POST /users
-        ///     {
-        ///         "username": "newuser",
-        ///         "email": "newuser@example.com",
-        ///         "password": "Password123!"
-        ///     }
-        ///
+        /// Создает пользователя с ролью 'user' по умолчанию.
         /// </remarks>
-        /// <param name="requestModel">
-        /// The user creation data. Example:
-        /// <br/>
-        /// {<br/>
-        /// &nbsp;&nbsp;"username": "newuser",<br/>
-        /// &nbsp;&nbsp;"email": "newuser@example.com",<br/>
-        /// &nbsp;&nbsp;"password": "Password123!"<br/>
-        /// }
-        /// </param>
-        /// <returns>
-        /// Returns the created user's details in the following format:
-        /// <br/>
-        /// {<br/>
-        /// &nbsp;&nbsp;"id": "string",<br/>
-        /// &nbsp;&nbsp;"username": "newuser",<br/>
-        /// &nbsp;&nbsp;"email": "newuser@example.com",<br/>
-        /// &nbsp;&nbsp;"role": "user"<br/>
-        /// }
-        /// </returns>
-        /// <response code="201">User created successfully</response>
-        /// <response code="400">Validation error or user already exists</response>
-        /// <response code="500">Internal server error</response>
+        /// <param name="requestModel">Данные для создания нового пользователя.</param>
+        /// <returns>Объект с данными созданного пользователя.</returns>
         [HttpPost("users")]
+        [Consumes("application/json")] // Указываем, что ожидаем JSON
+        [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(object))] // Успешное создание
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(object))] // Ошибка валидации
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
         public async Task<ActionResult> CreateUser([FromBody] CreateUserData requestModel)
         {
             // Проверяем наличие обязательного объекта data
@@ -365,27 +325,53 @@ namespace Guider.API.MVP.Controllers
 
         public class CreateUserData
         {
+            /// <summary>
+            /// Уникальное имя пользователя.
+            /// </summary>
+            /// <example>new_user</example>
             public string? username { get; set; }
+
+            /// <summary>
+            /// Email пользователя (должен быть уникальным).
+            /// </summary>
+            /// <example>user@example.com</example>
             public string? email { get; set; }
+
+            /// <summary>
+            /// Пароль. Минимальная длина 6 символов.
+            /// </summary>
+            /// <remarks>
+            /// Согласно настройкам Identity:
+            /// - Минимальная длина: 6
+            /// - Не требуются цифры, спец. символы, заглавные или строчные буквы.
+            /// </remarks>
+            /// <example>pa$$w0rd</example>
             public string? password { get; set; }
-            //public string role { get; set; }
+            
         }
 
         /// <summary>
-        /// Gets a paginated list of users based on the provided filters and sorting options.
+        /// Получает постраничный список пользователей с фильтрацией и сортировкой.
         /// </summary>
-        /// <param name="page"></param>
-        /// <param name="perPage"></param>
-        /// <param name="sortField"></param>
-        /// <param name="sortOrder"></param>
-        /// <param name="username"></param>
-        /// <param name="email"></param>
-        /// <param name="id"></param>
-        /// <param name="role"></param>
-        /// <param name="filter"></param>
-        /// <returns></returns>
+        /// <remarks>
+        /// Доступно только для ролей 'Super_Admin' и 'Admin'.
+        /// Ответ включает заголовок 'X-Total-Count' с общим количеством пользователей (важно для React Admin).
+        /// </remarks>
+        /// <param name="page">Номер страницы (по умолчанию 1).</param>
+        /// <param name="perPage">Количество элементов на странице (по умолчанию 10).</param>
+        /// <param name="sortField">Поле для сортировки (username, email, id).</param>
+        /// <param name="sortOrder">Порядок сортировки (ASC или DESC).</param>
+        /// <param name="username">Фильтр по части имени пользователя.</param>
+        /// <param name="email">Фильтр по части email.</param>
+        /// <param name="id">Фильтр по ID пользователя.</param>
+        /// <param name="role">Фильтр по роли пользователя.</param>
+        /// <param name="filter">Устаревший JSON-фильтр (для обратной совместимости).</param>
+        /// <returns>Список пользователей.</returns>
         [HttpGet("users")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<object>))] // Успешный ответ
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)] // Не авторизован
+        [ProducesResponseType(StatusCodes.Status403Forbidden)] // Нет прав (не админ)
         public async Task<ActionResult> GetUsersPaged(
         [FromQuery] int page = 1,
         [FromQuery] int perPage = 10,
@@ -561,33 +547,19 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// Retrieves a user by their unique identifier.
+        /// Получает пользователя по его ID.
         /// </summary>
         /// <remarks>
-        /// Sample request:
-        ///
-        ///     GET /users/{id}
-        ///
+        /// Доступно только для ролей 'Super_Admin' и 'Admin'.
         /// </remarks>
-        /// <param name="id">
-        /// The unique identifier of the user to retrieve.
-        /// <br/>
-        /// Example: "a1b2c3d4-5678-90ab-cdef-1234567890ab"
-        /// </param>
-        /// <returns>
-        /// Returns the user's details in the following format:
-        /// <br/>
-        /// {<br/>
-        /// &nbsp;&nbsp;"id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",<br/>
-        /// &nbsp;&nbsp;"username": "user1",<br/>
-        /// &nbsp;&nbsp;"email": "user1@example.com",<br/>
-        /// &nbsp;&nbsp;"role": "user"<br/>
-        /// }
-        /// </returns>
-        /// <response code="200">User found and details retrieved successfully</response>
-        /// <response code="404">User with the specified ID does not exist</response>
+        /// <param name="id">Уникальный идентификатор пользователя (GUID).</param>
+        /// <returns>Объект с данными пользователя.</returns>
         [HttpGet("users/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))] // Пользователь найден
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)] // Не авторизован
+        [ProducesResponseType(StatusCodes.Status403Forbidden)] // Нет прав
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(object))] // Пользователь не найден
         public async Task<ActionResult> GetUserById(string id)
         {
             var user = await _userManager.FindByIdAsync(id);
@@ -610,48 +582,23 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// Updates a user's details based on the provided unique identifier and update model.
+        /// Обновляет данные пользователя по ID.
         /// </summary>
         /// <remarks>
-        /// Sample request:
-        ///
-        ///     PUT /users/{id}
-        ///     {
-        ///         "username": "newusername",
-        ///         "email": "newemail@example.com",
-        ///         "role": "user"
-        ///     }
-        ///
+        /// Доступно только для ролей 'Super_Admin' и 'Admin'.
+        /// Администраторы не могут редактировать других Администраторов или Супер-Админов.
         /// </remarks>
-        /// <param name="id">The unique identifier of the user to update.</param>
-        /// <param name="model">
-        /// The update model containing the following fields (all optional):
-        /// <br/>
-        /// {<br/>
-        /// &nbsp;&nbsp;"username": "newusername",<br/>
-        /// &nbsp;&nbsp;"email": "newemail@example.com",<br/>
-        /// &nbsp;&nbsp;"role": "user"<br/>
-        /// }
-        /// <br/>
-        /// <b>Note:</b> When entering an email, you must use a valid email format (e.g., "user@example.com").
-        /// </param>
-        /// <returns>
-        /// Returns the updated user's details in the following format:
-        /// <br/>
-        /// {<br/>
-        /// &nbsp;&nbsp;"id": "user_id",<br/>
-        /// &nbsp;&nbsp;"username": "newusername",<br/>
-        /// &nbsp;&nbsp;"email": "newemail@example.com",<br/>
-        /// &nbsp;&nbsp;"role": "user"<br/>
-        /// }
-        /// </returns>
-        /// <response code="200">User updated successfully</response>
-        /// <response code="400">At least one field (username, email, or role) must be provided for update</response>
-        /// <response code="404">User with the specified ID does not exist</response>
-        /// <response code="403">Current user does not have permission to update the target user</response>
-        /// <response code="500">An error occurred during the update process</response>
+        /// <param name="id">ID пользователя для обновления.</param>
+        /// <param name="model">Данные для обновления (username, email, role).</param>
+        /// <returns>Объект с обновленными данными пользователя.</returns>
         [HttpPut("users/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))] // Успешное обновление
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(object))] // Неверный запрос
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)] // Не авторизован
+        [ProducesResponseType(StatusCodes.Status403Forbidden, Type = typeof(object))] // Нет прав
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(object))] // Пользователь не найден
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
         public async Task<ActionResult> UpdateUser(string id, [FromBody] UpdateUserData model)
         {
             // Проверка входных данных
@@ -752,33 +699,43 @@ namespace Guider.API.MVP.Controllers
         }
         public class UpdateUserData
         {
+            /// <summary>
+            /// Новое имя пользователя (необязательно).
+            /// </summary>
+            /// <example>updated_username</example>
             public string? username { get; set; }
+
+            /// <summary>
+            /// Новый email (необязательно).
+            /// </summary>
+            /// <example>new_email@example.com</example>
             public string? email { get; set; }
+
+            /// <summary>
+            /// Новая роль (необязательно).
+            /// </summary>
+            /// <example>manager</example>
             public string? role { get; set; }
         }
 
         /// <summary>
-        /// Deletes a user based on the provided unique identifier.
-        /// 
+        /// Удаляет пользователя по ID.
         /// </summary>
-        /// 
-        /// <param name="id">The unique identifier of the user to delete.</param>
-        /// 
-        /// <returns>
-        /// 
-        /// Returns a success message in the format expected by React Admin.
-        /// 
-        /// Possible outcomes:
-        /// 
-        /// - 200 OK: User deleted successfully.
-        /// 
-        /// - 404 Not Found: User with the specified ID does not exist.
-        /// 
-        /// - 500 Internal Server Error: An error occurred during the deletion process.
-        /// 
-        /// </returns>
+        /// <remarks>
+        /// Доступно только для ролей 'Super_Admin' и 'Admin'.
+        /// Администраторы не могут удалять других Администраторов или Супер-Админов.
+        /// </remarks>
+        /// <param name="id">ID пользователя для удаления.</param>
+        /// <param name="model">Тело запроса (для совместимости с React Admin), может быть null.</param>
+        /// <returns>Объект с данными удаленного пользователя.</returns>
         [HttpDelete("users/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        // Примечание: [Consumes] здесь не нужен, т.к. [FromBody] опционален
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))] // Успешное удаление
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)] // Не авторизован
+        [ProducesResponseType(StatusCodes.Status403Forbidden, Type = typeof(object))] // Нет прав
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(object))] // Пользователь не найден
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
         public async Task<ActionResult> DeleteUser(string id, [FromBody] DeleteUserRequestDTO model = null)
         {
             var userToDelete = await _userManager.FindByIdAsync(id);
@@ -839,7 +796,14 @@ namespace Guider.API.MVP.Controllers
         }
         public class DeleteUserRequestDTO
         {
+            /// <summary>
+            /// Предыдущие данные (для React Admin).
+            /// </summary>
             public object? previousData { get; set; } // Предыдущие данные пользователя
+
+            /// <summary>
+            /// Метаданные (для React Admin).
+            /// </summary>
             public object? meta { get; set; } // Опциональные метаданные
         }
     }
