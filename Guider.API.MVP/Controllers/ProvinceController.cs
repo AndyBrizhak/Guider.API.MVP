@@ -1,5 +1,4 @@
 ﻿
-
 using Guider.API.MVP.Models;
 using Guider.API.MVP.Services;
 using Guider.API.MVP.Utility;
@@ -25,14 +24,16 @@ namespace Guider.API.MVP.Controllers
     public class ProvinceController : ControllerBase
     {
         private readonly ProvinceService _provinceService;
+        private readonly PlaceService _placeService;
 
         /// <summary>
         /// Инициализирует новый экземпляр контроллера ProvinceController.
         /// </summary>
         /// <param name="provinceService">Сервис для операций с провинциями.</param>
-        public ProvinceController(ProvinceService provinceService)
+        public ProvinceController(ProvinceService provinceService, PlaceService placeService)
         {
             _provinceService = provinceService;
+            _placeService = placeService;
         }
 
         /// <summary>
@@ -428,6 +429,70 @@ namespace Guider.API.MVP.Controllers
 
             // Return the ID for react-admin compatibility
             return Ok(new { id });
+        }
+
+        /// <summary>
+        /// Получает список активных провинций из коллекции Places с опциональной фильтрацией.
+        /// </summary>
+        /// <remarks>
+        /// Возвращает уникальные названия провинций, которые присутствуют в адресах мест в коллекции Places.
+        /// Провинции отсортированы по алфавиту.
+        /// <br/>
+        /// <br/>
+        /// <b>Примеры использования:</b>
+        /// <br/>
+        /// - GET /provinces/active - все провинции
+        /// <br/>
+        /// - GET /provinces/active?category=to-eat - провинции с ресторанами
+        /// </remarks>
+        /// <param name="category">Опциональный фильтр по категории (например, "to-eat").</param>
+        /// <returns>Массив названий провинций.</returns>
+        [HttpGet("provinces/active")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<string>))] // Успешный ответ
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
+        public async Task<IActionResult> GetActiveProvinces([FromQuery] string category = null)
+        {
+            try
+            {
+                var result = await _placeService.GetActiveProvincesAsync(category);
+
+                if (result == null)
+                {
+                    return StatusCode(StatusCodes.Status500InternalServerError,
+                        new { message = "Service returned null result." });
+                }
+
+                // Проверяем успешность операции
+                bool isSuccess = result.RootElement.GetProperty("success").GetBoolean();
+
+                if (!isSuccess)
+                {
+                    string errorMessage = result.RootElement.GetProperty("error").GetString();
+                    return StatusCode(StatusCodes.Status500InternalServerError,
+                        new { message = errorMessage });
+                }
+
+                // Извлекаем массив провинций
+                var provincesData = result.RootElement.GetProperty("data");
+                var provincesList = new List<string>();
+
+                foreach (var province in provincesData.EnumerateArray())
+                {
+                    provincesList.Add(province.GetString());
+                }
+
+                // Добавляем заголовок с общим количеством провинций
+                Response.Headers.Add("X-Total-Count", provincesList.Count.ToString());
+                Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
+
+                // Возвращаем просто массив строк
+                return Ok(provincesList);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = $"An error occurred: {ex.Message}" });
+            }
         }
     }
 }
