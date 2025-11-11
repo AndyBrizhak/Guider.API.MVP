@@ -19,10 +19,12 @@ namespace Guider.API.MVP.Controllers
     public class CitiesController : ControllerBase
     {
         private readonly CitiesService _citiesService;
+        private readonly PlaceService _placeService; // СЕРВИС ПЛЕЙСОВ
 
-        public CitiesController(CitiesService citiesService)
+        public CitiesController(CitiesService citiesService, PlaceService placeService)
         {
             _citiesService = citiesService;
+            _placeService = placeService; // ИНИЦИАЛИЗАЦИя ПЛЕЙСОВ
         }
 
 
@@ -486,7 +488,61 @@ namespace Guider.API.MVP.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
             }
         }
-       
+
+        
+
+        /// <summary>
+        /// Получает список активных городов из коллекции Places.
+        /// </summary>
+        /// <remarks>
+        /// Возвращает уникальные названия городов, которые присутствуют в адресах мест в коллекции Places.
+        /// Города отсортированы по алфавиту.
+        /// </remarks>
+        /// <returns>Массив названий городов.</returns>
+        [HttpGet("cities/active")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<string>))] // Успешный ответ
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
+        public async Task<IActionResult> GetActiveCities()
+        {
+            try
+            {
+                var result = await _placeService.GetActiveCitiesAsync();
+
+                if (result == null)
+                {
+                    return StatusCode(StatusCodes.Status500InternalServerError,
+                        new { message = "Service returned null result." });
+                }
+
+                // Проверяем успешность операции
+                bool isSuccess = result.RootElement.GetProperty("success").GetBoolean();
+
+                if (!isSuccess)
+                {
+                    string errorMessage = result.RootElement.GetProperty("error").GetString();
+                    return StatusCode(StatusCodes.Status500InternalServerError,
+                        new { message = errorMessage });
+                }
+
+                // Извлекаем массив городов
+                var citiesData = result.RootElement.GetProperty("data");
+                var citiesList = new List<string>();
+
+                foreach (var city in citiesData.EnumerateArray())
+                {
+                    citiesList.Add(city.GetString());
+                }
+
+                // Возвращаем просто массив строк
+                return Ok(citiesList);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = $"An error occurred: {ex.Message}" });
+            }
+        }
+
     }
 
     // Extension method to help combine JSON objects

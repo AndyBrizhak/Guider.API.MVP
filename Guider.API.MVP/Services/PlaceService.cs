@@ -5,6 +5,7 @@
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Options;
     using MongoDB.Bson;
+    using MongoDB.Bson.Serialization;
     using MongoDB.Driver;
     using MongoDB.Driver.GeoJsonObjectModel;
     using System.Collections.Generic;
@@ -873,16 +874,7 @@
         }
 
 
-        /// <summary>
-        /// 
-        /// Получить доступные теги по категории и выбранным тегам
-        /// 
-        /// </summary>
-        /// 
-        /// <param name="category">Категория</param>
-        /// 
-        /// <param name="selectedTags">Выбранные теги</param>
-        /// 
+        
         public async Task<JsonDocument> GetAvailableTagsAsync(
                                                                 string? category,
                                                                 List<string>? selectedTags)
@@ -959,13 +951,7 @@
             return JsonDocument.Parse(jsonString);
         }
 
-        /// <summary>
-        /// Найти документ по имени, городу и провинции в адресе.
-        /// </summary>
-        /// <param name="name">Имя объекта</param>
-        /// <param name="city">Город</param>
-        /// <param name="province">Провинция</param>
-        /// <returns>JSON-документ, соответствующий критериям, или null</returns>
+        
         public async Task<JsonDocument?> GetPlaceByNameCityProvinceAsync(string name, string city, string province)
         {
             var filter = Builders<BsonDocument>.Filter.And(
@@ -1467,6 +1453,75 @@
             }
         }
 
+        
+
+        /// <summary>
+        /// Получить список уникальных городов из коллекции Places
+        /// </summary>
+        public async Task<JsonDocument> GetActiveCitiesAsync()
+        {
+            try
+            {
+                var pipeline = new List<BsonDocument>
+        {
+            // Группируем по полю address.city и получаем уникальные значения
+            new BsonDocument("$group", new BsonDocument
+            {
+                { "_id", "$address.city" }
+            }),
+            
+            // Сортируем по алфавиту
+            new BsonDocument("$sort", new BsonDocument("_id", 1)),
+            
+            // Фильтруем null значения
+            new BsonDocument("$match", new BsonDocument
+            {
+                { "_id", new BsonDocument("$ne", BsonNull.Value) }
+            }),
+            
+            // Группируем все города в один массив
+            new BsonDocument("$group", new BsonDocument
+            {
+                { "_id", BsonNull.Value },
+                { "allCities", new BsonDocument("$push", "$_id") }
+            })
+        };
+
+                var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
+
+                if (result == null || !result.Contains("allCities"))
+                {
+                    // Возвращаем пустой массив, если городов нет
+                    var emptyResponse = new
+                    {
+                        success = true,
+                        data = new List<string>()
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(emptyResponse));
+                }
+
+                // Извлекаем массив городов
+                var citiesArray = result["allCities"].AsBsonArray;
+                var citiesList = citiesArray.Select(city => city.AsString).ToList();
+
+                var successResponse = new
+                {
+                    success = true,
+                    data = citiesList
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = new
+                {
+                    success = false,
+                    error = $"An error occurred while retrieving cities: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+        }
     }
 }
 
