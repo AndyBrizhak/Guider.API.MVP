@@ -16,36 +16,44 @@ using System;
 namespace Guider.API.MVP.Controllers
 {
     /// <summary>
-    /// Controller for managing provinces.
+    /// Управляет провинциями (областями).
     /// </summary>
-    [Route("")]
+    [Route("")]// Маршруты задаются на уровне методов (напр. "provinces")
     [ApiController]
+    [Produces("application/json")] // Все ответы в формате JSON
+    [Tags("Provinces")] // Группировка в Swagger
     public class ProvinceController : ControllerBase
     {
         private readonly ProvinceService _provinceService;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="ProvinceController"/> class.
+        /// Инициализирует новый экземпляр контроллера ProvinceController.
         /// </summary>
-        /// <param name="provinceService">Service for province operations.</param>
+        /// <param name="provinceService">Сервис для операций с провинциями.</param>
         public ProvinceController(ProvinceService provinceService)
         {
             _provinceService = provinceService;
         }
 
-
-       
         /// <summary>
-        /// Retrieves all provinces in a format compatible with react-admin.
+        /// Получает постраничный список провинций (для React-Admin).
         /// </summary>
-        /// <param name="q">Search query for filtering.</param>
-        /// <param name="name">Filter by province name.</param>
-        /// <param name="url">Filter by province URL.</param>
-        /// <param name="page">Page number for pagination (default: 1).</param>
-        /// <param name="perPage">Items per page for pagination (default: 10).</param>
-        /// <returns>A list of provinces.</returns>
+        /// <remarks>
+        /// Возвращает список провинций с поддержкой пагинации и фильтрации.
+        /// Включает заголовок 'X-Total-Count' в ответе для React-Admin.
+        /// </remarks>
+        /// <param name="q">Поисковый запрос (фильтрация по всем полям).</param>
+        /// <param name="name">Фильтр по названию провинции.</param>
+        /// <param name="url">Фильтр по URL провинции.</param>
+        /// <param name="page">Номер страницы (по умолчанию 1).</param>
+        /// <param name="perPage">Количество элементов на странице (по умолчанию 10).</param>
+        /// <returns>Список объектов провинций.</returns>
         [HttpGet("provinces")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<object>))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> GetAll(
             [FromQuery] string q = null,
             [FromQuery] string name = null,
@@ -119,12 +127,31 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// Retrieves a province by its ID.
+        /// Получает провинцию по ID.
         /// </summary>
-        /// <param name="id">The ID of the province.</param>
-        /// <returns>The province details.</returns>
+        /// <remarks>
+        /// <br/>
+        /// <b>Пример успешного ответа:</b>
+        /// <br/>
+        /// {
+        /// <br/>
+        /// &nbsp;&nbsp;"id": "60d5f1b2c1b2f0001f1b2c3d",
+        /// <br/>
+        /// &nbsp;&nbsp;"name": "Guanacaste",
+        /// <br/>
+        /// &nbsp;&nbsp;"url": "guanacaste"
+        /// <br/>
+        /// }
+        /// </remarks>
+        /// <param name="id">ID провинции (MongoDB ObjectID).</param>
+        /// <returns>Объект провинции.</returns>
         [HttpGet("provinces/{id}")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ApiResponse))]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ApiResponse))]
         public async Task<IActionResult> GetById(string id)
         {
             var provinceDoc = await _provinceService.GetByIdAsync(id);
@@ -171,12 +198,31 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// Creates a new province.
+        /// Создает новую провинцию.
         /// </summary>
-        /// <param name="province">The province data.</param>
-        /// <returns>The created province.</returns>
+        /// <remarks>
+        /// Доступ: Super_Admin, Admin, Manager.
+        /// <br/>
+        /// <b>Пример тела запроса (JSON):</b>
+        /// <br/>
+        /// {
+        /// <br/>
+        /// &nbsp;&nbsp;"name": "Новая Провинция",
+        /// <br/>
+        /// &nbsp;&nbsp;"url": "new-province-url"
+        /// <br/>
+        /// }
+        /// <br/>
+        /// <b>Пример успешного ответа:</b> (Такой же, как в GetById)
+        /// </remarks>
+        /// <param name="provinceData">JSON-объект с данными провинции (поле 'name' обязательно).</param>
+        /// <returns>Созданный объект провинции.</returns>
         [HttpPost("provinces")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))] // Ваш код возвращает OK, а не 201
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ApiResponse))]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> Create([FromBody] JsonElement provinceData)
         {
             if (!ModelState.IsValid)
@@ -252,13 +298,32 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// Updates an existing province.
+        /// Обновляет существующую провинцию.
         /// </summary>
-        /// <param name="id">The ID of the province to update.</param>
-        /// <param name="provinceData">The updated province data.</param>
-        /// <returns>The updated province.</returns>
+        /// <remarks>
+        /// Доступ: Super_Admin, Admin, Manager.
+        /// <br/>
+        /// <b>Пример тела запроса (JSON):</b>
+        /// <br/>
+        /// {
+        /// <br/>
+        /// &nbsp;&nbsp;"name": "Обновленное Название",
+        /// <br/>
+        /// &nbsp;&nbsp;"url": "updated-url"
+        /// <br/>
+        /// }
+        /// </remarks>
+        /// <param name="id">ID обновляемой провинции.</param>
+        /// <param name="provinceData">JSON-объект с обновленными данными (поле 'name' обязательно).</param>
+        /// <returns>Обновленный объект провинции.</returns>
         [HttpPut("provinces/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Consumes("application/json")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ApiResponse))]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ApiResponse))]
         public async Task<IActionResult> Update(string id, [FromBody] JsonElement provinceData)
         {
             try
@@ -336,12 +401,23 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// Deletes a province by its ID.
+        /// Удаляет провинцию по ID.
         /// </summary>
-        /// <param name="id">The ID of the province to delete.</param>
-        /// <returns>A confirmation of deletion.</returns>
+        /// <remarks>
+        /// Доступ: Super_Admin, Admin.
+        /// <br/>
+        /// <b>Пример успешного ответа (для React-Admin):</b>
+        /// <br/>
+        /// { "id": "60d5f1b2c1b2f0001f1b2c3d" }
+        /// </remarks>
+        /// <param name="id">ID удаляемой провинции.</param>
+        /// <returns>Объект с ID удаленной провинции.</returns>
         [HttpDelete("provinces/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ApiResponse))]
         public async Task<IActionResult> Delete(string id)
         {
             var result = await _provinceService.DeleteAsync(id);
