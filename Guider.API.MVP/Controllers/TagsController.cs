@@ -1,7 +1,4 @@
 ﻿
-
-
-
 using Guider.API.MVP.Models;
 using Guider.API.MVP.Services;
 using Guider.API.MVP.Utility;
@@ -15,6 +12,8 @@ namespace Guider.API.MVP.Controllers
 {
     [Route("")]
     [ApiController]
+    [Produces("application/json")] // Все ответы в формате JSON
+    [Tags("Tags")] // Группировка в Swagger
     public class TagsController : ControllerBase
     {
         private readonly TagsService _tagsService;
@@ -26,22 +25,28 @@ namespace Guider.API.MVP.Controllers
 
 
         /// <summary>
-        /// Retrieves a paginated and filtered list of tags.
+        /// Получает постраничный список тегов (для React-Admin).
         /// </summary>
-        /// <param name="q">Search query for tag name or description (optional).</param>
-        /// <param name="name_en">Filter by English tag name (optional).</param>
-        /// <param name="name_sp">Filter by Spanish tag name (optional).</param>
-        /// <param name="url">Filter by tag URL (optional).</param>
-        /// <param name="type">Filter by tag type (optional).</param>
-        /// <param name="page">Page number for pagination (default: 1).</param>
-        /// <param name="perPage">Number of items per page (default: 10).</param>
-        /// <param name="_sort">Field to sort by (default: name_en).</param>
-        /// <param name="_order">Sort order: ASC or DESC (default: ASC).</param>
-        /// <returns>Returns a list of tags and sets the X-Total-Count header for pagination.</returns>
-        /// <response code="200">Returns the list of tags.</response>
-        /// <response code="400">If an error occurs or invalid parameters are provided.</response>
+        /// <remarks>
+        /// Возвращает список тегов с фильтрацией и пагинацией. 
+        /// Включает заголовок 'X-Total-Count' в ответе для React-Admin.
+        /// </remarks>
+        /// <param name="q">Поисковый запрос (по имени или описанию, опционально).</param>
+        /// <param name="name_en">Фильтр по английскому названию (опционально).</param>
+        /// <param name="name_sp">Фильтр по испанскому названию (опционально).</param>
+        /// <param name="url">Фильтр по URL тега (опционально).</param>
+        /// <param name="type">Фильтр по типу тега (опционально).</param>
+        /// <param name="page">Номер страницы (по умолчанию 1).</param>
+        /// <param name="perPage">Количество элементов на странице (по умолчанию 10).</param>
+        /// <param name="_sort">Поле для сортировки (по умолчанию name_en).</param>
+        /// <param name="_order">Порядок сортировки: ASC или DESC (по умолчанию ASC).</param>
+        /// <returns>Список объектов тегов.</returns>
         [HttpGet("tags")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<object>))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ApiResponse))]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> GetTags(
             [FromQuery] string q = null,
             [FromQuery] string name_en = null,
@@ -107,15 +112,33 @@ namespace Guider.API.MVP.Controllers
 
 
         /// <summary>
-        /// Retrieves a tag by its unique identifier.
+        /// Получает тег по его ID.
         /// </summary>
-        /// <param name="id">The unique identifier of the tag.</param>
-        /// <returns>Returns the tag object if found.</returns>
-        /// <response code="200">Returns the tag object.</response>
-        /// <response code="400">If the tag ID is missing or invalid.</response>
-        /// <response code="404">If the tag is not found.</response>
+        /// <remarks>
+        /// <br/>
+        /// <b>Пример успешного ответа:</b>
+        /// <br/>
+        /// {
+        /// <br/>
+        /// &nbsp;&nbsp;"id": "60d5f1b2c1b2f0001f1b2c3d",
+        /// <br/>
+        /// &nbsp;&nbsp;"name_en": "WiFi",
+        /// <br/>
+        /// &nbsp;&nbsp;"name_sp": "WiFi",
+        /// <br/>
+        /// &nbsp;&nbsp;"type": "amenity"
+        /// <br/>
+        /// }
+        /// </remarks>
+        /// <param name="id">Уникальный идентификатор тега (MongoDB ObjectID).</param>
+        /// <returns>Возвращает объект тега.</returns>
         [HttpGet("tags/{id}")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(ApiResponse))]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ApiResponse))]
         public async Task<IActionResult> GetTagById(string id)
         {
             // Проверяем, что ID не пустой
@@ -153,26 +176,39 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// Creates a new tag.
+        /// Создает новый тег.
         /// </summary>
-        /// <param name="tagData">The JSON object containing tag data.</param>
         /// <remarks>
-        /// Expected JSON format:
+        /// Доступ: Super_Admin, Admin, Manager.
+        /// <br/>
+        /// <b>Ожидаемый формат JSON:</b>
+        /// <br/>
         /// {
-        ///   "name_en": "string",         // English name of the tag (optional)
-        ///   "name_sp": "string",         // Spanish name of the tag (optional)
-        ///   "description": "string",     // Description of the tag (optional)
-        ///   "url": "string",             // URL for the tag (optional)
-        ///   "type": "string"             // Type/category of the tag (optional)
+        /// <br/>
+        /// &nbsp;&nbsp;"name_en": "string",         // (опционально)
+        /// <br/>
+        /// &nbsp;&nbsp;"name_sp": "string",         // (опционально)
+        /// <br/>
+        /// &nbsp;&nbsp;"description": "string",     // (опционально)
+        /// <br/>
+        /// &nbsp;&nbsp;"url": "string",             // (опционально)
+        /// <br/>
+        /// &nbsp;&nbsp;"type": "string"             // (опционально)
+        /// <br/>
         /// }
         /// </remarks>
-        /// <returns>Returns the created tag object or an error message.</returns>
-        /// <response code="200">Returns the created tag object or a success message.</response>
-        /// <response code="400">If the tag data is invalid or incomplete.</response>
-        /// <response code="500">If an internal server error occurs.</response>
+        /// <param name="tagData">JSON-объект с данными тега.</param>
+        /// <returns>Возвращает созданный объект тега.</returns>
         [HttpPost]
         [Route("tags")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Consumes("application/json")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))]
         public async Task<IActionResult> AddTag([FromBody] JsonDocument tagData)
         {
             if (tagData == null)
@@ -221,29 +257,34 @@ namespace Guider.API.MVP.Controllers
 
 
         /// <summary>
-        /// Updates an existing tag by its unique identifier.
+        /// Обновляет существующий тег по ID.
         /// </summary>
-        /// <param name="id">The unique identifier of the tag.</param>
-        /// <param name="updateData">
-        /// The JSON object containing tag fields to update.
+        /// <param name="id">Уникальный идентификатор тега.</param>
+        /// <param name="updateData">JSON-объект с обновляемыми полями.</param>
+        /// <remarks>
+        /// Доступ: Super_Admin, Admin, Manager.
         /// <br/>
-        /// Expected JSON format:
+        /// <b>Ожидаемый формат JSON (любое поле опционально):</b>
         /// <code>
         /// {
-        ///   "name_en": "string",         // English name of the tag (optional)
-        ///   "name_sp": "string",         // Spanish name of the tag (optional)
-        ///   "description": "string",     // Description of the tag (optional)
-        ///   "url": "string",             // URL for the tag (optional)
-        ///   "type": "string"             // Type/category of the tag (optional)
+        ///   "name_en": "string",
+        ///   "name_sp": "string",
+        ///   "description": "string",
+        ///   "url": "string",
+        ///   "type": "string"
         /// }
         /// </code>
-        /// </param>
-        /// <returns>Returns the updated tag object or an error message.</returns>
-        /// <response code="200">Returns the updated tag object or a success message.</response>
-        /// <response code="400">If the tag data is invalid or incomplete.</response>
-        /// <response code="404">If the tag is not found.</response>
+        /// </remarks>
+        /// <returns>Возвращает обновленный объект тега.</returns>
         [HttpPut("tags/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Consumes("application/json")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))]
         public async Task<IActionResult> UpdateTag(string id, [FromBody] JsonDocument updateData)
         {
             if (string.IsNullOrEmpty(id))
@@ -293,14 +334,23 @@ namespace Guider.API.MVP.Controllers
 
 
         /// <summary>
-        /// Deletes a tag by its unique identifier.
+        /// Удаляет тег по ID.
         /// </summary>
-        /// <param name="id">The unique identifier of the tag to delete.</param>
-        /// <returns>Returns the deleted tag's ID if successful, or an error message if not found.</returns>
-        /// <response code="200">Returns the ID of the deleted tag.</response>
-        /// <response code="404">If the tag is not found or could not be deleted.</response>
+        /// <remarks>
+        /// Доступ: Super_Admin, Admin.
+        /// <br/>
+        /// <b>Пример успешного ответа (для React-Admin):</b>
+        /// <br/>
+        /// { "id": "60d5f1b2c1b2f0001f1b2c3d" }
+        /// </remarks>
+        /// <param name="id">Уникальный идентификатор тега для удаления.</param>
+        /// <returns>Возвращает ID удаленного тега.</returns>
         [HttpDelete("tags/{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(ApiResponse))]
         public async Task<IActionResult> Delete(string id)
         {
             var result = await _tagsService.DeleteAsync(id);
