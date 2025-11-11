@@ -1453,39 +1453,131 @@
             }
         }
 
-        
+
 
         /// <summary>
         /// Получить список уникальных городов из коллекции Places
         /// </summary>
-        public async Task<JsonDocument> GetActiveCitiesAsync()
+        //public async Task<JsonDocument> GetActiveCitiesAsync()
+        //{
+        //    try
+        //    {
+        //        var pipeline = new List<BsonDocument>
+        //{
+        //    // Группируем по полю address.city и получаем уникальные значения
+        //    new BsonDocument("$group", new BsonDocument
+        //    {
+        //        { "_id", "$address.city" }
+        //    }),
+
+        //    // Сортируем по алфавиту
+        //    new BsonDocument("$sort", new BsonDocument("_id", 1)),
+
+        //    // Фильтруем null значения
+        //    new BsonDocument("$match", new BsonDocument
+        //    {
+        //        { "_id", new BsonDocument("$ne", BsonNull.Value) }
+        //    }),
+
+        //    // Группируем все города в один массив
+        //    new BsonDocument("$group", new BsonDocument
+        //    {
+        //        { "_id", BsonNull.Value },
+        //        { "allCities", new BsonDocument("$push", "$_id") }
+        //    })
+        //};
+
+        //        var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
+
+        //        if (result == null || !result.Contains("allCities"))
+        //        {
+        //            // Возвращаем пустой массив, если городов нет
+        //            var emptyResponse = new
+        //            {
+        //                success = true,
+        //                data = new List<string>()
+        //            };
+        //            return JsonDocument.Parse(JsonSerializer.Serialize(emptyResponse));
+        //        }
+
+        //        // Извлекаем массив городов
+        //        var citiesArray = result["allCities"].AsBsonArray;
+        //        var citiesList = citiesArray.Select(city => city.AsString).ToList();
+
+        //        var successResponse = new
+        //        {
+        //            success = true,
+        //            data = citiesList
+        //        };
+
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        var errorResponse = new
+        //        {
+        //            success = false,
+        //            error = $"An error occurred while retrieving cities: {ex.Message}"
+        //        };
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //    }
+        //}
+
+        
+
+        /// <summary>
+        /// Получить список уникальных городов из коллекции Places с опциональной фильтрацией
+        /// </summary>
+        /// <param name="category">Опциональная категория для фильтрации (например, "to-eat")</param>
+        /// <param name="province">Опциональная провинция для фильтрации (например, "Guanacaste")</param>
+        public async Task<JsonDocument> GetActiveCitiesAsync(string category = null, string province = null)
         {
             try
             {
-                var pipeline = new List<BsonDocument>
+                var pipeline = new List<BsonDocument>();
+
+                // Добавляем стадию $match только если есть фильтры
+                var matchConditions = new BsonDocument();
+
+                // Фильтр по категории
+                if (!string.IsNullOrEmpty(category))
+                {
+                    matchConditions.Add("category", category);
+                }
+
+                // Фильтр по провинции
+                if (!string.IsNullOrEmpty(province))
+                {
+                    matchConditions.Add("address.province", province);
+                }
+
+                // Добавляем стадию $match в начало pipeline, если есть условия
+                if (matchConditions.ElementCount > 0)
+                {
+                    pipeline.Add(new BsonDocument("$match", matchConditions));
+                }
+
+                // Группируем по полю address.city и получаем уникальные значения
+                pipeline.Add(new BsonDocument("$group", new BsonDocument
         {
-            // Группируем по полю address.city и получаем уникальные значения
-            new BsonDocument("$group", new BsonDocument
-            {
-                { "_id", "$address.city" }
-            }),
-            
-            // Сортируем по алфавиту
-            new BsonDocument("$sort", new BsonDocument("_id", 1)),
-            
-            // Фильтруем null значения
-            new BsonDocument("$match", new BsonDocument
-            {
-                { "_id", new BsonDocument("$ne", BsonNull.Value) }
-            }),
-            
-            // Группируем все города в один массив
-            new BsonDocument("$group", new BsonDocument
-            {
-                { "_id", BsonNull.Value },
-                { "allCities", new BsonDocument("$push", "$_id") }
-            })
-        };
+            { "_id", "$address.city" }
+        }));
+
+                // Сортируем по алфавиту
+                pipeline.Add(new BsonDocument("$sort", new BsonDocument("_id", 1)));
+
+                // Фильтруем null значения
+                pipeline.Add(new BsonDocument("$match", new BsonDocument
+        {
+            { "_id", new BsonDocument("$ne", BsonNull.Value) }
+        }));
+
+                // Группируем все города в один массив
+                pipeline.Add(new BsonDocument("$group", new BsonDocument
+        {
+            { "_id", BsonNull.Value },
+            { "allCities", new BsonDocument("$push", "$_id") }
+        }));
 
                 var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
 
