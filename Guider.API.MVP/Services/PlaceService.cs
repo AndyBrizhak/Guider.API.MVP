@@ -1452,7 +1452,10 @@
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResult));
             }
         }
-       
+
+        // (Убедитесь, что у вас есть этот using вверху файла)
+        // using System.Text.RegularExpressions;
+
         /// <summary>
         /// Получить список уникальных городов из коллекции Places с опциональной фильтрацией
         /// </summary>
@@ -1467,17 +1470,22 @@
                 // Добавляем стадию $match только если есть фильтры
                 var matchConditions = new BsonDocument();
 
-                // Фильтр по категории
+                // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+                // Фильтр по категории (НЕЧУВСТВИТЕЛЬНЫЙ К РЕГИСТРУ)
                 if (!string.IsNullOrEmpty(category))
                 {
-                    matchConditions.Add("category", category);
+                    // Ищем точное совпадение (^) ($) без учета регистра (i)
+                    matchConditions.Add("category", new BsonRegularExpression($"^{Regex.Escape(category)}$", "i"));
                 }
 
-                // Фильтр по провинции
+                // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+                // Фильтр по провинции (НЕЧУВСТВИТЕЛЬНЫЙ К РЕГИСТРУ)
                 if (!string.IsNullOrEmpty(province))
                 {
-                    matchConditions.Add("address.province", province);
+                    // Ищем точное совпадение (^) ($) без учета регистра (i)
+                    matchConditions.Add("address.province", new BsonRegularExpression($"^{Regex.Escape(province)}$", "i"));
                 }
+                // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
                 // Добавляем стадию $match в начало pipeline, если есть условия
                 if (matchConditions.ElementCount > 0)
@@ -1543,7 +1551,6 @@
             }
         }
 
-        
         /// <summary>
         /// Получить список уникальных провинций из коллекции Places с опциональной фильтрацией по категории
         /// </summary>
