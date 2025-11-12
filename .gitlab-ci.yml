@@ -18,7 +18,7 @@ pull:
     - git pull https://$CI_REGISTRY_USER:$CI_REGISTRY_PASSWORD@gtl.guider.pro/guider/backend/dotnet_mongodb/
     - git log --oneline -10
   rules:
-    - if: '$CI_COMMIT_BRANCH == "dev" && $CI_COMMIT_MESSAGE =~ /make a pipeline/'
+    - if: '$CI_COMMIT_BRANCH == "dev"'
       when: manual
     - when: never
 
@@ -33,6 +33,6 @@ deploy:
     - docker compose down dotnet-mongo-api
     - TAG=$VERSION docker compose up -d --build dotnet-mongo-api
   rules:
-    - if: '$CI_COMMIT_BRANCH == "dev" && $CI_COMMIT_MESSAGE =~ /make a pipeline/'
+    - if: '$CI_COMMIT_BRANCH == "dev"'
       when: manual
     - when: never
