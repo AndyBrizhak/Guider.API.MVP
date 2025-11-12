@@ -17,6 +17,8 @@ namespace Guider.API.MVP.Controllers
 {
     [Route("places")]
     [ApiController]
+    [Produces("application/json")] // Указываем, что все ответы в JSON
+    [Tags("Places")] // Группируем все эндпоинты в Swagger
     public class PlaceController : ControllerBase
     {
         private readonly PlaceService _placeService;
@@ -70,7 +72,12 @@ namespace Guider.API.MVP.Controllers
         /// <param name="sortOrder">Порядок сортировки: ASC или DESC (по умолчанию ASC)</param>
         /// <returns>Массив объектов мест</returns>
         [HttpGet]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<object>))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))]
         public async Task<IActionResult> GetPlaces(
         [FromQuery] string q = null,
         [FromQuery] string province = null,
@@ -168,6 +175,10 @@ namespace Guider.API.MVP.Controllers
         /// <returns>Объект места или сообщение об ошибке</returns>
         [HttpGet("{id}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))]
         public async Task<ActionResult> GetById(string id)
         {
             var result = await _placeService.GetByIdAsync(id);
@@ -207,25 +218,17 @@ namespace Guider.API.MVP.Controllers
         /// </summary>
         /// <remarks>
         /// Пример запроса:
-        /// 
         ///     GET /places/url/coffee-house-nicoya
-        /// 
-        /// Пример успешного ответа:
-        /// 
-        ///     {
-        ///         "id": "664b1e2f8f1b2c001e3e4a1a",
-        ///         "name": "Coffee House"
-        ///     }
         /// </remarks>
         /// <param name="url">URL места</param>
         /// <param name="status">Статус (опционально)</param>
         /// <returns>Объект места или сообщение об ошибке</returns>
-        /// <response code="200">Успешный запрос. Возвращает объект места</response>
-        /// <response code="400">Некорректные параметры запроса</response>
-        /// <response code="404">Место не найдено</response>
-        /// <response code="500">Внутренняя ошибка сервера</response>
         [HttpGet("url/{url}")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))]
         public async Task<ActionResult> GetByUrl([FromRoute] string url, [FromQuery] string status = null)
         {
             var result = await _placeService.GetByUrlAsync(url, status);
@@ -265,24 +268,12 @@ namespace Guider.API.MVP.Controllers
             return Ok(JsonSerializer.Deserialize<object>(result.RootElement.GetRawText()));
         }
 
-               
-
         /// <summary>
         /// Получить места по ключевым словам.
         /// </summary>
         /// <remarks>
         /// Пример запроса:
-        /// 
         ///     GET /places/keywords?filterKeywords=кофе&amp;filterKeywords=WiFi&amp;lat=10.139&amp;lng=-85.452
-        /// 
-        /// Пример успешного ответа:
-        /// 
-        ///     [
-        ///         {
-        ///             "id": "664b1e2f8f1b2c001e3e4a1a",
-        ///             "name": "Coffee House"
-        ///         }
-        ///     ]
         /// </remarks>
         /// <param name="lat">Широта</param>
         /// <param name="lng">Долгота</param>
@@ -293,9 +284,6 @@ namespace Guider.API.MVP.Controllers
         /// <param name="isOpen">Только открытые</param>
         /// <param name="status">Статус</param>
         /// <returns>Список мест</returns>
-        /// <response code="200">Успешный запрос. Возвращает массив мест</response>
-        /// <response code="400">Некорректные параметры запроса или пустой список ключевых слов</response>
-        /// <response code="500">Внутренняя ошибка сервера</response>
         [HttpGet("keywords")]
         public async Task<IActionResult> GetPlacesWithAllKeywords(
             [FromQuery] decimal? lat = 10.539500881521633m,
@@ -387,88 +375,66 @@ namespace Guider.API.MVP.Controllers
         /// Получить доступные теги для мест.
         /// </summary>
         /// <remarks>
-        /// Пример запроса:
-        /// 
-        ///     GET /places/tags-on-places?category=food&amp;selectedTags=кофе&amp;selectedTags=WiFi
-        /// 
-        /// Пример успешного ответа:
-        /// 
-        ///     {
-        ///         "statusCode": 200,
-        ///         "isSuccess": true,
-        ///         "result": [ "кофе", "WiFi", "завтрак" ]
-        ///     }
         /// </remarks>
         /// <param name="category">Категория</param>
         /// <param name="selectedTags">Список выбранных тегов</param>
         /// <returns>Список доступных тегов</returns>
-        /// <response code="200">Успешный запрос. Возвращает список тегов</response>
-        /// <response code="500">Внутренняя ошибка сервера</response>
-        [HttpGet("tags-on-places")]
-        public async Task<ActionResult> GetAvailableTags(
-           [FromQuery] string? category = null,
-           [FromQuery] List<string>? selectedTags = null)
-        {
-            try
-            {
+        //[HttpGet("tags-on-places")]
+        //[ProducesResponseType(StatusCodes.Status200OK, Type = typeof(ApiResponse))]
+        //[ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ApiResponse))]
+        //public async Task<ActionResult> GetAvailableTags(
+        //   [FromQuery] string? category = null,
+        //   [FromQuery] List<string>? selectedTags = null)
+        //{
+        //    try
+        //    {
 
-                var result = await _placeService.GetAvailableTagsAsync(
-                    category,
-                    selectedTags);
+        //        var result = await _placeService.GetAvailableTagsAsync(
+        //            category,
+        //            selectedTags);
 
 
-                var response = new ApiResponse
-                {
-                    StatusCode = HttpStatusCode.OK,
-                    IsSuccess = true,
-                    Result = result
-                };
+        //        var response = new ApiResponse
+        //        {
+        //            StatusCode = HttpStatusCode.OK,
+        //            IsSuccess = true,
+        //            Result = result
+        //        };
 
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
+        //        return Ok(response);
+        //    }
+        //    catch (Exception ex)
+        //    {
 
-                var errorResponse = new ApiResponse
-                {
-                    StatusCode = HttpStatusCode.InternalServerError,
-                    IsSuccess = false,
-                    ErrorMessages = new List<string> { ex.Message }
-                };
+        //        var errorResponse = new ApiResponse
+        //        {
+        //            StatusCode = HttpStatusCode.InternalServerError,
+        //            IsSuccess = false,
+        //            ErrorMessages = new List<string> { ex.Message }
+        //        };
 
-                return StatusCode((int)HttpStatusCode.InternalServerError, errorResponse);
-            }
-        }
+        //        return StatusCode((int)HttpStatusCode.InternalServerError, errorResponse);
+        //    }
+        //}
 
 
         /// <summary>
         /// Создать новое место.
         /// </summary>
         /// <remarks>
-        /// Пример тела запроса:
-        /// 
-        ///     {
-        ///         "name": "New Place",
-        ///         "province": "Guanacaste",
-        ///         "city": "Nicoya",
-        ///         "address": "Main street, Nicoya",
-        ///         "tags": ["кофе", "WiFi"],
-        ///         "location": { "lat": 10.139, "lng": -85.452 },
-        ///         "img_link": "https://example.com/image.jpg"
-        ///     }
-        /// 
         /// Пример успешного ответа (201):
-        /// 
         ///     {
         ///         "id": "664b1e2f8f1b2c001e3e4a1a"
         ///     }
         /// </remarks>
         /// <param name="jsonDocument">Данные нового места (JSON)</param>
         /// <returns>Созданный объект места</returns>
-        /// <response code="201">Место успешно создано</response>
-        /// <response code="400">Некорректные данные запроса</response>
         [HttpPost]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [ProducesResponseType(StatusCodes.Status201Created, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(string))]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> Create([FromBody] JsonDocument jsonDocument)
         {
             try
@@ -516,26 +482,17 @@ namespace Guider.API.MVP.Controllers
         /// Обновить место по идентификатору.
         /// </summary>
         /// <remarks>
-        /// Пример тела запроса:
-        /// 
-        ///     {
-        ///         "name": "Updated Place",
-        ///         "tags": ["кофе", "WiFi", "завтрак"]
-        ///     }
-        /// 
-        /// Пример успешного ответа:
-        /// 
-        ///     {
-        ///         "id": "664b1e2f8f1b2c001e3e4a1a"
-        ///     }
         /// </remarks>
         /// <param name="id">ID места</param>
         /// <param name="jsonDocument">Данные для обновления (JSON)</param>
         /// <returns>Обновленный объект места</returns>
-        /// <response code="200">Место успешно обновлено</response>
-        /// <response code="400">Некорректные данные запроса или ID</response>
         [HttpPut("{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Consumes("application/json")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(string))]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         public async Task<IActionResult> Update(string id, [FromBody] JsonDocument jsonDocument)
         {
             try
@@ -599,6 +556,11 @@ namespace Guider.API.MVP.Controllers
         /// <returns>204 No Content или сообщение об ошибке</returns>
         [HttpDelete("{id}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(string))]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(string))]
         public async Task<IActionResult> Delete(string id)
         {
             var deleteResult = await _placeService.DeleteAsync(id);
@@ -674,11 +636,11 @@ namespace Guider.API.MVP.Controllers
         /// <param name="sortField">Поле для сортировки. Доступные значения: "name", "category", "status", "createdAt", "distance" (при геопоиске). По умолчанию: "name"</param>
         /// <param name="sortOrder">Порядок сортировки: "ASC" (по возрастанию) или "DESC" (по убыванию). По умолчанию: "ASC"</param>
         /// <returns>Массив мест с информацией о пагинации в заголовках ответа</returns>
-        /// <response code="200">Успешно получен список мест. Возвращает массив объектов мест с заголовком X-Total-Count</response>
-        /// <response code="400">Ошибка в параметрах запроса или логике фильтрации</response>
-        /// <response code="500">Внутренняя ошибка сервера при выполнении поиска</response>
         [HttpGet("filters")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<object>))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))]
         public async Task<IActionResult> GetPlacesWithGeoWithStatusWithTags(
             [FromQuery] string q = null,
             [FromQuery] string province = null,

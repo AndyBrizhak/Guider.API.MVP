@@ -1,5 +1,4 @@
 ﻿
-
 using Guider.API.MVP.Models;
 using Guider.API.MVP.Services;
 using Guider.API.MVP.Utility;
@@ -15,31 +14,43 @@ namespace Guider.API.MVP.Controllers
 {
     [Route("")]
     [ApiController]
+    [Produces("application/json")] // Указываем, что контроллер всегда возвращает JSON
+    [Tags("Cities")] // Группируем все эндпоинты в "Cities" (Города)
     public class CitiesController : ControllerBase
     {
         private readonly CitiesService _citiesService;
+        private readonly PlaceService _placeService; // СЕРВИС ПЛЕЙСОВ
 
-        public CitiesController(CitiesService citiesService)
+        public CitiesController(CitiesService citiesService, PlaceService placeService)
         {
             _citiesService = citiesService;
+            _placeService = placeService; // ИНИЦИАЛИЗАЦИя ПЛЕЙСОВ
         }
 
 
-       
+
         /// <summary>
-        /// Retrieves all cities in a format compatible with react-admin.
+        /// Получает постраничный список городов с фильтрацией и сортировкой.
         /// </summary>
-        /// <param name="q">Search query for filtering.</param>
-        /// <param name="name">Filter by city name.</param>
-        /// <param name="province">Filter by province name.</param>
-        /// <param name="url">Filter by city URL.</param>
-        /// <param name="page">Page number for pagination (1-based).</param>
-        /// <param name="perPage">Number of items per page.</param>
-        /// <param name="_sort">Field to sort by, default is "name"</param>
-        /// <param name="_order">Sort order (ASC or DESC), default is ASC</param>
-        /// <returns>A list of cities.</returns>
+        /// <remarks>
+        /// Эндпоинт совместим с React-Admin. 
+        /// Включает заголовок 'X-Total-Count' в ответе для пагинации.
+        /// </remarks>
+        /// <param name="q">Общий поисковый запрос (фильтрует по нескольким полям).</param>
+        /// <param name="name">Фильтр по названию города (частичное совпадение).</param>
+        /// <param name="province">Фильтр по названию провинции (частичное совпадение).</param>
+        /// <param name="url">Фильтр по URL города (частичное совпадение).</param>
+        /// <param name="page">Номер страницы (начиная с 1). По умолчанию 1.</param>
+        /// <param name="perPage">Количество элементов на странице. По умолчанию 10.</param>
+        /// <param name="_sort">Поле для сортировки. По умолчанию "name".</param>
+        /// <param name="_order">Порядок сортировки (ASC или DESC). По умолчанию ASC.</param>
+        /// <returns>Список объектов городов и заголовок X-Total-Count.</returns>
         [HttpGet("cities")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<object>))] // Успешный ответ
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(object))] // Ошибка валидации
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)] // Не авторизован
+        [ProducesResponseType(StatusCodes.Status403Forbidden)] // Нет прав
         public async Task<IActionResult> GetCities(
             [FromQuery] string q = null,
             [FromQuery] string name = null,
@@ -164,13 +175,37 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// Retrieves a city by its ID.
+        /// Получает один город по его ID.
         /// </summary>
-        /// <param name="cityId">The MongoDB ObjectId of the city to retrieve</param>
-        /// <returns>The city details if found, or an appropriate error response.</returns>
+        /// <remarks>
+        /// </remarks>
+        /// <param name="cityId">MongoDB ObjectId города (в виде строки).</param>
+        /// <returns>
+        /// Объект города в формате:
+        /// <br/>
+        /// {
+        /// <br/>
+        /// &nbsp;&nbsp;"id": "string",
+        /// <br/>
+        /// &nbsp;&nbsp;"name": "string",
+        /// <br/>
+        /// &nbsp;&nbsp;"province": "string",
+        /// <br/>
+        /// &nbsp;&nbsp;"url": "string",
+        /// <br/>
+        /// &nbsp;&nbsp;"location": { "longitude": 0.0, "latitude": 0.0 }
+        /// <br/>
+        /// }
+        /// </returns>
         [HttpGet]
         [Route("cities/{cityId}")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))] // Успешный ответ
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(object))] // Неверный ID
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)] // Не авторизован
+        [ProducesResponseType(StatusCodes.Status403Forbidden)] // Нет прав
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(object))] // Город не найден
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
         public async Task<IActionResult> GetCityById(string cityId)
         {
             try
@@ -228,33 +263,40 @@ namespace Guider.API.MVP.Controllers
 
 
         /// <summary>
-        /// Adds a new city with geo.
+        /// Добавляет новый город.
         /// </summary>
-        /// <param name="cityData"></param>
-        /// <returns></returns>
-        /// 
         /// <remarks>
-        /// 
-        /// Example of cityData:
-        /// 
+        /// Принимает произвольный JSON-объект.
+        /// Доступ: Super_Admin, Admin, Manager.
+        /// <br/>
+        /// <b>Пример запроса (JSON):</b>
+        /// <br/>
         /// {   
-        /// 
-        ///   "name": "New City",
-        ///   
-        ///   "province": "Province Name",
-        ///   
-        ///   "latitude": 9.9281,
-        ///   
-        ///   "longitude": -84.0907
-        ///   
+        /// <br/>
+        /// &nbsp;&nbsp;"name": "Новый Город",
+        /// <br/>
+        /// &nbsp;&nbsp;"province": "Название Провинции",
+        /// <br/>
+        /// &nbsp;&nbsp;"latitude": 9.9281,
+        /// <br/>
+        /// &nbsp;&nbsp;"longitude": -84.0907,
+        /// <br/>
+        /// &nbsp;&nbsp;"url": "new-city-url"
+        /// <br/>
         /// }
-        /// 
+        /// <br/>
         /// </remarks>
-        /// 
-        /// <returns>A response indicating the success or failure of the operation.</returns>
+        /// <param name="cityData">JSON документ с данными нового города.</param>
+        /// <returns>Полный объект созданного города (включая ID) или сообщение об ошибке.</returns>
         [HttpPost]
         [Route("cities")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Consumes("application/json")] // Указываем, что ожидаем JSON
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))] // Успешное создание (возвращает созданный объект)
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(object))] // Неверные данные
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)] // Не авторизован
+        [ProducesResponseType(StatusCodes.Status403Forbidden)] // Нет прав
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
         public async Task<IActionResult> AddCity([FromBody] JsonDocument cityData)
         {
             if (cityData == null)
@@ -298,27 +340,35 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// Updates the details of a city by its ID.
+        /// Обновляет существующий город по ID.
         /// </summary>
-        /// <param name="cityId">The MongoDB ObjectId of the city to update.</param>
-        /// <param name="cityData">
-        /// A valid JSON document containing the updated city details.  
-        /// Example:
-        /// {
-        ///   "name": "New City Name",
-        ///   "province": "Province Name",
-        ///   "latitude": 9.9281,
-        ///   "longitude": -84.0907
-        /// }
-        /// </param>
         /// <remarks>
-        /// The cityData parameter must be a valid JSON document with the city information to update.
-        /// The province field will be preserved if not specified in the update data.
+        /// Принимает JSON с полями, которые нужно обновить.
+        /// Доступ: Super_Admin, Admin, Manager.
+        /// <br/>
+        /// <b>Пример запроса (JSON):</b>
+        /// <br/>
+        /// {
+        /// <br/>
+        /// &nbsp;&nbsp;"name": "Обновленное Название",
+        /// <br/>
+        /// &nbsp;&nbsp;"latitude": 10.0
+        /// <br/>
+        /// }
         /// </remarks>
-        /// <returns>A response indicating the success or failure of the update operation, and the updated city data.</returns>
+        /// <param name="cityId">MongoDB ObjectId города для обновления.</param>
+        /// <param name="cityData">JSON документ с обновляемыми данными.</param>
+        /// <returns>Полный объект обновленного города или сообщение об ошибке.</returns>
         [HttpPut]
         [Route("cities/{cityId}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Consumes("application/json")] // Указываем, что ожидаем JSON
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))] // Успешное обновление
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(object))] // Неверный ID или данные
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)] // Не авторизован
+        [ProducesResponseType(StatusCodes.Status403Forbidden)] // Нет прав
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(object))] // Город не найден
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
         public async Task<IActionResult> UpdateCity(string cityId, [FromBody] JsonDocument cityData)
         {
             try
@@ -376,13 +426,22 @@ namespace Guider.API.MVP.Controllers
 
 
         /// <summary>
-        /// Deletes a city by its ID.
+        /// Удаляет город по ID.
         /// </summary>
-        /// <param name="cityId">The ID of the city to delete.</param>
-        /// <returns>A response indicating the success or failure of the delete operation.</returns>
+        /// <remarks>
+        /// Доступ: Super_Admin, Admin.
+        /// </remarks>
+        /// <param name="cityId">MongoDB ObjectId города для удаления.</param>
+        /// <returns>Сообщение об успехе или ошибке.</returns>
         [HttpDelete]
         [Route("cities/{cityId}")]
         [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin)]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))] // Успешное удаление
+        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(object))] // Неверный ID
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)] // Не авторизован
+        [ProducesResponseType(StatusCodes.Status403Forbidden)] // Нет прав
+        [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(object))] // Город не найден
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
         public async Task<IActionResult> RemoveCity(string cityId)
         {
             try
@@ -429,7 +488,80 @@ namespace Guider.API.MVP.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
             }
         }
-       
+
+        
+        /// <summary>
+        /// Получает список активных городов из коллекции Places с опциональной фильтрацией.
+        /// </summary>
+        /// <remarks>
+        /// Возвращает уникальные названия городов, которые присутствуют в адресах мест в коллекции Places.
+        /// Города отсортированы по алфавиту.
+        /// <br/>
+        /// <br/>
+        /// <b>Примеры использования:</b>
+        /// <br/>
+        /// - GET /cities/active - все города
+        /// <br/>
+        /// - GET /cities/active?province=Guanacaste - города в провинции Guanacaste
+        /// <br/>
+        /// - GET /cities/active?category=to-eat - города с ресторанами
+        /// <br/>
+        /// - GET /cities/active?province=Guanacaste&amp;category=to-eat - города с ресторанами в Guanacaste
+        /// </remarks>
+        /// <param name="category">Опциональный фильтр по категории (например, "to-eat").</param>
+        /// <param name="province">Опциональный фильтр по провинции (например, "Guanacaste").</param>
+        /// <returns>Массив названий городов.</returns>
+        [HttpGet("cities/active")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<string>))] // Успешный ответ
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
+        public async Task<IActionResult> GetActiveCities(
+            [FromQuery] string category = null,
+            [FromQuery] string province = null)
+        {
+            try
+            {
+                var result = await _placeService.GetActiveCitiesAsync(category, province);
+
+                if (result == null)
+                {
+                    return StatusCode(StatusCodes.Status500InternalServerError,
+                        new { message = "Service returned null result." });
+                }
+
+                // Проверяем успешность операции
+                bool isSuccess = result.RootElement.GetProperty("success").GetBoolean();
+
+                if (!isSuccess)
+                {
+                    string errorMessage = result.RootElement.GetProperty("error").GetString();
+                    return StatusCode(StatusCodes.Status500InternalServerError,
+                        new { message = errorMessage });
+                }
+
+                // Извлекаем массив городов
+                var citiesData = result.RootElement.GetProperty("data");
+                var citiesList = new List<string>();
+
+                foreach (var city in citiesData.EnumerateArray())
+                {
+                    citiesList.Add(city.GetString());
+                }
+
+                // Добавляем заголовок с общим количеством городов
+                Response.Headers.Add("X-Total-Count", citiesList.Count.ToString());
+                Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
+
+
+                // Возвращаем просто массив строк
+                return Ok(citiesList);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = $"An error occurred: {ex.Message}" });
+            }
+        }
+
     }
 
     // Extension method to help combine JSON objects
