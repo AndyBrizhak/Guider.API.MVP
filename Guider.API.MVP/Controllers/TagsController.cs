@@ -17,10 +17,12 @@ namespace Guider.API.MVP.Controllers
     public class TagsController : ControllerBase
     {
         private readonly TagsService _tagsService;
+        private readonly PlaceService _placeService;
 
-        public TagsController(TagsService tagsService)
+        public TagsController(TagsService tagsService, PlaceService placeService)
         {
             _tagsService = tagsService;
+            _placeService = placeService;
         }
 
 
@@ -361,6 +363,81 @@ namespace Guider.API.MVP.Controllers
 
             // Return the ID for react-admin compatibility
             return Ok(new { id });
+        }
+
+        /// <summary>
+        /// Получает список активных тегов из коллекции Places с опциональной фильтрацией.
+        /// </summary>
+        /// <remarks>
+        /// Возвращает уникальные теги, которые используются в местах в коллекции Places.
+        /// Теги отсортированы по алфавиту.
+        /// <br/>
+        /// <br/>
+        /// <b>Примеры использования:</b>
+        /// <br/>
+        /// - GET /tags/active - все теги
+        /// <br/>
+        /// - GET /tags/active?category=to-eat - теги из ресторанов
+        /// <br/>
+        /// - GET /tags/active?province=Guanacaste - теги из провинции Guanacaste
+        /// <br/>
+        /// - GET /tags/active?city=Liberia - теги из города Liberia
+        /// <br/>
+        /// - GET /tags/active?category=to-eat&amp;province=Guanacaste - теги из ресторанов в Guanacaste
+        /// /// </remarks>
+        /// <param name="category">Опциональный фильтр по категории (например, "to-eat").</param>
+        /// <param name="province">Опциональный фильтр по провинции (например, "Guanacaste").</param>
+        /// <param name="city">Опциональный фильтр по городу (например, "Liberia").</param>
+        /// <returns>Массив названий тегов.</returns>
+        [HttpGet("tags/active")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<string>))] // Успешный ответ
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
+        public async Task<IActionResult> GetActiveTags(
+            [FromQuery] string category = null,
+            [FromQuery] string province = null,
+            [FromQuery] string city = null)
+        {
+            try
+            {
+                var result = await _placeService.GetActiveTagsAsync(category, province, city);
+
+                if (result == null)
+                {
+                    return StatusCode(StatusCodes.Status500InternalServerError,
+                        new { message = "Service returned null result." });
+                }
+
+                // Проверяем успешность операции
+                bool isSuccess = result.RootElement.GetProperty("success").GetBoolean();
+
+                if (!isSuccess)
+                {
+                    string errorMessage = result.RootElement.GetProperty("error").GetString();
+                    return StatusCode(StatusCodes.Status500InternalServerError,
+                        new { message = errorMessage });
+                }
+
+                // Извлекаем массив тегов
+                var tagsData = result.RootElement.GetProperty("data");
+                var tagsList = new List<string>();
+
+                foreach (var tag in tagsData.EnumerateArray())
+                {
+                    tagsList.Add(tag.GetString());
+                }
+
+                // Добавляем заголовок с общим количеством тегов
+                Response.Headers.Add("X-Total-Count", tagsList.Count.ToString());
+                Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
+
+                // Возвращаем просто массив строк
+                return Ok(tagsList);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    new { message = $"An error occurred: {ex.Message}" });
+            }
         }
 
 

@@ -1621,6 +1621,106 @@
             }
         }
 
+        
+        /// <summary>
+        /// Получить список уникальных тегов из коллекции Places с опциональной фильтрацией
+        /// </summary>
+        /// <param name="category">Опциональная категория для фильтрации (например, "to-eat")</param>
+        /// <param name="province">Опциональная провинция для фильтрации (например, "Guanacaste")</param>
+        /// <param name="city">Опциональный город для фильтрации (например, "Liberia")</param>
+        public async Task<JsonDocument> GetActiveTagsAsync(string category = null, string province = null, string city = null)
+        {
+            try
+            {
+                var pipeline = new List<BsonDocument>();
+
+                // Добавляем стадию $match только если есть фильтры
+                var matchConditions = new BsonDocument();
+
+                // Фильтр по категории
+                if (!string.IsNullOrEmpty(category))
+                {
+                    matchConditions.Add("category", category);
+                }
+
+                // Фильтр по провинции
+                if (!string.IsNullOrEmpty(province))
+                {
+                    matchConditions.Add("address.province", province);
+                }
+
+                // Фильтр по городу
+                if (!string.IsNullOrEmpty(city))
+                {
+                    matchConditions.Add("address.city", city);
+                }
+
+                // Добавляем стадию $match в начало pipeline, если есть условия
+                if (matchConditions.ElementCount > 0)
+                {
+                    pipeline.Add(new BsonDocument("$match", matchConditions));
+                }
+
+                // Разворачиваем массив тегов
+                pipeline.Add(new BsonDocument("$unwind", "$tags"));
+
+                // Группируем по тегу для получения уникальных значений
+                pipeline.Add(new BsonDocument("$group", new BsonDocument
+                {
+                    { "_id", "$tags" }
+                }));
+
+                // Сортируем по алфавиту
+                pipeline.Add(new BsonDocument("$sort", new BsonDocument("_id", 1)));
+
+                // Фильтруем null значения
+                pipeline.Add(new BsonDocument("$match", new BsonDocument
+                {
+                    { "_id", new BsonDocument("$ne", BsonNull.Value) }
+                }));
+
+                // Группируем все теги в один массив
+                pipeline.Add(new BsonDocument("$group", new BsonDocument
+                {
+                    { "_id", BsonNull.Value },
+                    { "allTags", new BsonDocument("$push", "$_id") }
+                }));
+
+                var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
+
+                if (result == null || !result.Contains("allTags"))
+                {
+                    // Возвращаем пустой массив, если тегов нет
+                    var emptyResponse = new
+                    {
+                        success = true,
+                        data = new List<string>()
+                    };
+                    return JsonDocument.Parse(JsonSerializer.Serialize(emptyResponse));
+                }
+
+                // Извлекаем массив тегов
+                var tagsArray = result["allTags"].AsBsonArray;
+                var tagsList = tagsArray.Select(tag => tag.AsString).ToList();
+
+                var successResponse = new
+                {
+                    success = true,
+                    data = tagsList
+                };
+
+                return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+            }
+            catch (Exception ex)
+            {
+                var errorResponse = new
+                {
+                    success = false,
+                    error = $"An error occurred while retrieving tags: {ex.Message}"
+                };
+                return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+            }
+        }
     }
 
 
