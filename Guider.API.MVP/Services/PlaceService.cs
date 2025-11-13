@@ -1620,7 +1620,12 @@
         /// <param name="category">Опциональная категория для фильтрации (например, "to-eat")</param>
         /// <param name="province">Опциональная провинция для фильтрации (например, "Guanacaste")</param>
         /// <param name="city">Опциональный город для фильтрации (например, "Liberia")</param>
-        public async Task<JsonDocument> GetActiveTagsAsync(string category = null, string province = null, string city = null)
+        /// <param name="selectedTags">Опциональный список тегов, которые нужно исключить из результатов (без учета регистра)</param>
+        public async Task<JsonDocument> GetActiveTagsAsync(
+            string category = null,
+            string province = null,
+            string city = null,
+            List<string> selectedTags = null)
         {
             try
             {
@@ -1629,24 +1634,40 @@
                 // Добавляем стадию $match только если есть фильтры
                 var matchConditions = new BsonDocument();
 
-                // Поиск по категории без учета регистра ---
+                // Поиск по категории без учета регистра
                 if (!string.IsNullOrEmpty(category))
                 {
                     matchConditions.Add("category", new BsonRegularExpression($"^{Regex.Escape(category)}$", "i"));
                 }
 
-                //Поиск по провинции без учета регистра ---
+                // Поиск по провинции без учета регистра
                 if (!string.IsNullOrEmpty(province))
                 {
                     matchConditions.Add("address.province", new BsonRegularExpression($"^{Regex.Escape(province)}$", "i"));
                 }
 
-                //Поиск по городу без учета регистра ---
+                // Поиск по городу без учета регистра
                 if (!string.IsNullOrEmpty(city))
                 {
                     matchConditions.Add("address.city", new BsonRegularExpression($"^{Regex.Escape(city)}$", "i"));
                 }
 
+                // Если 'selectedTags' предоставлены, мы ищем документы,
+                // которые содержат ВСЕ эти теги (оператор $all)
+                if (selectedTags != null && selectedTags.Any())
+                {
+                    // Создаем BsonArray из BsonRegularExpression для $all без учета регистра
+                    var regexTags = new BsonArray();
+                    foreach (var tag in selectedTags)
+                    {
+                        // Ищем точное совпадение тега (^) ($) без учета регистра (i)
+                        regexTags.Add(new BsonRegularExpression($"^{Regex.Escape(tag)}$", "i"));
+                    }
+
+                    // Документ ДОЛЖЕН содержать ВСЕ теги из списка
+                    matchConditions.Add("tags", new BsonDocument("$all", regexTags));
+                }
+                
                 // Добавляем стадию $match в начало pipeline, если есть условия
                 if (matchConditions.ElementCount > 0)
                 {
@@ -1656,16 +1677,32 @@
                 // Разворачиваем массив тегов
                 pipeline.Add(new BsonDocument("$unwind", "$tags"));
 
-                // Группируем по тегу для получения уникальных значений
+                // Группировка без учета регистра ---
+                // Группируем по lowercase-версии тега, но сохраняем оригинальное написание
                 pipeline.Add(new BsonDocument("$group", new BsonDocument
                 {
-                    { "_id", "$tags" }
+                    // _id будет содержать lowercase-версию
+                    { "_id", new BsonDocument("$toLower", "$tags") }, 
+                    // originalTag будет содержать первую встретившуюся оригинальную версию
+                    { "originalTag", new BsonDocument("$first", "$tags") }
                 }));
 
-                // Сортируем по алфавиту
+                // Исключаем теги, которые уже были выбраны, из финального списка
+                if (selectedTags != null && selectedTags.Any())
+                {
+                    var lowerSelectedTags = selectedTags.Select(t => t.ToLower()).ToList();
+                    pipeline.Add(new BsonDocument("$match", new BsonDocument
+                    {
+                        // Сравниваем _id (который уже в нижнем регистре)
+                        // с нашим списком в нижнем регистре
+                        { "_id", new BsonDocument("$nin", new BsonArray(lowerSelectedTags)) }
+                    }));
+                }
+
+                // Сортируем по алфавиту (по _id, который в нижнем регистре)
                 pipeline.Add(new BsonDocument("$sort", new BsonDocument("_id", 1)));
 
-                // Фильтруем null значения
+                // Фильтруем null значения (проверяем _id)
                 pipeline.Add(new BsonDocument("$match", new BsonDocument
                 {
                     { "_id", new BsonDocument("$ne", BsonNull.Value) }
@@ -1675,7 +1712,8 @@
                 pipeline.Add(new BsonDocument("$group", new BsonDocument
                 {
                     { "_id", BsonNull.Value },
-                    { "allTags", new BsonDocument("$push", "$_id") }
+                    // Добавляем в массив оригинальное написание тега
+                    { "allTags", new BsonDocument("$push", "$originalTag") }
                 }));
 
                 var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();

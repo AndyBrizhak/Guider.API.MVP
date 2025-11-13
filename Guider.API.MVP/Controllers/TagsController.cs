@@ -366,7 +366,7 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// Получает список активных тегов из коллекции Places с опциональной фильтрацией.
+        /// Получает список активных тегов из коллекции Places, с опциональной фильтрацией и исключением уже выбранных тегов.
         /// </summary>
         /// <remarks>
         /// Возвращает уникальные теги, которые используются в местах в коллекции Places.
@@ -383,11 +383,18 @@ namespace Guider.API.MVP.Controllers
         /// <br/>
         /// - GET /tags/active?city=Liberia - теги из города Liberia
         /// <br/>
-        /// - GET /tags/active?category=to-eat&amp;province=Guanacaste - теги из ресторанов в Guanacaste
-        /// /// </remarks>
+        /// - GET /tags/active?category=to-eat&amp;province=Guanacaste - теги из ресторанов и баров в Guanacaste
+        /// <br/>
+        /// <br/>
+        /// <b>Фильтрация по выбранным тегам (Логика drill-down):</b>
+        /// <br/>
+        /// - GET /tags/active?selectedTags=wifi&amp;selectedTags=pool - вернет теги (кроме "wifi" и "pool"),
+        /// которые присутствуют в местах, *уже* содержащих "wifi" И "pool".
+        /// </remarks>
         /// <param name="category">Опциональный фильтр по категории (например, "to-eat").</param>
         /// <param name="province">Опциональный фильтр по провинции (например, "Guanacaste").</param>
         /// <param name="city">Опциональный фильтр по городу (например, "Liberia").</param>
+        /// <param name="selectedTags">Опциональный список тегов для фильтрации (drill-down). (Пример: &amp;selectedTags=wifi&amp;selectedTags=pool)</param>
         /// <returns>Массив названий тегов.</returns>
         [HttpGet("tags/active")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<string>))] // Успешный ответ
@@ -395,11 +402,13 @@ namespace Guider.API.MVP.Controllers
         public async Task<IActionResult> GetActiveTags(
             [FromQuery] string category = null,
             [FromQuery] string province = null,
-            [FromQuery] string city = null)
+            [FromQuery] string city = null,
+            [FromQuery] List<string> selectedTags = null)
         {
             try
             {
-                var result = await _placeService.GetActiveTagsAsync(category, province, city);
+
+                var result = await _placeService.GetActiveTagsAsync(category, province, city, selectedTags);
 
                 if (result == null)
                 {
@@ -439,7 +448,6 @@ namespace Guider.API.MVP.Controllers
                     new { message = $"An error occurred: {ex.Message}" });
             }
         }
-
 
     }
 }
