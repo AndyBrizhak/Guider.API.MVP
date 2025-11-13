@@ -21,21 +21,14 @@
         {
             var client = new MongoClient(mongoSettings.Value.ConnectionString);
             var database = client.GetDatabase(mongoSettings.Value.DatabaseName);
-
-            // Old configuration
-            //_placeCollection = database.GetCollection<BsonDocument>(mongoSettings.Value.CollectionName);
-
-            // New configuration
-
+                        
             _placeCollection = database.GetCollection<BsonDocument>(
                 mongoSettings.Value.Collections["Places"]);
         }
 
-       
         /// Получить все документы из коллекции Places
         public async Task<List<BsonDocument>> GetAllAsync() =>
             await _placeCollection.Find(_ => true).ToListAsync();
-
 
        public async Task<JsonDocument> GetPlacesAsync(Dictionary<string, string> filter = null)
         {
@@ -272,7 +265,6 @@
             }
         }
 
-
         /// Получить документ по локальнуому url
         public async Task<JsonDocument> GetByUrlAsync(string url, string status = null)
         {
@@ -351,7 +343,6 @@
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
             }
         }
-
 
         public async Task<JsonDocument> CreateAsync(JsonDocument jsonDocument)
         {
@@ -594,7 +585,6 @@
                 }));
             }
         }
-
 
        public async Task<JsonDocument> GetPlacesWithAllKeywordsAsync(
             decimal? lat,
@@ -873,9 +863,7 @@
             }
         }
 
-
-        
-        public async Task<JsonDocument> GetAvailableTagsAsync(
+          public async Task<JsonDocument> GetAvailableTagsAsync(
                                                                 string? category,
                                                                 List<string>? selectedTags)
         {
@@ -951,7 +939,6 @@
             return JsonDocument.Parse(jsonString);
         }
 
-        
         public async Task<JsonDocument?> GetPlaceByNameCityProvinceAsync(string name, string city, string province)
         {
             var filter = Builders<BsonDocument>.Filter.And(
@@ -1453,9 +1440,6 @@
             }
         }
 
-        // (Убедитесь, что у вас есть этот using вверху файла)
-        // using System.Text.RegularExpressions;
-
         /// <summary>
         /// Получить список уникальных городов из коллекции Places с опциональной фильтрацией
         /// </summary>
@@ -1564,9 +1548,11 @@
                 // Добавляем стадию $match только если указана категория
                 if (!string.IsNullOrEmpty(category))
                 {
+                    // Поиск по категории без учета регистра ---
                     pipeline.Add(new BsonDocument("$match", new BsonDocument
                     {
-                        { "category", category }
+                        // Ищем точное совпадение (^) ($) без учета регистра (i)
+                        { "category", new BsonRegularExpression($"^{Regex.Escape(category)}$", "i") }
                     }));
                 }
 
@@ -1628,7 +1614,6 @@
             }
         }
 
-        
         /// <summary>
         /// Получить список уникальных тегов из коллекции Places с опциональной фильтрацией
         /// </summary>
