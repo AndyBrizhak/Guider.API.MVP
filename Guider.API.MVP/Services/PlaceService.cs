@@ -1629,22 +1629,22 @@
                 // Добавляем стадию $match только если есть фильтры
                 var matchConditions = new BsonDocument();
 
-                // Фильтр по категории
+                // Поиск по категории без учета регистра ---
                 if (!string.IsNullOrEmpty(category))
                 {
-                    matchConditions.Add("category", category);
+                    matchConditions.Add("category", new BsonRegularExpression($"^{Regex.Escape(category)}$", "i"));
                 }
 
-                // Фильтр по провинции
+                //Поиск по провинции без учета регистра ---
                 if (!string.IsNullOrEmpty(province))
                 {
-                    matchConditions.Add("address.province", province);
+                    matchConditions.Add("address.province", new BsonRegularExpression($"^{Regex.Escape(province)}$", "i"));
                 }
 
-                // Фильтр по городу
+                //Поиск по городу без учета регистра ---
                 if (!string.IsNullOrEmpty(city))
                 {
-                    matchConditions.Add("address.city", city);
+                    matchConditions.Add("address.city", new BsonRegularExpression($"^{Regex.Escape(city)}$", "i"));
                 }
 
                 // Добавляем стадию $match в начало pipeline, если есть условия
