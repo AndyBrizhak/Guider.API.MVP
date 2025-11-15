@@ -1667,7 +1667,7 @@
                     // Документ ДОЛЖЕН содержать ВСЕ теги из списка
                     matchConditions.Add("tags", new BsonDocument("$all", regexTags));
                 }
-                
+
                 // Добавляем стадию $match в начало pipeline, если есть условия
                 if (matchConditions.ElementCount > 0)
                 {
@@ -1702,12 +1702,14 @@
                 // Сортируем по алфавиту (по _id, который в нижнем регистре)
                 pipeline.Add(new BsonDocument("$sort", new BsonDocument("_id", 1)));
 
-                // Фильтруем null значения (проверяем _id)
+                
+                // Фильтруем null значения И ПУСТЫЕ СТРОКИ (проверяем _id)
+                // Используем $nin (not in), чтобы исключить и null, и ""
                 pipeline.Add(new BsonDocument("$match", new BsonDocument
                 {
-                    { "_id", new BsonDocument("$ne", BsonNull.Value) }
+                    { "_id", new BsonDocument("$nin", new BsonArray { BsonNull.Value, "" }) }
                 }));
-
+                
                 // Группируем все теги в один массив
                 pipeline.Add(new BsonDocument("$group", new BsonDocument
                 {
