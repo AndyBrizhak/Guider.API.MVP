@@ -588,8 +588,8 @@ namespace Guider.API.MVP.Controllers
         /// <param name="distance">Радиус поиска в метрах. По умолчанию 10000 (10км). Максимум 200000 (200км). Пример: 5000</param>
         /// <param name="isOpen">Фильтр по времени работы: true - только открытые, false - только закрытые, (не указано) - все</param>
         /// <param name="page">Номер страницы (начиная с 1). По умолчанию: 1</param>
-        /// <param name="perPage">Количество на странице. По умолчанию: 4</param>
-        /// <param name="sortField">Поле сортировки. Доступны: "name", "category", "status", "createdAt", "distance" (при гео-поиске). По умолчанию: "distance"</param>
+        /// <param name="perPage">Количество на странице. По умолчанию: 20</param>
+        /// <param name="sortField">Поле сортировки. Доступны: "name", "category", "status", "createdAt", "distance" (при гео-поиске). По умолчанию: "name"</pa>
         /// <param name="sortOrder">Порядок сортировки: "ASC" или "DESC". По умолчанию: "ASC"</param>
         /// <returns>Массив мест с информацией о пагинации в заголовках ответа</returns>
         [HttpGet("filters")]
@@ -599,21 +599,21 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))]
         public async Task<IActionResult> GetPlacesWithGeoWithStatusWithTags(
             [FromQuery] string q = null,
-            [FromQuery] string province = "Guanacaste", // <-- ИЗМЕНЕНО
-            [FromQuery] string city = "Playa del Coco", // <-- ИЗМЕHEHO
+            [FromQuery] string province = null, // <-- ИЗМЕНЕНО
+            [FromQuery] string city = null, // <-- ИЗМЕНЕНО
             [FromQuery] string name = null,
             [FromQuery] string url = null,
-            [FromQuery] string category = "to-eat", // <-- ИЗМЕНЕНО
-            [FromQuery] string status = "active",
+            [FromQuery] string category = null, // <-- ИЗМЕНЕНО
+            [FromQuery] string status = null, // <-- ИЗМЕНЕНО (Blazor сам подставит "active")
             [FromQuery] string tags = null,
-            [FromQuery] string tagsMode = "all", // <-- ИЗМЕНЕНО
-            [FromQuery] double? latitude = 10.550185,
-            [FromQuery] double? longitude = -85.697221,
-            [FromQuery] double? distance = 10000,
+            [FromQuery] string tagsMode = "any", // <-- ИЗМЕНЕНО
+            [FromQuery] double? latitude = null, // <-- ИЗМЕНЕНО
+            [FromQuery] double? longitude = null, // <-- ИЗМЕНЕНО
+            [FromQuery] double? distance = null, // <-- ИЗМЕНЕНО
             [FromQuery] bool? isOpen = null,
             [FromQuery] int page = 1,
-            [FromQuery] int perPage = 4,
-            [FromQuery] string sortField = "distance",
+            [FromQuery] int perPage = 20, // <-- ИЗМЕНЕНО (стандартный default)
+            [FromQuery] string sortField = "name", // <-- ИЗМЕНЕНО (стандартный default)
             [FromQuery] string sortOrder = "ASC")
         {
             const double MAX_DISTANCE_METERS = 200000; // 200 км
