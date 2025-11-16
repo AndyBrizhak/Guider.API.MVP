@@ -599,22 +599,22 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))]
         public async Task<IActionResult> GetPlacesWithGeoWithStatusWithTags(
             [FromQuery] string q = null,
-            [FromQuery] string province = null,
-            [FromQuery] string city = null,
+            [FromQuery] string province = "Guanacaste", // <-- ИЗМЕНЕНО
+            [FromQuery] string city = "Playa del Coco", // <-- ИЗМЕHEHO
             [FromQuery] string name = null,
             [FromQuery] string url = null,
-            [FromQuery] string category = null,
-            [FromQuery] string status = "active", //По умолчанию ищем только активные
+            [FromQuery] string category = "to-eat", // <-- ИЗМЕНЕНО
+            [FromQuery] string status = "active",
             [FromQuery] string tags = null,
-            [FromQuery] string tagsMode = "any",
-            [FromQuery] double? latitude = 10.550185, // Координаты Zi Lounge
-            [FromQuery] double? longitude = -85.697221, // Координаты Zi Lounge
-            [FromQuery] double? distance = 10000, //  По умолчанию 10 км
+            [FromQuery] string tagsMode = "all", // <-- ИЗМЕНЕНО
+            [FromQuery] double? latitude = 10.550185,
+            [FromQuery] double? longitude = -85.697221,
+            [FromQuery] double? distance = 10000,
             [FromQuery] bool? isOpen = null,
             [FromQuery] int page = 1,
-            [FromQuery] int perPage = 4, // По умолчанию 4 (как в Blazor)
-            [FromQuery] string sortField = "distance", // По умолчанию сортируем по дистанции
-            [FromQuery] string sortOrder = "ASC") // По умолчанию ASC (ближайшие)
+            [FromQuery] int perPage = 4,
+            [FromQuery] string sortField = "distance",
+            [FromQuery] string sortOrder = "ASC")
         {
             const double MAX_DISTANCE_METERS = 200000; // 200 км
 
@@ -689,5 +689,6 @@ namespace Guider.API.MVP.Controllers
                 return StatusCode(500, new { error = $"Ошибка при получении списка мест с геопоиском: {ex.Message}" });
             }
         }
+
     }
 }
