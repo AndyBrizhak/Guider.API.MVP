@@ -976,7 +976,8 @@
                         useGeoSearch = true;
                                                  
                         const double DEFAULT_DISTANCE_METERS = 10000; // 10 км
-                        const double MAX_DISTANCE_METERS = 200000;     // 200 км
+                        //const double MAX_DISTANCE_METERS = 200000;     // 200 км
+                        const double MAX_DISTANCE_METERS = 50000000;     // тест
 
                         searchDistance = DEFAULT_DISTANCE_METERS; // Устанавливаем значение по умолчанию
 

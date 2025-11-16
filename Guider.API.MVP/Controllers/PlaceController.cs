@@ -599,24 +599,25 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))]
         public async Task<IActionResult> GetPlacesWithGeoWithStatusWithTags(
             [FromQuery] string q = null,
-            [FromQuery] string province = null, // <-- ИЗМЕНЕНО
-            [FromQuery] string city = null, // <-- ИЗМЕНЕНО
+            [FromQuery] string province = null, 
+            [FromQuery] string city = null, 
             [FromQuery] string name = null,
             [FromQuery] string url = null,
-            [FromQuery] string category = null, // <-- ИЗМЕНЕНО
-            [FromQuery] string status = null, // <-- ИЗМЕНЕНО (Blazor сам подставит "active")
+            [FromQuery] string category = null, 
+            [FromQuery] string status = null, //  (Blazor сам подставит "active")
             [FromQuery] string tags = null,
-            [FromQuery] string tagsMode = "any", // <-- ИЗМЕНЕНО
-            [FromQuery] double? latitude = null, // <-- ИЗМЕНЕНО
-            [FromQuery] double? longitude = null, // <-- ИЗМЕНЕНО
-            [FromQuery] double? distance = null, // <-- ИЗМЕНЕНО
+            [FromQuery] string tagsMode = "any", 
+            [FromQuery] double? latitude = null, 
+            [FromQuery] double? longitude = null, 
+            [FromQuery] double? distance = null, 
             [FromQuery] bool? isOpen = null,
             [FromQuery] int page = 1,
-            [FromQuery] int perPage = 20, // <-- ИЗМЕНЕНО (стандартный default)
-            [FromQuery] string sortField = "name", // <-- ИЗМЕНЕНО (стандартный default)
+            [FromQuery] int perPage = 20, 
+            [FromQuery] string sortField = "name", 
             [FromQuery] string sortOrder = "ASC")
         {
-            const double MAX_DISTANCE_METERS = 200000; // 200 км
+            //const double MAX_DISTANCE_METERS = 200000; // 200 км
+            const double MAX_DISTANCE_METERS = 900000000; // тестовое ограничение
 
             if (distance.HasValue)
             {
