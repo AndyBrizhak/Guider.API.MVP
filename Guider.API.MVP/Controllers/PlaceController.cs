@@ -370,54 +370,7 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-
-        /// <summary>
-        /// Получить доступные теги для мест.
-        /// </summary>
-        /// <remarks>
-        /// </remarks>
-        /// <param name="category">Категория</param>
-        /// <param name="selectedTags">Список выбранных тегов</param>
-        /// <returns>Список доступных тегов</returns>
-        //[HttpGet("tags-on-places")]
-        //[ProducesResponseType(StatusCodes.Status200OK, Type = typeof(ApiResponse))]
-        //[ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ApiResponse))]
-        //public async Task<ActionResult> GetAvailableTags(
-        //   [FromQuery] string? category = null,
-        //   [FromQuery] List<string>? selectedTags = null)
-        //{
-        //    try
-        //    {
-
-        //        var result = await _placeService.GetAvailableTagsAsync(
-        //            category,
-        //            selectedTags);
-
-
-        //        var response = new ApiResponse
-        //        {
-        //            StatusCode = HttpStatusCode.OK,
-        //            IsSuccess = true,
-        //            Result = result
-        //        };
-
-        //        return Ok(response);
-        //    }
-        //    catch (Exception ex)
-        //    {
-
-        //        var errorResponse = new ApiResponse
-        //        {
-        //            StatusCode = HttpStatusCode.InternalServerError,
-        //            IsSuccess = false,
-        //            ErrorMessages = new List<string> { ex.Message }
-        //        };
-
-        //        return StatusCode((int)HttpStatusCode.InternalServerError, errorResponse);
-        //    }
-        //}
-
-
+       
         /// <summary>
         /// Создать новое место.
         /// </summary>
@@ -586,55 +539,58 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// Универсальный поиск c фильтрацией и сортировкой
+        /// Универсальный поиск мест (фильтры)
         /// </summary>
         /// <remarks>
-        /// Выполняет комплексный поиск мест с возможностью фильтрации по различным критериям:
-        /// - Текстовый поиск по названию, описанию и другим полям
-        /// - Географическая фильтрация по провинции и городу
-        /// - Геопространственный поиск в радиусе от указанных координат
-        /// - Фильтрация по категориям, статусам и тегам
-        /// - Фильтрация по времени работы (открыто/закрыто)
-        /// - Поддержка сортировки и пагинации результатов
+        /// Выполняет комплексный поиск мест в Коста-Рике с фильтрацией, гео-поиском и пагинацией.
         /// 
-        /// **Примеры использования:**
+        /// **Ограничения:**
+        /// - Гео-поиск (`distance`) ограничен **200,000 метрами (200 км)**.
+        /// - При использовании `latitude` и `longitude` без `distance`, по умолчанию используется радиус **10,000 метров (10 км)**.
         /// 
-        /// 1. Поиск ресторанов в радиусе 5 км от центра города:
+        /// **Примеры использования (на основе данных Коста-Рики):**
+        /// 
+        /// 1. **Гео-поиск:** Найти все в радиусе 1 км от Zi Lounge в Playa del Coco.
         ///    ```
-        ///    GET /api/places/with-geo-status-tags?category=restaurant&amp;latitude=50.4501&amp;longitude=30.5234&amp;distance=5000
+        ///    GET /places/filters?latitude=10.550185&longitude=-85.697221&distance=1000
         ///    ```
         /// 
-        /// 2. Поиск открытых кафе с тегами "wifi" или "терраса":
+        /// 2. **Фильтр по категории и тегам:** Найти все "рестораны" (to-eat) в Guanacaste, где есть "Seafood" И "Pizza".
         ///    ```
-        ///    GET /api/places/with-geo-status-tags?category=cafe&amp;isOpen=true&amp;tags=wifi,терраса&amp;tagsMode=any
+        ///    GET /places/filters?category=to-eat&province=Guanacaste&tags=Seafood,Pizza&tagsMode=all
         ///    ```
         /// 
-        /// 3. Текстовый поиск с сортировкой по названию:
+        /// 3. **Текстовый поиск (q):** Найти места со словом "parties" в описании или названии.
         ///    ```
-        ///    GET /api/places/with-geo-status-tags?q=пицца&amp;sortField=name&amp;sortOrder=ASC&amp;page=1&amp;perPage=10
+        ///    GET /places/filters?q=parties
+        ///    ```
+        /// 
+        /// 4. **Фильтр "Открыто сейчас":** Найти все, что сейчас открыто, с сортировкой по имени (ASC).
+        ///    ```
+        ///    GET /places/filters?isOpen=true&sortField=name&sortOrder=ASC&page=1&perPage=20
         ///    ```
         /// 
         /// **Ответ содержит заголовки:**
-        /// - `X-Total-Count`: общее количество найденных записей
-        /// - `Access-Control-Expose-Headers`: список доступных заголовков для CORS
+        /// - `X-Total-Count`: Общее количество найденных записей.
+        /// - `Access-Control-Expose-Headers`: X-Total-Count.
         /// </remarks>
-        /// <param name="q">Текстовый запрос для поиска по названию, описанию и другим полям места. Пример: "кафе центр"</param>
-        /// <param name="province">Фильтр по провинции/области. Пример: "Киевская область"</param>
-        /// <param name="city">Фильтр по городу. Пример: "Киев"</param>
-        /// <param name="name">Фильтр по точному или частичному совпадению названия. Пример: "Старбакс"</param>
-        /// <param name="url">Фильтр по URL/веб-сайту места. Пример: "starbucks.com"</param>
-        /// <param name="category">Фильтр по категории места. Пример: "restaurant", "cafe", "hotel"</param>
-        /// <param name="status">Фильтр по статусу места. Пример: "active", "inactive", "pending"</param>
-        /// <param name="tags">Список тегов через запятую для фильтрации. Пример: "wifi,парковка,детская площадка"</param>
-        /// <param name="tagsMode">Режим фильтрации по тегам: "any" (любой из тегов) или "all" (все теги). По умолчанию: "any"</param>
-        /// <param name="latitude">Широта для геопространственного поиска в градусах. Пример: 50.4501</param>
-        /// <param name="longitude">Долгота для геопространственного поиска в градусах. Пример: 30.5234</param>
-        /// <param name="distance">Радиус поиска в метрах от указанных координат. Пример: 1000 (1 км), 5000 (5 км)</param>
-        /// <param name="isOpen">Фильтр по времени работы: true - только открытые места, false - только закрытые, null - все</param>
-        /// <param name="page">Номер страницы для пагинации (начиная с 1). По умолчанию: 1</param>
-        /// <param name="perPage">Количество записей на странице (1-100). По умолчанию: 20</param>
-        /// <param name="sortField">Поле для сортировки. Доступные значения: "name", "category", "status", "createdAt", "distance" (при геопоиске). По умолчанию: "name"</param>
-        /// <param name="sortOrder">Порядок сортировки: "ASC" (по возрастанию) или "DESC" (по убыванию). По умолчанию: "ASC"</param>
+        /// <param name="q">Текстовый запрос (поиск по name, description, category, address). Пример: "Lounge" или "parties"</param>
+        /// <param name="province">Фильтр по провинции (нечувствителен к регистру). Пример: "Guanacaste"</param>
+        /// <param name="city">Фильтр по городу (нечувствителен к регистру). Пример: "Playa del Coco"</param>
+        /// <param name="name">Фильтр по точному или частичному совпадению названия. Пример: "Zi Lounge"</param>
+        /// <param name="url">Фильтр по URL-слагу. Пример: "zi-lounge"</param>
+        /// <param name="category">Фильтр по категории. Пример: "to-eat", "services", "shops"</param>
+        /// <param name="status">Фильтр по статусу. По умолчанию (если не указан), сервис ищет только "active". Пример: "active"</param>
+        /// <param name="tags">Список тегов через запятую. Пример: "Restaurant,Bar,Seafood"</param>
+        /// <param name="tagsMode">Режим фильтрации: "any" (любой тег) или "all" (все теги). По умолчанию: "any"</param>
+        /// <param name="latitude">Широта для гео-поиска. Пример: 10.550185</param>
+        /// <param name="longitude">Долгота для гео-поиска. Пример: -85.697221</param>
+        /// <param name="distance">Радиус поиска в метрах. По умолчанию 10000 (10км). Максимум 200000 (200км). Пример: 5000</param>
+        /// <param name="isOpen">Фильтр по времени работы: true - только открытые, false - только закрытые, (не указано) - все</param>
+        /// <param name="page">Номер страницы (начиная с 1). По умолчанию: 1</param>
+        /// <param name="perPage">Количество на странице. По умолчанию: 4</param>
+        /// <param name="sortField">Поле сортировки. Доступны: "name", "category", "status", "createdAt", "distance" (при гео-поиске). По умолчанию: "distance"</param>
+        /// <param name="sortOrder">Порядок сортировки: "ASC" или "DESC". По умолчанию: "ASC"</param>
         /// <returns>Массив мест с информацией о пагинации в заголовках ответа</returns>
         [HttpGet("filters")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
@@ -648,18 +604,31 @@ namespace Guider.API.MVP.Controllers
             [FromQuery] string name = null,
             [FromQuery] string url = null,
             [FromQuery] string category = null,
-            [FromQuery] string status = null,
+            [FromQuery] string status = "active", //По умолчанию ищем только активные
             [FromQuery] string tags = null,
             [FromQuery] string tagsMode = "any",
-            [FromQuery] double? latitude = null,
-            [FromQuery] double? longitude = null,
-            [FromQuery] double? distance = null,
+            [FromQuery] double? latitude = 10.550185, // Координаты Zi Lounge
+            [FromQuery] double? longitude = -85.697221, // Координаты Zi Lounge
+            [FromQuery] double? distance = 10000, //  По умолчанию 10 км
             [FromQuery] bool? isOpen = null,
             [FromQuery] int page = 1,
-            [FromQuery] int perPage = 20,
-            [FromQuery] string sortField = "name",
-            [FromQuery] string sortOrder = "ASC")
+            [FromQuery] int perPage = 4, // По умолчанию 4 (как в Blazor)
+            [FromQuery] string sortField = "distance", // По умолчанию сортируем по дистанции
+            [FromQuery] string sortOrder = "ASC") // По умолчанию ASC (ближайшие)
         {
+            const double MAX_DISTANCE_METERS = 200000; // 200 км
+
+            if (distance.HasValue)
+            {
+                if (distance.Value > MAX_DISTANCE_METERS)
+                {
+                    return BadRequest(new { error = $"Search distance cannot exceed {MAX_DISTANCE_METERS} meters (200 km)." });
+                }
+                if (distance.Value <= 0)
+                {
+                    return BadRequest(new { error = "Search distance must be a positive number." });
+                }
+            }
             var filter = new Dictionary<string, string>();
 
             // Основные фильтры поиска

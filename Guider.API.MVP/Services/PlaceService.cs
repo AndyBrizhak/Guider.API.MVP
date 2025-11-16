@@ -974,14 +974,28 @@
                         double.TryParse(lngStr, out userLng))
                     {
                         useGeoSearch = true;
+                                                 
+                        const double DEFAULT_DISTANCE_METERS = 10000; // 10 км
+                        const double MAX_DISTANCE_METERS = 200000;     // 200 км
 
-                        // Дистанция в метрах (по умолчанию 10 км)
-                        searchDistance = 10000;
+                        searchDistance = DEFAULT_DISTANCE_METERS; // Устанавливаем значение по умолчанию
+
                         if (filter.TryGetValue("distance", out string distanceStr) &&
                             double.TryParse(distanceStr, out double parsedDistance))
                         {
-                            searchDistance = parsedDistance;
+                            if (parsedDistance > MAX_DISTANCE_METERS)
+                            {
+                                // Если запрос превышает лимит, принудительно устанавливаем лимит
+                                searchDistance = MAX_DISTANCE_METERS;
+                            }
+                            else if (parsedDistance > 0)
+                            {
+                                // Используем дистанцию пользователя, если она корректна
+                                searchDistance = parsedDistance;
+                            }
+                            // Если parsedDistance <= 0, останется значение по умолчанию (10000)
                         }
+                        
                     }
                 }
 
@@ -1127,6 +1141,7 @@
                     // Добавляем $geoNear этап
                     pipeline.Add(new BsonDocument("$geoNear", new BsonDocument
                     {
+                        ["key"] = "location", //Явно указываем, какое поле индексировать
                         ["near"] = new BsonDocument
                         {
                             ["type"] = "Point",
