@@ -616,8 +616,8 @@ namespace Guider.API.MVP.Controllers
             [FromQuery] string sortField = "name", 
             [FromQuery] string sortOrder = "ASC")
         {
-            //const double MAX_DISTANCE_METERS = 200000; // 200 км
-            const double MAX_DISTANCE_METERS = 900000000; // тестовое ограничение
+            const double MAX_DISTANCE_METERS = 200000; // 200 км
+            //const double MAX_DISTANCE_METERS = 900000000; // тестовое ограничение
 
             if (distance.HasValue)
             {
