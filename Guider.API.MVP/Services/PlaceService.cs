@@ -1555,39 +1555,115 @@
         /// Получить список уникальных провинций из коллекции Places с опциональной фильтрацией по категории
         /// </summary>
         /// <param name="category">Опциональная категория для фильтрации (например, "to-eat")</param>
+        //public async Task<JsonDocument> GetActiveProvincesAsync(string category = null)
+        //{
+        //    try
+        //    {
+        //        var pipeline = new List<BsonDocument>();
+
+        //        // Добавляем стадию $match только если указана категория
+        //        if (!string.IsNullOrEmpty(category))
+        //        {
+        //            // Поиск по категории без учета регистра ---
+        //            pipeline.Add(new BsonDocument("$match", new BsonDocument
+        //            {
+        //                // Ищем точное совпадение (^) ($) без учета регистра (i)
+        //                { "category", new BsonRegularExpression($"^{Regex.Escape(category)}$", "i") }
+        //            }));
+        //        }
+
+        //        // Группируем по полю address.province и получаем уникальные значения
+        //        pipeline.Add(new BsonDocument("$group", new BsonDocument
+        //        {
+        //            { "_id", "$address.province" }
+        //        }));
+
+        //        // Сортируем по алфавиту
+        //        pipeline.Add(new BsonDocument("$sort", new BsonDocument("_id", 1)));
+
+        //        // Фильтруем null значения
+        //        pipeline.Add(new BsonDocument("$match", new BsonDocument
+        //        {
+        //            { "_id", new BsonDocument("$ne", BsonNull.Value) }
+        //        }));
+
+        //        // Группируем все провинции в один массив
+        //        pipeline.Add(new BsonDocument("$group", new BsonDocument
+        //        {
+        //            { "_id", BsonNull.Value },
+        //            { "allProvinces", new BsonDocument("$push", "$_id") }
+        //        }));
+
+        //        var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
+
+        //        if (result == null || !result.Contains("allProvinces"))
+        //        {
+        //            // Возвращаем пустой массив, если провинций нет
+        //            var emptyResponse = new
+        //            {
+        //                success = true,
+        //                data = new List<string>()
+        //            };
+        //            return JsonDocument.Parse(JsonSerializer.Serialize(emptyResponse));
+        //        }
+
+        //        // Извлекаем массив провинций
+        //        var provincesArray = result["allProvinces"].AsBsonArray;
+        //        var provincesList = provincesArray.Select(province => province.AsString).ToList();
+
+        //        var successResponse = new
+        //        {
+        //            success = true,
+        //            data = provincesList
+        //        };
+
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        var errorResponse = new
+        //        {
+        //            success = false,
+        //            error = $"An error occurred while retrieving provinces: {ex.Message}"
+        //        };
+        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
+        //    }
+        //}
+
+        /// <summary>
+        /// Получить список уникальных провинций со слагами из коллекции Places.
+        /// </summary>
         public async Task<JsonDocument> GetActiveProvincesAsync(string category = null)
         {
             try
             {
                 var pipeline = new List<BsonDocument>();
 
-                // Добавляем стадию $match только если указана категория
+                // 1. Фильтр по категории (если есть)
                 if (!string.IsNullOrEmpty(category))
                 {
-                    // Поиск по категории без учета регистра ---
                     pipeline.Add(new BsonDocument("$match", new BsonDocument
                     {
-                        // Ищем точное совпадение (^) ($) без учета регистра (i)
                         { "category", new BsonRegularExpression($"^{Regex.Escape(category)}$", "i") }
                     }));
                 }
 
-                // Группируем по полю address.province и получаем уникальные значения
+                // 2. Группировка по названию провинции
                 pipeline.Add(new BsonDocument("$group", new BsonDocument
                 {
                     { "_id", "$address.province" }
                 }));
 
-                // Сортируем по алфавиту
+                // 3. Сортировка
                 pipeline.Add(new BsonDocument("$sort", new BsonDocument("_id", 1)));
 
-                // Фильтруем null значения
+                // 4. Фильтрация пустых значений
                 pipeline.Add(new BsonDocument("$match", new BsonDocument
                 {
                     { "_id", new BsonDocument("$ne", BsonNull.Value) }
                 }));
 
-                // Группируем все провинции в один массив
+                // 5. Сбор всех названий в массив
                 pipeline.Add(new BsonDocument("$group", new BsonDocument
                 {
                     { "_id", BsonNull.Value },
@@ -1596,25 +1672,41 @@
 
                 var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
 
+                // Если ничего не найдено
                 if (result == null || !result.Contains("allProvinces"))
                 {
-                    // Возвращаем пустой массив, если провинций нет
-                    var emptyResponse = new
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new
                     {
                         success = true,
-                        data = new List<string>()
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(emptyResponse));
+                        data = new List<object>()
+                    }));
                 }
 
-                // Извлекаем массив провинций
+                // 6. Преобразование в объекты { name, slug } ВНУТРИ СЕРВИСА
                 var provincesArray = result["allProvinces"].AsBsonArray;
-                var provincesList = provincesArray.Select(province => province.AsString).ToList();
 
+                var processedList = provincesArray.Select(p =>
+                {
+                    string name = p.AsString;
+
+                    // Логика генерации слага
+                    string slug = name.ToLower().Trim()
+                        .Replace(" ", "-")
+                        .Replace("á", "a")
+                        .Replace("é", "e")
+                        .Replace("í", "i")
+                        .Replace("ó", "o")
+                        .Replace("ú", "u")
+                        .Replace("ñ", "n");
+
+                    return new { name = name, slug = slug };
+                }).ToList();
+
+                // Возвращаем уже готовые объекты
                 var successResponse = new
                 {
                     success = true,
-                    data = provincesList
+                    data = processedList
                 };
 
                 return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));

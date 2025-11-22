@@ -447,46 +447,94 @@ namespace Guider.API.MVP.Controllers
         /// </remarks>
         /// <param name="category">Опциональный фильтр по категории (например, "to-eat").</param>
         /// <returns>Массив названий провинций.</returns>
+        //[HttpGet("provinces/active")]
+        //[ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<string>))] // Успешный ответ
+        //[ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
+        //public async Task<IActionResult> GetActiveProvinces([FromQuery] string category = null)
+        //{
+        //    try
+        //    {
+        //        var result = await _placeService.GetActiveProvincesAsync(category);
+
+        //        if (result == null)
+        //        {
+        //            return StatusCode(StatusCodes.Status500InternalServerError,
+        //                new { message = "Service returned null result." });
+        //        }
+
+        //        // Проверяем успешность операции
+        //        bool isSuccess = result.RootElement.GetProperty("success").GetBoolean();
+
+        //        if (!isSuccess)
+        //        {
+        //            string errorMessage = result.RootElement.GetProperty("error").GetString();
+        //            return StatusCode(StatusCodes.Status500InternalServerError,
+        //                new { message = errorMessage });
+        //        }
+
+        //        // Извлекаем массив провинций
+        //        var provincesData = result.RootElement.GetProperty("data");
+        //        var provincesList = new List<string>();
+
+        //        foreach (var province in provincesData.EnumerateArray())
+        //        {
+        //            provincesList.Add(province.GetString());
+        //        }
+
+        //        // Добавляем заголовок с общим количеством провинций
+        //        Response.Headers.Add("X-Total-Count", provincesList.Count.ToString());
+        //        Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
+
+        //        // Возвращаем просто массив строк
+        //        return Ok(provincesList);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(StatusCodes.Status500InternalServerError,
+        //            new { message = $"An error occurred: {ex.Message}" });
+        //    }
+        //}
+
+        /// <summary>
+        /// Получает список активных провинций (name + slug).
+        /// </summary>
         [HttpGet("provinces/active")]
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<string>))] // Успешный ответ
-        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<object>))]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))]
         public async Task<IActionResult> GetActiveProvinces([FromQuery] string category = null)
         {
             try
             {
+                // Вся грязная работа теперь внутри сервиса
                 var result = await _placeService.GetActiveProvincesAsync(category);
 
                 if (result == null)
-                {
-                    return StatusCode(StatusCodes.Status500InternalServerError,
-                        new { message = "Service returned null result." });
-                }
+                    return StatusCode(500, new { message = "Service returned null result." });
 
-                // Проверяем успешность операции
+                // Проверяем успешность
                 bool isSuccess = result.RootElement.GetProperty("success").GetBoolean();
-
                 if (!isSuccess)
                 {
                     string errorMessage = result.RootElement.GetProperty("error").GetString();
-                    return StatusCode(StatusCodes.Status500InternalServerError,
-                        new { message = errorMessage });
+                    return StatusCode(500, new { message = errorMessage });
                 }
 
-                // Извлекаем массив провинций
+                // Просто достаем данные
                 var provincesData = result.RootElement.GetProperty("data");
-                var provincesList = new List<string>();
 
-                foreach (var province in provincesData.EnumerateArray())
-                {
-                    provincesList.Add(province.GetString());
-                }
+                // Так как данные уже в нужном формате (массив объектов), 
+                // мы можем просто вернуть их клиенту, десериализовав в List<object> 
+                // или передав как JsonElement, чтобы ASP.NET сам отдал их как JSON.
 
-                // Добавляем заголовок с общим количеством провинций
-                Response.Headers.Add("X-Total-Count", provincesList.Count.ToString());
+                // Для подсчета количества элементов нам нужно знать размер массива
+                int count = provincesData.GetArrayLength();
+
+                // Добавляем хедеры
+                Response.Headers.Add("X-Total-Count", count.ToString());
                 Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
 
-                // Возвращаем просто массив строк
-                return Ok(provincesList);
+                // Возвращаем данные как есть (они уже содержат name и slug)
+                return Ok(provincesData);
             }
             catch (Exception ex)
             {
