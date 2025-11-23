@@ -273,6 +273,7 @@ builder.Services.AddSingleton<PlaceService>();
 builder.Services.AddSingleton<ProvinceService>();
 builder.Services.AddSingleton<CitiesService>();
 builder.Services.AddSingleton<TagsService>();
+builder.Services.AddSingleton<SitemapService>();
 
 // Регистрация сервиса для работы с изображениями
 builder.Services.AddScoped<IImageService, ImageService>();
