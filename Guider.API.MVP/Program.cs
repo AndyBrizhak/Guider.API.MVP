@@ -323,6 +323,11 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddSingleton<IMinioService, MinioService>();
 
+//  Регистрация HttpClient ---
+// Это позволит внедрять IHttpClientFactory в контроллеры
+builder.Services.AddHttpClient();
+// -------------------------------------
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

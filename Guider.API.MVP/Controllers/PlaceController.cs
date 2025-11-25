@@ -24,9 +24,19 @@ namespace Guider.API.MVP.Controllers
         private readonly PlaceService _placeService;
         private ApiResponse _response;
 
-        public PlaceController(PlaceService placeService)
+        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IConfiguration _configuration;
+
+        public PlaceController(PlaceService placeService,
+            IHttpClientFactory httpClientFactory, 
+            IConfiguration configuration
+            )
         {
             _placeService = placeService;
+
+            _httpClientFactory = httpClientFactory;
+            _configuration = configuration;
+
             _response = new ApiResponse();
         }
 
@@ -440,7 +450,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="jsonDocument">Данные для обновления (JSON)</param>
         /// <returns>Обновленный объект места</returns>
         [HttpPut("{id}")]
-        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         [Consumes("application/json")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))]
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(string))]
@@ -467,7 +477,18 @@ namespace Guider.API.MVP.Controllers
                     // Успешное обновление - возвращаем 200 OK
                     if (result.RootElement.TryGetProperty("data", out var dataElement))
                     {
-                        //return Ok(JsonDocument.Parse(dataElement.GetRawText()));
+                        string? placeUrl = null;
+                        // Пытаемся узнать URL места, чтобы сбросить только его страницу
+                        if (dataElement.TryGetProperty("url", out var urlElement))
+                        {
+                            placeUrl = urlElement.GetString();
+                        }
+                        if (!string.IsNullOrEmpty(placeUrl))
+                        {
+                            // Сбрасываем кеш конкретной страницы
+                            _ = TriggerCacheInvalidation($"place:{placeUrl}");
+                        }
+
                         return Ok(dataElement);
                     }
                     else
@@ -516,6 +537,25 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(string))]
         public async Task<IActionResult> Delete(string id)
         {
+            // 1. Создаем переменную для хранения URL
+            string? placeUrl = null;
+
+            // 2. Пытаемся получить место ДО удаления, чтобы узнать его URL
+            try
+            {
+                var existingDoc = await _placeService.GetByIdAsync(id);
+                // Проверяем, есть ли поле "url" в полученном документе
+                if (existingDoc.RootElement.TryGetProperty("url", out var urlElement))
+                {
+                    placeUrl = urlElement.GetString();
+                }
+            }
+            catch
+            {
+                // Если не удалось получить (например, ID кривой), просто игнорируем. 
+                // Удаление все равно попробуем выполнить дальше.
+            }
+
             var deleteResult = await _placeService.DeleteAsync(id);
 
             if (deleteResult == null || deleteResult.RootElement.ValueKind != JsonValueKind.Object)
@@ -532,6 +572,13 @@ namespace Guider.API.MVP.Controllers
                 }
 
                 return BadRequest(errorMessage);
+            }
+
+            // 3. Если удаление прошло успешно И мы знаем URL — сбрасываем кеш конкретной страницы
+            if (!string.IsNullOrEmpty(placeUrl))
+            {
+                // Вызываем сброс кеша только для этого URL
+                _ = TriggerCacheInvalidation($"place:{placeUrl}");
             }
 
             // Успешное удаление
@@ -688,6 +735,47 @@ namespace Guider.API.MVP.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { error = $"Ошибка при получении списка мест с геопоиском: {ex.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Отправляет запрос ("дергает вебхук") в Blazor приложение для сброса кеша
+        /// </summary>
+        private async Task TriggerCacheInvalidation(string? tag = null)
+        {
+            try
+            {
+                // Читаем настройки из переменных окружения
+                // ASP.NET Core автоматически преобразует ENV переменные с "__" в иерархию с ":"
+                var blazorUrl = _configuration["BLAZOR_APP:URL"];
+                var secretKey = _configuration["BLAZOR_APP:CACHEKEY"];
+
+                // Для отладки (если снова не заработает) можно раскомментировать:
+                // Console.WriteLine($"DEBUG: BlazorURL='{blazorUrl}', Key='{secretKey}'");
+
+                if (string.IsNullOrEmpty(blazorUrl) || string.IsNullOrEmpty(secretKey))
+                {
+                    // Если настроек нет, просто выходим (чтобы не ломать локальную разработку если не настроено)
+                    return;
+                }
+
+                // Формируем URL: http://host:3000/cache/invalidate?key=...&tag=...
+                var requestUrl = $"{blazorUrl}/cache/invalidate?key={secretKey}";
+                if (!string.IsNullOrEmpty(tag))
+                {
+                    requestUrl += $"&tag={tag}";
+                }
+
+                // Создаем клиент и отправляем POST (fire and forget - не ждем ответа)
+                var client = _httpClientFactory.CreateClient();
+
+                // Мы не используем await, чтобы не задерживать ответ API пользователю.
+                // API ответит "200 OK" мгновенно, а запрос уйдет в фоне.
+                _ = client.PostAsync(requestUrl, null);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при отправке вебхука инвалидации: {ex.Message}");
             }
         }
 
