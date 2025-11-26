@@ -12,6 +12,7 @@ using System.Numerics;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Guider.API.MVP.Controllers
 {
@@ -27,15 +28,21 @@ namespace Guider.API.MVP.Controllers
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
 
+        private readonly IMemoryCache _memoryCache;
+        private const string SITEMAP_CACHE_KEY = "sitemap_slugs_list"; // Тот же ключ, что в SitemapController
+
+
         public PlaceController(PlaceService placeService,
             IHttpClientFactory httpClientFactory, 
-            IConfiguration configuration
+            IConfiguration configuration,
+            IMemoryCache memoryCache 
             )
         {
             _placeService = placeService;
 
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
+            _memoryCache = memoryCache;
 
             _response = new ApiResponse();
         }
@@ -417,6 +424,9 @@ namespace Guider.API.MVP.Controllers
                     // Успешное создание - возвращаем 201 Created
                     if (result.RootElement.TryGetProperty("data", out var dataElement))
                     {
+                        // Сбрасываем внутренний кеш Sitemap (появился новый URL)
+                        _memoryCache.Remove(SITEMAP_CACHE_KEY);
+
                         return StatusCode(201, JsonDocument.Parse(dataElement.GetRawText()));
                     }
                     else
@@ -477,6 +487,9 @@ namespace Guider.API.MVP.Controllers
                     // Успешное обновление - возвращаем 200 OK
                     if (result.RootElement.TryGetProperty("data", out var dataElement))
                     {
+                        // Сбрасываем внутренний кеш Sitemap (вдруг поменялся URL или статус)
+                        _memoryCache.Remove(SITEMAP_CACHE_KEY);
+
                         string? placeUrl = null;
                         // Пытаемся узнать URL места, чтобы сбросить только его страницу
                         if (dataElement.TryGetProperty("url", out var urlElement))
@@ -565,6 +578,9 @@ namespace Guider.API.MVP.Controllers
 
             if (deleteResult.RootElement.TryGetProperty("success", out var successElement) && successElement.ValueKind == JsonValueKind.False)
             {
+                // Сбрасываем внутренний кеш Sitemap (URL удален)
+                _memoryCache.Remove(SITEMAP_CACHE_KEY);
+
                 string errorMessage = "Failed to delete the document.";
                 if (deleteResult.RootElement.TryGetProperty("error", out var errorElement) && errorElement.ValueKind == JsonValueKind.String)
                 {

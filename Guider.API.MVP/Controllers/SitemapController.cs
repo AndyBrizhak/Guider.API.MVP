@@ -1,5 +1,6 @@
 ﻿using Guider.API.MVP.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using System.Net;
 using System.Text.Json;
 
@@ -13,9 +14,16 @@ namespace Guider.API.MVP.Controllers
     {
         private readonly SitemapService _sitemapService;
 
-        public SitemapController(SitemapService sitemapService)
+        // Добавляем поле для кеша
+        private readonly IMemoryCache _memoryCache;
+        // Ключ, по которому будем хранить данные
+        private const string SITEMAP_CACHE_KEY = "sitemap_slugs_list";
+
+
+        public SitemapController(SitemapService sitemapService, IMemoryCache memoryCache)
         {
             _sitemapService = sitemapService;
+            _memoryCache = memoryCache;
         }
 
         /// <summary>
@@ -34,38 +42,31 @@ namespace Guider.API.MVP.Controllers
         {
             try
             {
-                var result = await _sitemapService.GetPlaceSlugsAsync();
-
-                // Проверяем структуру ответа на наличие success = true
-                if (result.RootElement.TryGetProperty("success", out var successElement) &&
-                    successElement.GetBoolean())
+                // Пытаемся получить данные из кеша (или создать их, если нет)
+                var slugs = await _memoryCache.GetOrCreateAsync(SITEMAP_CACHE_KEY, async entry =>
                 {
-                    // Если успех, достаем данные ("data")
-                    if (result.RootElement.TryGetProperty("data", out var dataElement))
+                    // Настройка: хранить 168 часа (но мы сбросим вручную раньше, если данные изменятся)
+                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(168);
+
+                    // --- Логика получения данных из БД  ---
+                    var result = await _sitemapService.GetPlaceSlugsAsync();
+
+                    if (result.RootElement.TryGetProperty("success", out var successElement) &&
+                        successElement.GetBoolean() &&
+                        result.RootElement.TryGetProperty("data", out var dataElement))
                     {
-                        // Десериализуем в список строк и возвращаем 200 OK
-                        var slugs = JsonSerializer.Deserialize<List<string>>(dataElement.GetRawText());
-                        return Ok(slugs);
+                        return JsonSerializer.Deserialize<List<string>>(dataElement.GetRawText());
                     }
 
-                    // Если поля data нет, возвращаем пустой список
-                    return Ok(new List<string>());
-                }
-                else
-                {
-                    // Если ошибка, достаем сообщение
-                    var errorMessage = "Unknown error occurred";
-                    if (result.RootElement.TryGetProperty("error", out var errorElement))
-                    {
-                        errorMessage = errorElement.GetString();
-                    }
+                    return new List<string>();
+                    // -------------------------------------------------------
+                });
 
-                    return BadRequest(new { error = errorMessage });
-                }
+                return Ok(slugs);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { error = $"Ошибка при получении данных для sitemap: {ex.Message}" });
+                return StatusCode(500, new { error = $"Ошибка sitemap: {ex.Message}" });
             }
         }
     }

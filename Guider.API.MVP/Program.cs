@@ -328,6 +328,8 @@ builder.Services.AddSingleton<IMinioService, MinioService>();
 builder.Services.AddHttpClient();
 // -------------------------------------
 
+builder.Services.AddMemoryCache();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
