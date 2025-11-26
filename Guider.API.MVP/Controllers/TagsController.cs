@@ -7,6 +7,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
 using System.Text.Json;
+using Microsoft.Extensions.Caching.Memory;
+
+
 
 namespace Guider.API.MVP.Controllers
 {
@@ -18,11 +21,15 @@ namespace Guider.API.MVP.Controllers
     {
         private readonly TagsService _tagsService;
         private readonly PlaceService _placeService;
+        private readonly IMemoryCache _memoryCache;
 
-        public TagsController(TagsService tagsService, PlaceService placeService)
+        public TagsController(TagsService tagsService, 
+            PlaceService placeService, 
+            IMemoryCache memoryCache)
         {
             _tagsService = tagsService;
             _placeService = placeService;
+            _memoryCache = memoryCache;
         }
 
 
@@ -407,8 +414,40 @@ namespace Guider.API.MVP.Controllers
         {
             try
             {
+                // 1. Формируем уникальный ключ кеша.
+                // Важно: null преобразуем в строку "all", чтобы ключ был читаемым.
+                string catKey = string.IsNullOrEmpty(category) ? "all" : category.ToLower();
+                string provKey = string.IsNullOrEmpty(province) ? "all" : province.ToLower();
+                string cityKey = string.IsNullOrEmpty(city) ? "all" : city.ToLower();
 
-                var result = await _placeService.GetActiveTagsAsync(category, province, city, selectedTags);
+                // Для списка тегов нужно создать строковый ключ. 
+                // Сортируем теги, чтобы порядок не влиял на кеш (wifi,pool == pool,wifi).
+                string tagsKey = "none";
+                if (selectedTags != null && selectedTags.Any())
+                {
+                    var sortedTags = selectedTags
+                        .Where(t => !string.IsNullOrWhiteSpace(t))
+                        .Select(t => t.ToLower().Trim())
+                        .OrderBy(t => t);
+
+                    tagsKey = string.Join("_", sortedTags);
+                }
+
+                // Итоговый ключ: active_tags_cat:to-eat_prov:guanacaste_city:all_tags:wifi_pool
+                string cacheKey = $"active_tags_cat:{catKey}_prov:{provKey}_city:{cityKey}_tags:{tagsKey}";
+
+                var result = await _memoryCache.GetOrCreateAsync(cacheKey, async entry =>
+                {
+                    // 2. Привязываем кеш к токену ТЕГОВ из PlaceService
+                    // Если PlaceService вызовет InvalidateTagsCache(), этот кеш сбросится.
+                    entry.AddExpirationToken(_placeService.GetTagsChangeToken());
+
+                    // 3. Страховочное время жизни (24 часа)
+                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24);
+
+                    // 4. Вызываем сервис (тяжелая операция агрегации)
+                    return await _placeService.GetActiveTagsAsync(category, province, city, selectedTags);
+                });
 
                 if (result == null)
                 {
@@ -416,7 +455,7 @@ namespace Guider.API.MVP.Controllers
                         new { message = "Service returned null result." });
                 }
 
-                // Проверяем успешность операции
+                // Проверяем успешность операции внутри JSON-документа
                 bool isSuccess = result.RootElement.GetProperty("success").GetBoolean();
 
                 if (!isSuccess)
@@ -439,7 +478,6 @@ namespace Guider.API.MVP.Controllers
                 Response.Headers.Add("X-Total-Count", tagsList.Count.ToString());
                 Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
 
-                // Возвращаем просто массив строк
                 return Ok(tagsList);
             }
             catch (Exception ex)

@@ -409,29 +409,34 @@ namespace Guider.API.MVP.Controllers
         {
             try
             {
-                // Валидация входящих данных  
                 if (jsonDocument == null || jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
                 {
                     return BadRequest("Invalid input. Expected a JSON object.");
                 }
 
-                // Отправляем в сервис и получаем результат
                 var result = await _placeService.CreateAsync(jsonDocument);
 
-                // Проверяем результат из сервиса
                 if (result.RootElement.TryGetProperty("success", out var successElement) && successElement.GetBoolean())
                 {
-                    // Успешное создание - возвращаем 201 Created
                     if (result.RootElement.TryGetProperty("data", out var dataElement))
                     {
-                        // Сбрасываем внутренний кеш Sitemap (появился новый URL)
                         _memoryCache.Remove(SITEMAP_CACHE_KEY);
 
-                        // При создании нового места мы всегда проверяем, есть ли там провинция.
-                        // Если есть - лучше сбросить кеш, так как может появиться новая провинция в списке.
+                        // Проверяем и сбрасываем ПРОВИНЦИИ
                         if (ShouldInvalidateProvinces(jsonDocument))
                         {
                             _placeService.InvalidateProvincesCache();
+                        }
+
+                        // Проверяем и сбрасываем ГОРОДА
+                        if (ShouldInvalidateCities(jsonDocument))
+                        {
+                            _placeService.InvalidateCitiesCache();
+                        }
+
+                        if (ShouldInvalidateTags(jsonDocument))
+                        {
+                            _placeService.InvalidateTagsCache();
                         }
 
                         return StatusCode(201, JsonDocument.Parse(dataElement.GetRawText()));
@@ -443,7 +448,6 @@ namespace Guider.API.MVP.Controllers
                 }
                 else
                 {
-                    // Неудачное создание - возвращаем 400 Bad Request
                     string message = "Unknown error occurred.";
                     if (result.RootElement.TryGetProperty("message", out var messageElement))
                     {
@@ -477,42 +481,43 @@ namespace Guider.API.MVP.Controllers
         {
             try
             {
-                // Валидация входящих данных
-                if (string.IsNullOrEmpty(id))
-                {
-                    return BadRequest("Object ID is required.");
-                }
+                if (string.IsNullOrEmpty(id)) return BadRequest("Object ID is required.");
                 if (jsonDocument == null || jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
-                {
                     return BadRequest("Invalid input. Expected a JSON object.");
-                }
-                // Отправляем в сервис и получаем результат
+
                 var result = await _placeService.UpdateAsync(id, jsonDocument);
-                // Проверяем результат из сервиса
+
                 if (result.RootElement.TryGetProperty("success", out var successElement) && successElement.GetBoolean())
                 {
-                    // Успешное обновление - возвращаем 200 OK
                     if (result.RootElement.TryGetProperty("data", out var dataElement))
                     {
-                        // Сбрасываем внутренний кеш Sitemap (вдруг поменялся URL или статус)
                         _memoryCache.Remove(SITEMAP_CACHE_KEY);
 
                         string? placeUrl = null;
-                        // Пытаемся узнать URL места, чтобы сбросить только его страницу
                         if (dataElement.TryGetProperty("url", out var urlElement))
                         {
                             placeUrl = urlElement.GetString();
                         }
                         if (!string.IsNullOrEmpty(placeUrl))
                         {
-                            // Сбрасываем кеш конкретной страницы
                             _ = TriggerCacheInvalidation($"place:{placeUrl}");
                         }
 
-                        // Проверяем, затронул ли апдейт поля status, category или province
+                        // Проверяем и сбрасываем ПРОВИНЦИИ
                         if (ShouldInvalidateProvinces(jsonDocument))
                         {
                             _placeService.InvalidateProvincesCache();
+                        }
+
+                        // Проверяем и сбрасываем ГОРОДА
+                        if (ShouldInvalidateCities(jsonDocument))
+                        {
+                            _placeService.InvalidateCitiesCache();
+                        }
+
+                        if (ShouldInvalidateTags(jsonDocument))
+                        {
+                            _placeService.InvalidateTagsCache();
                         }
 
                         return Ok(dataElement);
@@ -524,7 +529,6 @@ namespace Guider.API.MVP.Controllers
                 }
                 else
                 {
-                    // Неудачное обновление - возвращаем 400 Bad Request
                     string message = "Unknown error occurred.";
                     if (result.RootElement.TryGetProperty("message", out var messageElement))
                     {
@@ -563,24 +567,16 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(string))]
         public async Task<IActionResult> Delete(string id)
         {
-            // 1. Создаем переменную для хранения URL
             string? placeUrl = null;
-
-            // 2. Пытаемся получить место ДО удаления, чтобы узнать его URL
             try
             {
                 var existingDoc = await _placeService.GetByIdAsync(id);
-                // Проверяем, есть ли поле "url" в полученном документе
                 if (existingDoc.RootElement.TryGetProperty("url", out var urlElement))
                 {
                     placeUrl = urlElement.GetString();
                 }
             }
-            catch
-            {
-                // Если не удалось получить (например, ID кривой), просто игнорируем. 
-                // Удаление все равно попробуем выполнить дальше.
-            }
+            catch { }
 
             var deleteResult = await _placeService.DeleteAsync(id);
 
@@ -591,30 +587,32 @@ namespace Guider.API.MVP.Controllers
 
             if (deleteResult.RootElement.TryGetProperty("success", out var successElement) && successElement.ValueKind == JsonValueKind.False)
             {
-                // При удалении мы всегда сбрасываем кеш провинций, 
-                // так как это могло быть последнее место в данной провинции.
-                _placeService.InvalidateProvincesCache();
-
-                // Сбрасываем внутренний кеш Sitemap (URL удален)
-                _memoryCache.Remove(SITEMAP_CACHE_KEY);
-
+                // При ошибке ничего не сбрасываем, просто возвращаем ошибку
                 string errorMessage = "Failed to delete the document.";
-                if (deleteResult.RootElement.TryGetProperty("error", out var errorElement) && errorElement.ValueKind == JsonValueKind.String)
+                if (deleteResult.RootElement.TryGetProperty("error", out var errorElement))
                 {
                     errorMessage = errorElement.GetString();
                 }
-
                 return BadRequest(errorMessage);
             }
 
-            // 3. Если удаление прошло успешно И мы знаем URL — сбрасываем кеш конкретной страницы
+            // Успешное удаление
+
+            // 1. Сбрасываем ПРОВИНЦИИ (удаление могло убрать последнюю запись в провинции)
+            _placeService.InvalidateProvincesCache();
+
+            // 2. Сбрасываем ГОРОДА (удаление могло убрать последнюю запись в городе)
+            _placeService.InvalidateCitiesCache();
+
+            _placeService.InvalidateTagsCache(); // При удалении всегда сбрасываем
+
+            _memoryCache.Remove(SITEMAP_CACHE_KEY);
+
             if (!string.IsNullOrEmpty(placeUrl))
             {
-                // Вызываем сброс кеша только для этого URL
                 _ = TriggerCacheInvalidation($"place:{placeUrl}");
             }
 
-            // Успешное удаление
             return NoContent();
         }
 
@@ -828,6 +826,51 @@ namespace Guider.API.MVP.Controllers
             if (jsonDoc.RootElement.TryGetProperty("address", out var addressElem))
             {
                 // И внутри адреса меняется провинция
+                if (addressElem.TryGetProperty("province", out _)) return true;
+            }
+
+            return false;
+        }
+
+        // Метод Helper для ГОРОДОВ
+        private bool ShouldInvalidateCities(JsonDocument jsonDoc)
+        {
+            if (jsonDoc == null) return false;
+
+            // 1. Статус или Категория меняют состав активных городов
+            if (jsonDoc.RootElement.TryGetProperty("status", out _)) return true;
+            if (jsonDoc.RootElement.TryGetProperty("category", out _)) return true;
+
+            // 2. Изменение адреса
+            if (jsonDoc.RootElement.TryGetProperty("address", out var addressElem))
+            {
+                // Если сменился Город - очевидно сбрасываем
+                if (addressElem.TryGetProperty("city", out _)) return true;
+
+                // Если сменилась Провинция - тоже сбрасываем, т.к. фильтр городов часто зависит от провинции
+                // (активный город может "переехать" в другую провинцию)
+                if (addressElem.TryGetProperty("province", out _)) return true;
+            }
+
+            return false;
+        }
+
+        // Метод Helper для ТЕГОВ
+        private bool ShouldInvalidateTags(JsonDocument jsonDoc)
+        {
+            if (jsonDoc == null) return false;
+
+            // 1. Статус или Категория меняют состав активных тегов
+            if (jsonDoc.RootElement.TryGetProperty("status", out _)) return true;
+            if (jsonDoc.RootElement.TryGetProperty("category", out _)) return true;
+
+            // 2. Если изменился сам список тегов
+            if (jsonDoc.RootElement.TryGetProperty("tags", out _)) return true;
+
+            // 3. Изменение адреса (провинция/город) может повлиять на фильтры тегов
+            if (jsonDoc.RootElement.TryGetProperty("address", out var addressElem))
+            {
+                if (addressElem.TryGetProperty("city", out _)) return true;
                 if (addressElem.TryGetProperty("province", out _)) return true;
             }
 

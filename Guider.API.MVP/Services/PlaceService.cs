@@ -18,6 +18,8 @@
     {
         private readonly IMongoCollection<BsonDocument> _placeCollection;
         private CancellationTokenSource _provincesCts = new CancellationTokenSource();
+        private CancellationTokenSource _citiesCts = new CancellationTokenSource(); // Токен для городов
+        private CancellationTokenSource _tagsCts = new CancellationTokenSource(); //  для тегов
 
         public PlaceService(IOptions<MongoDbSettings> mongoSettings)
         {
@@ -1808,6 +1810,36 @@
             // Пересоздаем токен для будущих запросов
             _provincesCts.Dispose();
             _provincesCts = new CancellationTokenSource();
+        }
+
+        //  метод для Городов ---
+        public IChangeToken GetCitiesChangeToken()
+        {
+            return new CancellationChangeToken(_citiesCts.Token);
+        }
+
+        /// <summary>
+        /// Сбросить кеш всех активных городов.
+        /// Вызывать при изменении полей: address.city, address.province, status, category.
+        /// </summary>
+        public void InvalidateCitiesCache()
+        {
+            _citiesCts.Cancel();
+            _citiesCts.Dispose();
+            _citiesCts = new CancellationTokenSource();
+        }
+
+        // --- Методы для Тегов  ---
+        public IChangeToken GetTagsChangeToken()
+        {
+            return new CancellationChangeToken(_tagsCts.Token);
+        }
+
+        public void InvalidateTagsCache()
+        {
+            _tagsCts.Cancel();
+            _tagsCts.Dispose();
+            _tagsCts = new CancellationTokenSource();
         }
 
     }
