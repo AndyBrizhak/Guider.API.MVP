@@ -13,9 +13,11 @@
     using System.Text.Json;
     using System.Text.RegularExpressions;
     using System.Threading.Tasks;
+    using Microsoft.Extensions.Primitives; //  для IChangeToken
     public class PlaceService
     {
         private readonly IMongoCollection<BsonDocument> _placeCollection;
+        private CancellationTokenSource _provincesCts = new CancellationTokenSource();
 
         public PlaceService(IOptions<MongoDbSettings> mongoSettings)
         {
@@ -1552,84 +1554,8 @@
         }
 
         /// <summary>
-        /// Получить список уникальных провинций из коллекции Places с опциональной фильтрацией по категории
-        /// </summary>
-        /// <param name="category">Опциональная категория для фильтрации (например, "to-eat")</param>
-        //public async Task<JsonDocument> GetActiveProvincesAsync(string category = null)
-        //{
-        //    try
-        //    {
-        //        var pipeline = new List<BsonDocument>();
-
-        //        // Добавляем стадию $match только если указана категория
-        //        if (!string.IsNullOrEmpty(category))
-        //        {
-        //            // Поиск по категории без учета регистра ---
-        //            pipeline.Add(new BsonDocument("$match", new BsonDocument
-        //            {
-        //                // Ищем точное совпадение (^) ($) без учета регистра (i)
-        //                { "category", new BsonRegularExpression($"^{Regex.Escape(category)}$", "i") }
-        //            }));
-        //        }
-
-        //        // Группируем по полю address.province и получаем уникальные значения
-        //        pipeline.Add(new BsonDocument("$group", new BsonDocument
-        //        {
-        //            { "_id", "$address.province" }
-        //        }));
-
-        //        // Сортируем по алфавиту
-        //        pipeline.Add(new BsonDocument("$sort", new BsonDocument("_id", 1)));
-
-        //        // Фильтруем null значения
-        //        pipeline.Add(new BsonDocument("$match", new BsonDocument
-        //        {
-        //            { "_id", new BsonDocument("$ne", BsonNull.Value) }
-        //        }));
-
-        //        // Группируем все провинции в один массив
-        //        pipeline.Add(new BsonDocument("$group", new BsonDocument
-        //        {
-        //            { "_id", BsonNull.Value },
-        //            { "allProvinces", new BsonDocument("$push", "$_id") }
-        //        }));
-
-        //        var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
-
-        //        if (result == null || !result.Contains("allProvinces"))
-        //        {
-        //            // Возвращаем пустой массив, если провинций нет
-        //            var emptyResponse = new
-        //            {
-        //                success = true,
-        //                data = new List<string>()
-        //            };
-        //            return JsonDocument.Parse(JsonSerializer.Serialize(emptyResponse));
-        //        }
-
-        //        // Извлекаем массив провинций
-        //        var provincesArray = result["allProvinces"].AsBsonArray;
-        //        var provincesList = provincesArray.Select(province => province.AsString).ToList();
-
-        //        var successResponse = new
-        //        {
-        //            success = true,
-        //            data = provincesList
-        //        };
-
-        //        return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        var errorResponse = new
-        //        {
-        //            success = false,
-        //            error = $"An error occurred while retrieving provinces: {ex.Message}"
-        //        };
-        //        return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
-        //    }
-        //}
-
+        
+       
         /// <summary>
         /// Получить список уникальных провинций со слагами из коллекции Places.
         /// </summary>
@@ -1861,6 +1787,29 @@
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
             }
         }
+
+        /// <summary>
+        /// Получить токен отслеживания изменений для кеша провинций.
+        /// Если этот токен будет отменен, все связанные записи кеша сбросятся.
+        /// </summary>
+        public IChangeToken GetProvincesChangeToken()
+        {
+            return new CancellationChangeToken(_provincesCts.Token);
+        }
+
+        /// <summary>
+        /// Сбросить кеш всех активных провинций.
+        /// Вызывать при изменении полей: address.province, status, category.
+        /// </summary>
+        public void InvalidateProvincesCache()
+        {
+            // Отменяем текущий токен (это сбросит кеш)
+            _provincesCts.Cancel();
+            // Пересоздаем токен для будущих запросов
+            _provincesCts.Dispose();
+            _provincesCts = new CancellationTokenSource();
+        }
+
     }
 
 

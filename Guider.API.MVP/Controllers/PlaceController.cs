@@ -427,6 +427,13 @@ namespace Guider.API.MVP.Controllers
                         // Сбрасываем внутренний кеш Sitemap (появился новый URL)
                         _memoryCache.Remove(SITEMAP_CACHE_KEY);
 
+                        // При создании нового места мы всегда проверяем, есть ли там провинция.
+                        // Если есть - лучше сбросить кеш, так как может появиться новая провинция в списке.
+                        if (ShouldInvalidateProvinces(jsonDocument))
+                        {
+                            _placeService.InvalidateProvincesCache();
+                        }
+
                         return StatusCode(201, JsonDocument.Parse(dataElement.GetRawText()));
                     }
                     else
@@ -460,7 +467,7 @@ namespace Guider.API.MVP.Controllers
         /// <param name="jsonDocument">Данные для обновления (JSON)</param>
         /// <returns>Обновленный объект места</returns>
         [HttpPut("{id}")]
-        //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
+        [Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
         [Consumes("application/json")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))]
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(string))]
@@ -500,6 +507,12 @@ namespace Guider.API.MVP.Controllers
                         {
                             // Сбрасываем кеш конкретной страницы
                             _ = TriggerCacheInvalidation($"place:{placeUrl}");
+                        }
+
+                        // Проверяем, затронул ли апдейт поля status, category или province
+                        if (ShouldInvalidateProvinces(jsonDocument))
+                        {
+                            _placeService.InvalidateProvincesCache();
                         }
 
                         return Ok(dataElement);
@@ -578,6 +591,10 @@ namespace Guider.API.MVP.Controllers
 
             if (deleteResult.RootElement.TryGetProperty("success", out var successElement) && successElement.ValueKind == JsonValueKind.False)
             {
+                // При удалении мы всегда сбрасываем кеш провинций, 
+                // так как это могло быть последнее место в данной провинции.
+                _placeService.InvalidateProvincesCache();
+
                 // Сбрасываем внутренний кеш Sitemap (URL удален)
                 _memoryCache.Remove(SITEMAP_CACHE_KEY);
 
@@ -793,6 +810,28 @@ namespace Guider.API.MVP.Controllers
             {
                 Console.WriteLine($"Ошибка при отправке вебхука инвалидации: {ex.Message}");
             }
+        }
+
+        // Метод Helper для проверки, нужно ли сбрасывать кеш провинций
+        // Проверяет входящий JSON на наличие критических полей
+        private bool ShouldInvalidateProvinces(JsonDocument jsonDoc)
+        {
+            if (jsonDoc == null) return false;
+
+            // Если меняется статус (активен/неактивен) - список может измениться
+            if (jsonDoc.RootElement.TryGetProperty("status", out _)) return true;
+
+            // Если меняется категория - место может уйти из фильтра провинций
+            if (jsonDoc.RootElement.TryGetProperty("category", out _)) return true;
+
+            // Если меняется адрес
+            if (jsonDoc.RootElement.TryGetProperty("address", out var addressElem))
+            {
+                // И внутри адреса меняется провинция
+                if (addressElem.TryGetProperty("province", out _)) return true;
+            }
+
+            return false;
         }
 
     }
