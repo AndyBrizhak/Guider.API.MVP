@@ -460,7 +460,7 @@ namespace Guider.API.MVP.Controllers
 
                     // 2. Ставим "страховочное" время жизни (например, 168 часа), 
                     // на случай если инвалдиация не сработает или данные нужно просто освежить.
-                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(168);
+                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24);
 
                     // 3. Логика получения данных
                     return await _placeService.GetActiveProvincesAsync(category);
