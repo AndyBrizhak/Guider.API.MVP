@@ -29,7 +29,7 @@ namespace Guider.API.MVP.Controllers
         private readonly IConfiguration _configuration;
 
         private readonly IMemoryCache _memoryCache;
-        private const string SITEMAP_CACHE_KEY = "sitemap_slugs_list"; // Тот же ключ, что в SitemapController
+        /*private const string SITEMAP_CACHE_KEY = "sitemap_slugs_list";*/ // Тот же ключ, что в SitemapController
 
 
         public PlaceController(PlaceService placeService,
@@ -420,7 +420,7 @@ namespace Guider.API.MVP.Controllers
                 {
                     if (result.RootElement.TryGetProperty("data", out var dataElement))
                     {
-                        _memoryCache.Remove(SITEMAP_CACHE_KEY);
+                        _memoryCache.Remove(SD.SitemapCacheKey);
 
                         // Проверяем и сбрасываем ПРОВИНЦИИ
                         if (ShouldInvalidateProvinces(jsonDocument))
@@ -491,7 +491,7 @@ namespace Guider.API.MVP.Controllers
                 {
                     if (result.RootElement.TryGetProperty("data", out var dataElement))
                     {
-                        _memoryCache.Remove(SITEMAP_CACHE_KEY);
+                        _memoryCache.Remove(SD.SitemapCacheKey);
 
                         string? placeUrl = null;
                         if (dataElement.TryGetProperty("url", out var urlElement))
@@ -606,7 +606,7 @@ namespace Guider.API.MVP.Controllers
 
             _placeService.InvalidateTagsCache(); // При удалении всегда сбрасываем
 
-            _memoryCache.Remove(SITEMAP_CACHE_KEY);
+            _memoryCache.Remove(SD.SitemapCacheKey);
 
             if (!string.IsNullOrEmpty(placeUrl))
             {

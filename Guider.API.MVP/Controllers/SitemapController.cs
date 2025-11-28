@@ -1,4 +1,5 @@
 ﻿using Guider.API.MVP.Services;
+using Guider.API.MVP.Utility;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using System.Net;
@@ -17,7 +18,7 @@ namespace Guider.API.MVP.Controllers
         // Добавляем поле для кеша
         private readonly IMemoryCache _memoryCache;
         // Ключ, по которому будем хранить данные
-        private const string SITEMAP_CACHE_KEY = "sitemap_slugs_list";
+        //private const string SITEMAP_CACHE_KEY = "sitemap_slugs_list";
 
 
         public SitemapController(SitemapService sitemapService, IMemoryCache memoryCache)
@@ -43,10 +44,10 @@ namespace Guider.API.MVP.Controllers
             try
             {
                 // Пытаемся получить данные из кеша (или создать их, если нет)
-                var slugs = await _memoryCache.GetOrCreateAsync(SITEMAP_CACHE_KEY, async entry =>
+                var slugs = await _memoryCache.GetOrCreateAsync(SD.SitemapCacheKey, async entry =>
                 {
                     // Настройка: хранить 168 часа (но мы сбросим вручную раньше, если данные изменятся)
-                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(168);
+                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24);
 
                     // --- Логика получения данных из БД  ---
                     var result = await _sitemapService.GetPlaceSlugsAsync();
