@@ -404,77 +404,91 @@ namespace Guider.API.MVP.Controllers
         /// <param name="selectedTags">Опциональный список тегов для фильтрации (drill-down). (Пример: &amp;selectedTags=wifi&amp;selectedTags=pool)</param>
         /// <returns>Массив названий тегов.</returns>
         [HttpGet("tags/active")]
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<string>))] // Успешный ответ
-        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<string>))]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))]
         public async Task<IActionResult> GetActiveTags(
-            [FromQuery] string category = null,
-            [FromQuery] string province = null,
-            [FromQuery] string city = null,
-            [FromQuery] List<string> selectedTags = null)
+        [FromQuery] string category = null,
+        [FromQuery] string province = null,
+        [FromQuery] string city = null,
+        [FromQuery] List<string> selectedTags = null)
         {
             try
             {
-                // 1. Формируем уникальный ключ кеша.
-                // Важно: null преобразуем в строку "all", чтобы ключ был читаемым.
-                string catKey = string.IsNullOrEmpty(category) ? "all" : category.ToLower();
-                string provKey = string.IsNullOrEmpty(province) ? "all" : province.ToLower();
-                string cityKey = string.IsNullOrEmpty(city) ? "all" : city.ToLower();
+                // 1. Нормализация входных параметров для ключа кеша (и базы)
+                string catKey = string.IsNullOrEmpty(category) ? "all" : category.ToLower().Trim();
+                string provKey = string.IsNullOrEmpty(province) ? "all" : province.ToLower().Trim();
+                string cityKey = string.IsNullOrEmpty(city) ? "all" : city.ToLower().Trim();
 
-                // Для списка тегов нужно создать строковый ключ. 
-                // Сортируем теги, чтобы порядок не влиял на кеш (wifi,pool == pool,wifi).
-                string tagsKey = "none";
-                if (selectedTags != null && selectedTags.Any())
+                // 2. Очистка списка выбранных тегов
+                var cleanSelectedTags = selectedTags?
+                    .Where(t => !string.IsNullOrWhiteSpace(t))
+                    .ToList(); // Порядок не важен для "наличия", но важен для логики кеширования ниже
+
+                // 3. ЛОГИКА КЕШИРОВАНИЯ
+                // Если cleanSelectedTags пуст - это "Базовый запрос" (пользователь только зашел в категорию).
+                // Такие запросы очень частые и одинаковые для всех -> КЕШИРУЕМ.
+                // Если теги выбраны - это уникальный поиск пользователя -> НЕ КЕШИРУЕМ (идем в БД).
+
+                bool isBaseRequest = (cleanSelectedTags == null || !cleanSelectedTags.Any());
+
+                JsonDocument resultDocument;
+
+                if (isBaseRequest)
                 {
-                    var sortedTags = selectedTags
-                        .Where(t => !string.IsNullOrWhiteSpace(t))
-                        .Select(t => t.ToLower().Trim())
-                        .OrderBy(t => t);
+                    // --- ВАРИАНТ С КЕШЕМ (24 ЧАСА) ---
 
-                    tagsKey = string.Join("_", sortedTags);
+                    // Ключ не содержит "tags:...", так как их нет
+                    string cacheKey = $"active_tags_cat:{catKey}_prov:{provKey}_city:{cityKey}";
+
+                    resultDocument = await _memoryCache.GetOrCreateAsync(cacheKey, async entry =>
+                    {
+                        // Привязка к токену отмены (если админ обновит тег, кеш сбросится)
+                        entry.AddExpirationToken(_placeService.GetTagsChangeToken());
+
+                        // Долгое время жизни, так как это базовые справочники
+                        entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24);
+
+                        // Высокий приоритет хранения в памяти
+                        entry.Priority = CacheItemPriority.High;
+
+                        return await _placeService.GetActiveTagsAsync(category, province, city, null);
+                    });
+                }
+                else
+                {
+                    // --- ВАРИАНТ БЕЗ КЕША (ПРЯМОЙ ЗАПРОС) ---
+                    // Экономим память сервера, не создавая тысячи уникальных ключей.
+                    resultDocument = await _placeService.GetActiveTagsAsync(category, province, city, cleanSelectedTags);
                 }
 
-                // Итоговый ключ: active_tags_cat:to-eat_prov:guanacaste_city:all_tags:wifi_pool
-                string cacheKey = $"active_tags_cat:{catKey}_prov:{provKey}_city:{cityKey}_tags:{tagsKey}";
-
-                var result = await _memoryCache.GetOrCreateAsync(cacheKey, async entry =>
+                // 4. Обработка результата (общая для обоих вариантов)
+                if (resultDocument == null)
                 {
-                    // 2. Привязываем кеш к токену ТЕГОВ из PlaceService
-                    // Если PlaceService вызовет InvalidateTagsCache(), этот кеш сбросится.
-                    entry.AddExpirationToken(_placeService.GetTagsChangeToken());
-
-                    // 3. Страховочное время жизни (24 часа)
-                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24);
-
-                    // 4. Вызываем сервис (тяжелая операция агрегации)
-                    return await _placeService.GetActiveTagsAsync(category, province, city, selectedTags);
-                });
-
-                if (result == null)
-                {
-                    return StatusCode(StatusCodes.Status500InternalServerError,
-                        new { message = "Service returned null result." });
+                    return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Service returned null result." });
                 }
 
-                // Проверяем успешность операции внутри JSON-документа
-                bool isSuccess = result.RootElement.GetProperty("success").GetBoolean();
-
-                if (!isSuccess)
+                // Проверяем успех операции в JSON ответе сервиса
+                if (resultDocument.RootElement.TryGetProperty("success", out var successElement) && !successElement.GetBoolean())
                 {
-                    string errorMessage = result.RootElement.GetProperty("error").GetString();
-                    return StatusCode(StatusCodes.Status500InternalServerError,
-                        new { message = errorMessage });
+                    string errorMsg = "Unknown error";
+                    if (resultDocument.RootElement.TryGetProperty("error", out var errorElement))
+                    {
+                        errorMsg = errorElement.GetString();
+                    }
+                    return StatusCode(StatusCodes.Status500InternalServerError, new { message = errorMsg });
                 }
 
-                // Извлекаем массив тегов
-                var tagsData = result.RootElement.GetProperty("data");
+                // Извлекаем данные
                 var tagsList = new List<string>();
-
-                foreach (var tag in tagsData.EnumerateArray())
+                if (resultDocument.RootElement.TryGetProperty("data", out var dataElement) && dataElement.ValueKind == JsonValueKind.Array)
                 {
-                    tagsList.Add(tag.GetString());
+                    foreach (var tag in dataElement.EnumerateArray())
+                    {
+                        tagsList.Add(tag.GetString());
+                    }
                 }
 
-                // Добавляем заголовок с общим количеством тегов
+                // Добавляем заголовки (React-Admin style)
                 Response.Headers.Add("X-Total-Count", tagsList.Count.ToString());
                 Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
 
