@@ -774,39 +774,44 @@ namespace Guider.API.MVP.Controllers
         /// </summary>
         private async Task TriggerCacheInvalidation(string? tag = null)
         {
+            // 1. Получаем настройки
+            var blazorUrl = _configuration["BLAZOR_APP:URL"];
+            var secretKey = _configuration["BLAZOR_APP:CACHEKEY"];
+
+            // 2. Проверка наличия настроек с выводом предупреждения
+            if (string.IsNullOrEmpty(blazorUrl) || string.IsNullOrEmpty(secretKey))
+            {
+                Console.WriteLine("WARNING: Cache invalidation skipped. 'BLAZOR_APP:URL' or 'BLAZOR_APP:CACHEKEY' is missing in configuration.");
+                return;
+            }
+
             try
             {
-                // Читаем настройки из переменных окружения
-                // ASP.NET Core автоматически преобразует ENV переменные с "__" в иерархию с ":"
-                var blazorUrl = _configuration["BLAZOR_APP:URL"];
-                var secretKey = _configuration["BLAZOR_APP:CACHEKEY"];
-
-                // Для отладки (если снова не заработает) можно раскомментировать:
-                // Console.WriteLine($"DEBUG: BlazorURL='{blazorUrl}', Key='{secretKey}'");
-
-                if (string.IsNullOrEmpty(blazorUrl) || string.IsNullOrEmpty(secretKey))
-                {
-                    // Если настроек нет, просто выходим (чтобы не ломать локальную разработку если не настроено)
-                    return;
-                }
-
-                // Формируем URL: http://host:3000/cache/invalidate?key=...&tag=...
                 var requestUrl = $"{blazorUrl}/cache/invalidate?key={secretKey}";
                 if (!string.IsNullOrEmpty(tag))
                 {
                     requestUrl += $"&tag={tag}";
                 }
 
-                // Создаем клиент и отправляем POST (fire and forget - не ждем ответа)
                 var client = _httpClientFactory.CreateClient();
 
-                // Мы не используем await, чтобы не задерживать ответ API пользователю.
-                // API ответит "200 OK" мгновенно, а запрос уйдет в фоне.
-                _ = client.PostAsync(requestUrl, null);
+                // Устанавливаем короткий таймаут (например, 2 секунды). 
+                // Если Blazor лежит, мы не хотим, чтобы этот висящий запрос занимал ресурсы.
+                client.Timeout = TimeSpan.FromSeconds(2);
+
+                // ВАЖНО: Используем await здесь, чтобы оставаться внутри блока try/catch
+                // Если соединение не пройдет, исключение будет перехвачено ниже.
+                var response = await client.PostAsync(requestUrl, null);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"WARNING: Cache invalidation request failed. Status Code: {response.StatusCode}");
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка при отправке вебхука инвалидации: {ex.Message}");
+                // Это сообщение появится в консоли, если Blazor выключен или недоступен
+                Console.WriteLine($"WARNING: Failed to trigger Blazor cache invalidation (Is the app running?). Error: {ex.Message}");
             }
         }
 
