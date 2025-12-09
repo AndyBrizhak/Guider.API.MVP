@@ -7,6 +7,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
 using System.Text.Json;
+using Microsoft.Extensions.Caching.Memory;
+
+
 
 namespace Guider.API.MVP.Controllers
 {
@@ -18,11 +21,15 @@ namespace Guider.API.MVP.Controllers
     {
         private readonly TagsService _tagsService;
         private readonly PlaceService _placeService;
+        private readonly IMemoryCache _memoryCache;
 
-        public TagsController(TagsService tagsService, PlaceService placeService)
+        public TagsController(TagsService tagsService, 
+            PlaceService placeService, 
+            IMemoryCache memoryCache)
         {
             _tagsService = tagsService;
             _placeService = placeService;
+            _memoryCache = memoryCache;
         }
 
 
@@ -366,7 +373,7 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// Получает список активных тегов из коллекции Places с опциональной фильтрацией.
+        /// Получает список активных тегов из коллекции Places, с опциональной фильтрацией и исключением уже выбранных тегов.
         /// </summary>
         /// <remarks>
         /// Возвращает уникальные теги, которые используются в местах в коллекции Places.
@@ -383,54 +390,108 @@ namespace Guider.API.MVP.Controllers
         /// <br/>
         /// - GET /tags/active?city=Liberia - теги из города Liberia
         /// <br/>
-        /// - GET /tags/active?category=to-eat&amp;province=Guanacaste - теги из ресторанов в Guanacaste
-        /// /// </remarks>
+        /// - GET /tags/active?category=to-eat&amp;province=Guanacaste - теги из ресторанов и баров в Guanacaste
+        /// <br/>
+        /// <br/>
+        /// <b>Фильтрация по выбранным тегам (Логика drill-down):</b>
+        /// <br/>
+        /// - GET /tags/active?selectedTags=wifi&amp;selectedTags=pool - вернет теги (кроме "wifi" и "pool"),
+        /// которые присутствуют в местах, *уже* содержащих "wifi" И "pool".
+        /// </remarks>
         /// <param name="category">Опциональный фильтр по категории (например, "to-eat").</param>
         /// <param name="province">Опциональный фильтр по провинции (например, "Guanacaste").</param>
         /// <param name="city">Опциональный фильтр по городу (например, "Liberia").</param>
+        /// <param name="selectedTags">Опциональный список тегов для фильтрации (drill-down). (Пример: &amp;selectedTags=wifi&amp;selectedTags=pool)</param>
         /// <returns>Массив названий тегов.</returns>
         [HttpGet("tags/active")]
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<string>))] // Успешный ответ
-        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<string>))]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))]
         public async Task<IActionResult> GetActiveTags(
-            [FromQuery] string category = null,
-            [FromQuery] string province = null,
-            [FromQuery] string city = null)
+        [FromQuery] string category = null,
+        [FromQuery] string province = null,
+        [FromQuery] string city = null,
+        [FromQuery] List<string> selectedTags = null)
         {
             try
             {
-                var result = await _placeService.GetActiveTagsAsync(category, province, city);
+                // 1. Нормализация входных параметров для ключа кеша (и базы)
+                string catKey = string.IsNullOrEmpty(category) ? "all" : category.ToLower().Trim();
+                string provKey = string.IsNullOrEmpty(province) ? "all" : province.ToLower().Trim();
+                string cityKey = string.IsNullOrEmpty(city) ? "all" : city.ToLower().Trim();
 
-                if (result == null)
+                // 2. Очистка списка выбранных тегов
+                var cleanSelectedTags = selectedTags?
+                    .Where(t => !string.IsNullOrWhiteSpace(t))
+                    .ToList(); // Порядок не важен для "наличия", но важен для логики кеширования ниже
+
+                // 3. ЛОГИКА КЕШИРОВАНИЯ
+                // Если cleanSelectedTags пуст - это "Базовый запрос" (пользователь только зашел в категорию).
+                // Такие запросы очень частые и одинаковые для всех -> КЕШИРУЕМ.
+                // Если теги выбраны - это уникальный поиск пользователя -> НЕ КЕШИРУЕМ (идем в БД).
+
+                bool isBaseRequest = (cleanSelectedTags == null || !cleanSelectedTags.Any());
+
+                JsonDocument resultDocument;
+
+                if (isBaseRequest)
                 {
-                    return StatusCode(StatusCodes.Status500InternalServerError,
-                        new { message = "Service returned null result." });
+                    // --- ВАРИАНТ С КЕШЕМ (24 ЧАСА) ---
+
+                    // Ключ не содержит "tags:...", так как их нет
+                    string cacheKey = $"active_tags_cat:{catKey}_prov:{provKey}_city:{cityKey}";
+
+                    resultDocument = await _memoryCache.GetOrCreateAsync(cacheKey, async entry =>
+                    {
+                        // Привязка к токену отмены (если админ обновит тег, кеш сбросится)
+                        entry.AddExpirationToken(_placeService.GetTagsChangeToken());
+
+                        // Долгое время жизни, так как это базовые справочники
+                        entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24);
+
+                        // Высокий приоритет хранения в памяти
+                        entry.Priority = CacheItemPriority.High;
+
+                        return await _placeService.GetActiveTagsAsync(category, province, city, null);
+                    });
+                }
+                else
+                {
+                    // --- ВАРИАНТ БЕЗ КЕША (ПРЯМОЙ ЗАПРОС) ---
+                    // Экономим память сервера, не создавая тысячи уникальных ключей.
+                    resultDocument = await _placeService.GetActiveTagsAsync(category, province, city, cleanSelectedTags);
                 }
 
-                // Проверяем успешность операции
-                bool isSuccess = result.RootElement.GetProperty("success").GetBoolean();
-
-                if (!isSuccess)
+                // 4. Обработка результата (общая для обоих вариантов)
+                if (resultDocument == null)
                 {
-                    string errorMessage = result.RootElement.GetProperty("error").GetString();
-                    return StatusCode(StatusCodes.Status500InternalServerError,
-                        new { message = errorMessage });
+                    return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Service returned null result." });
                 }
 
-                // Извлекаем массив тегов
-                var tagsData = result.RootElement.GetProperty("data");
+                // Проверяем успех операции в JSON ответе сервиса
+                if (resultDocument.RootElement.TryGetProperty("success", out var successElement) && !successElement.GetBoolean())
+                {
+                    string errorMsg = "Unknown error";
+                    if (resultDocument.RootElement.TryGetProperty("error", out var errorElement))
+                    {
+                        errorMsg = errorElement.GetString();
+                    }
+                    return StatusCode(StatusCodes.Status500InternalServerError, new { message = errorMsg });
+                }
+
+                // Извлекаем данные
                 var tagsList = new List<string>();
-
-                foreach (var tag in tagsData.EnumerateArray())
+                if (resultDocument.RootElement.TryGetProperty("data", out var dataElement) && dataElement.ValueKind == JsonValueKind.Array)
                 {
-                    tagsList.Add(tag.GetString());
+                    foreach (var tag in dataElement.EnumerateArray())
+                    {
+                        tagsList.Add(tag.GetString());
+                    }
                 }
 
-                // Добавляем заголовок с общим количеством тегов
+                // Добавляем заголовки (React-Admin style)
                 Response.Headers.Add("X-Total-Count", tagsList.Count.ToString());
                 Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
 
-                // Возвращаем просто массив строк
                 return Ok(tagsList);
             }
             catch (Exception ex)
@@ -439,7 +500,6 @@ namespace Guider.API.MVP.Controllers
                     new { message = $"An error occurred: {ex.Message}" });
             }
         }
-
 
     }
 }

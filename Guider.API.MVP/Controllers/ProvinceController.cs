@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Guider.API.MVP.Controllers
 {
@@ -25,15 +26,19 @@ namespace Guider.API.MVP.Controllers
     {
         private readonly ProvinceService _provinceService;
         private readonly PlaceService _placeService;
+        private readonly IMemoryCache _memoryCache;
 
         /// <summary>
         /// Инициализирует новый экземпляр контроллера ProvinceController.
         /// </summary>
         /// <param name="provinceService">Сервис для операций с провинциями.</param>
-        public ProvinceController(ProvinceService provinceService, PlaceService placeService)
+        public ProvinceController(ProvinceService provinceService, 
+                                    PlaceService placeService, 
+                                    IMemoryCache memoryCache)
         {
             _provinceService = provinceService;
             _placeService = placeService;
+            _memoryCache = memoryCache;
         }
 
         /// <summary>
@@ -431,62 +436,53 @@ namespace Guider.API.MVP.Controllers
             return Ok(new { id });
         }
 
+        
         /// <summary>
-        /// Получает список активных провинций из коллекции Places с опциональной фильтрацией.
+        /// Получает список активных провинций (name + slug).
         /// </summary>
-        /// <remarks>
-        /// Возвращает уникальные названия провинций, которые присутствуют в адресах мест в коллекции Places.
-        /// Провинции отсортированы по алфавиту.
-        /// <br/>
-        /// <br/>
-        /// <b>Примеры использования:</b>
-        /// <br/>
-        /// - GET /provinces/active - все провинции
-        /// <br/>
-        /// - GET /provinces/active?category=to-eat - провинции с ресторанами
-        /// </remarks>
-        /// <param name="category">Опциональный фильтр по категории (например, "to-eat").</param>
-        /// <returns>Массив названий провинций.</returns>
         [HttpGet("provinces/active")]
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<string>))] // Успешный ответ
-        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<object>))]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))]
         public async Task<IActionResult> GetActiveProvinces([FromQuery] string category = null)
         {
             try
             {
-                var result = await _placeService.GetActiveProvincesAsync(category);
+                // Формируем уникальный ключ для конкретного запроса (учитываем категорию)
+                string cacheKey = string.IsNullOrEmpty(category)
+                    ? "active_provinces_all"
+                    : $"active_provinces_cat_{category.ToLower()}";
+
+                var result = await _memoryCache.GetOrCreateAsync(cacheKey, async entry =>
+                {
+                    // 1. Привязываем кеш к токену из сервиса.
+                    // Если в PlaceService вызовут InvalidateProvincesCache(), эта запись удалится.
+                    entry.AddExpirationToken(_placeService.GetProvincesChangeToken());
+
+                    // 2. Ставим "страховочное" время жизни (например, 168 часа), 
+                    // на случай если инвалдиация не сработает или данные нужно просто освежить.
+                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24);
+
+                    // 3. Логика получения данных
+                    return await _placeService.GetActiveProvincesAsync(category);
+                });
 
                 if (result == null)
-                {
-                    return StatusCode(StatusCodes.Status500InternalServerError,
-                        new { message = "Service returned null result." });
-                }
+                    return StatusCode(500, new { message = "Service returned null result." });
 
-                // Проверяем успешность операции
                 bool isSuccess = result.RootElement.GetProperty("success").GetBoolean();
-
                 if (!isSuccess)
                 {
                     string errorMessage = result.RootElement.GetProperty("error").GetString();
-                    return StatusCode(StatusCodes.Status500InternalServerError,
-                        new { message = errorMessage });
+                    return StatusCode(500, new { message = errorMessage });
                 }
 
-                // Извлекаем массив провинций
                 var provincesData = result.RootElement.GetProperty("data");
-                var provincesList = new List<string>();
+                int count = provincesData.GetArrayLength();
 
-                foreach (var province in provincesData.EnumerateArray())
-                {
-                    provincesList.Add(province.GetString());
-                }
-
-                // Добавляем заголовок с общим количеством провинций
-                Response.Headers.Add("X-Total-Count", provincesList.Count.ToString());
+                Response.Headers.Add("X-Total-Count", count.ToString());
                 Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
 
-                // Возвращаем просто массив строк
-                return Ok(provincesList);
+                return Ok(provincesData);
             }
             catch (Exception ex)
             {
