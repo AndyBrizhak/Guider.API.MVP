@@ -5,6 +5,7 @@ using Guider.API.MVP.Utility;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using System.Net;
@@ -20,11 +21,15 @@ namespace Guider.API.MVP.Controllers
     {
         private readonly CitiesService _citiesService;
         private readonly PlaceService _placeService; // СЕРВИС ПЛЕЙСОВ
+        private readonly IMemoryCache _memoryCache; // Добавляем кеш
 
-        public CitiesController(CitiesService citiesService, PlaceService placeService)
+        public CitiesController(CitiesService citiesService, 
+                                    PlaceService placeService,
+                                IMemoryCache memoryCache) 
         {
             _citiesService = citiesService;
             _placeService = placeService; // ИНИЦИАЛИЗАЦИя ПЛЕЙСОВ
+            _memoryCache = memoryCache;
         }
 
 
@@ -520,7 +525,24 @@ namespace Guider.API.MVP.Controllers
         {
             try
             {
-                var result = await _placeService.GetActiveCitiesAsync(category, province);
+                // Формируем уникальный ключ кеша, зависящий от фильтров
+                // Используем Lower(), чтобы избежать дубликатов ключей из-за регистра
+                string catKey = string.IsNullOrEmpty(category) ? "all" : category.ToLower();
+                string provKey = string.IsNullOrEmpty(province) ? "all" : province.ToLower();
+
+                string cacheKey = $"active_cities_cat_{catKey}_prov_{provKey}";
+
+                var result = await _memoryCache.GetOrCreateAsync(cacheKey, async entry =>
+                {
+                    // 1. Привязываем кеш к токену ГОРОДОВ из сервиса
+                    entry.AddExpirationToken(_placeService.GetCitiesChangeToken());
+
+                    // 2. Ставим страховочное время жизни (например, 24 часа)
+                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24);
+
+                    // 3. Вызываем сервис
+                    return await _placeService.GetActiveCitiesAsync(category, province);
+                });
 
                 if (result == null)
                 {
@@ -551,8 +573,6 @@ namespace Guider.API.MVP.Controllers
                 Response.Headers.Add("X-Total-Count", citiesList.Count.ToString());
                 Response.Headers.Add("Access-Control-Expose-Headers", "X-Total-Count");
 
-
-                // Возвращаем просто массив строк
                 return Ok(citiesList);
             }
             catch (Exception ex)

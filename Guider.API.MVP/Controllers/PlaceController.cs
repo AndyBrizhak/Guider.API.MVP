@@ -12,6 +12,7 @@ using System.Numerics;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Guider.API.MVP.Controllers
 {
@@ -24,9 +25,25 @@ namespace Guider.API.MVP.Controllers
         private readonly PlaceService _placeService;
         private ApiResponse _response;
 
-        public PlaceController(PlaceService placeService)
+        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IConfiguration _configuration;
+
+        private readonly IMemoryCache _memoryCache;
+        /*private const string SITEMAP_CACHE_KEY = "sitemap_slugs_list";*/ // Тот же ключ, что в SitemapController
+
+
+        public PlaceController(PlaceService placeService,
+            IHttpClientFactory httpClientFactory, 
+            IConfiguration configuration,
+            IMemoryCache memoryCache 
+            )
         {
             _placeService = placeService;
+
+            _httpClientFactory = httpClientFactory;
+            _configuration = configuration;
+            _memoryCache = memoryCache;
+
             _response = new ApiResponse();
         }
 
@@ -370,54 +387,7 @@ namespace Guider.API.MVP.Controllers
             }
         }
 
-
-        /// <summary>
-        /// Получить доступные теги для мест.
-        /// </summary>
-        /// <remarks>
-        /// </remarks>
-        /// <param name="category">Категория</param>
-        /// <param name="selectedTags">Список выбранных тегов</param>
-        /// <returns>Список доступных тегов</returns>
-        //[HttpGet("tags-on-places")]
-        //[ProducesResponseType(StatusCodes.Status200OK, Type = typeof(ApiResponse))]
-        //[ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(ApiResponse))]
-        //public async Task<ActionResult> GetAvailableTags(
-        //   [FromQuery] string? category = null,
-        //   [FromQuery] List<string>? selectedTags = null)
-        //{
-        //    try
-        //    {
-
-        //        var result = await _placeService.GetAvailableTagsAsync(
-        //            category,
-        //            selectedTags);
-
-
-        //        var response = new ApiResponse
-        //        {
-        //            StatusCode = HttpStatusCode.OK,
-        //            IsSuccess = true,
-        //            Result = result
-        //        };
-
-        //        return Ok(response);
-        //    }
-        //    catch (Exception ex)
-        //    {
-
-        //        var errorResponse = new ApiResponse
-        //        {
-        //            StatusCode = HttpStatusCode.InternalServerError,
-        //            IsSuccess = false,
-        //            ErrorMessages = new List<string> { ex.Message }
-        //        };
-
-        //        return StatusCode((int)HttpStatusCode.InternalServerError, errorResponse);
-        //    }
-        //}
-
-
+       
         /// <summary>
         /// Создать новое место.
         /// </summary>
@@ -439,21 +409,36 @@ namespace Guider.API.MVP.Controllers
         {
             try
             {
-                // Валидация входящих данных  
                 if (jsonDocument == null || jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
                 {
                     return BadRequest("Invalid input. Expected a JSON object.");
                 }
 
-                // Отправляем в сервис и получаем результат
                 var result = await _placeService.CreateAsync(jsonDocument);
 
-                // Проверяем результат из сервиса
                 if (result.RootElement.TryGetProperty("success", out var successElement) && successElement.GetBoolean())
                 {
-                    // Успешное создание - возвращаем 201 Created
                     if (result.RootElement.TryGetProperty("data", out var dataElement))
                     {
+                        _memoryCache.Remove(SD.SitemapCacheKey);
+
+                        // Проверяем и сбрасываем ПРОВИНЦИИ
+                        if (ShouldInvalidateProvinces(jsonDocument))
+                        {
+                            _placeService.InvalidateProvincesCache();
+                        }
+
+                        // Проверяем и сбрасываем ГОРОДА
+                        if (ShouldInvalidateCities(jsonDocument))
+                        {
+                            _placeService.InvalidateCitiesCache();
+                        }
+
+                        if (ShouldInvalidateTags(jsonDocument))
+                        {
+                            _placeService.InvalidateTagsCache();
+                        }
+
                         return StatusCode(201, JsonDocument.Parse(dataElement.GetRawText()));
                     }
                     else
@@ -463,7 +448,6 @@ namespace Guider.API.MVP.Controllers
                 }
                 else
                 {
-                    // Неудачное создание - возвращаем 400 Bad Request
                     string message = "Unknown error occurred.";
                     if (result.RootElement.TryGetProperty("message", out var messageElement))
                     {
@@ -497,24 +481,45 @@ namespace Guider.API.MVP.Controllers
         {
             try
             {
-                // Валидация входящих данных
-                if (string.IsNullOrEmpty(id))
-                {
-                    return BadRequest("Object ID is required.");
-                }
+                if (string.IsNullOrEmpty(id)) return BadRequest("Object ID is required.");
                 if (jsonDocument == null || jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
-                {
                     return BadRequest("Invalid input. Expected a JSON object.");
-                }
-                // Отправляем в сервис и получаем результат
+
                 var result = await _placeService.UpdateAsync(id, jsonDocument);
-                // Проверяем результат из сервиса
+
                 if (result.RootElement.TryGetProperty("success", out var successElement) && successElement.GetBoolean())
                 {
-                    // Успешное обновление - возвращаем 200 OK
                     if (result.RootElement.TryGetProperty("data", out var dataElement))
                     {
-                        //return Ok(JsonDocument.Parse(dataElement.GetRawText()));
+                        _memoryCache.Remove(SD.SitemapCacheKey);
+
+                        string? placeUrl = null;
+                        if (dataElement.TryGetProperty("url", out var urlElement))
+                        {
+                            placeUrl = urlElement.GetString();
+                        }
+                        if (!string.IsNullOrEmpty(placeUrl))
+                        {
+                            _ = TriggerCacheInvalidation($"place:{placeUrl}");
+                        }
+
+                        // Проверяем и сбрасываем ПРОВИНЦИИ
+                        if (ShouldInvalidateProvinces(jsonDocument))
+                        {
+                            _placeService.InvalidateProvincesCache();
+                        }
+
+                        // Проверяем и сбрасываем ГОРОДА
+                        if (ShouldInvalidateCities(jsonDocument))
+                        {
+                            _placeService.InvalidateCitiesCache();
+                        }
+
+                        if (ShouldInvalidateTags(jsonDocument))
+                        {
+                            _placeService.InvalidateTagsCache();
+                        }
+
                         return Ok(dataElement);
                     }
                     else
@@ -524,7 +529,6 @@ namespace Guider.API.MVP.Controllers
                 }
                 else
                 {
-                    // Неудачное обновление - возвращаем 400 Bad Request
                     string message = "Unknown error occurred.";
                     if (result.RootElement.TryGetProperty("message", out var messageElement))
                     {
@@ -563,6 +567,17 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(string))]
         public async Task<IActionResult> Delete(string id)
         {
+            string? placeUrl = null;
+            try
+            {
+                var existingDoc = await _placeService.GetByIdAsync(id);
+                if (existingDoc.RootElement.TryGetProperty("url", out var urlElement))
+                {
+                    placeUrl = urlElement.GetString();
+                }
+            }
+            catch { }
+
             var deleteResult = await _placeService.DeleteAsync(id);
 
             if (deleteResult == null || deleteResult.RootElement.ValueKind != JsonValueKind.Object)
@@ -572,69 +587,88 @@ namespace Guider.API.MVP.Controllers
 
             if (deleteResult.RootElement.TryGetProperty("success", out var successElement) && successElement.ValueKind == JsonValueKind.False)
             {
+                // При ошибке ничего не сбрасываем, просто возвращаем ошибку
                 string errorMessage = "Failed to delete the document.";
-                if (deleteResult.RootElement.TryGetProperty("error", out var errorElement) && errorElement.ValueKind == JsonValueKind.String)
+                if (deleteResult.RootElement.TryGetProperty("error", out var errorElement))
                 {
                     errorMessage = errorElement.GetString();
                 }
-
                 return BadRequest(errorMessage);
             }
 
             // Успешное удаление
+
+            // 1. Сбрасываем ПРОВИНЦИИ (удаление могло убрать последнюю запись в провинции)
+            _placeService.InvalidateProvincesCache();
+
+            // 2. Сбрасываем ГОРОДА (удаление могло убрать последнюю запись в городе)
+            _placeService.InvalidateCitiesCache();
+
+            _placeService.InvalidateTagsCache(); // При удалении всегда сбрасываем
+
+            _memoryCache.Remove(SD.SitemapCacheKey);
+
+            if (!string.IsNullOrEmpty(placeUrl))
+            {
+                _ = TriggerCacheInvalidation($"place:{placeUrl}");
+            }
+
             return NoContent();
         }
 
         /// <summary>
-        /// Универсальный поиск c фильтрацией и сортировкой
+        /// Универсальный поиск мест (фильтры)
         /// </summary>
         /// <remarks>
-        /// Выполняет комплексный поиск мест с возможностью фильтрации по различным критериям:
-        /// - Текстовый поиск по названию, описанию и другим полям
-        /// - Географическая фильтрация по провинции и городу
-        /// - Геопространственный поиск в радиусе от указанных координат
-        /// - Фильтрация по категориям, статусам и тегам
-        /// - Фильтрация по времени работы (открыто/закрыто)
-        /// - Поддержка сортировки и пагинации результатов
+        /// Выполняет комплексный поиск мест в Коста-Рике с фильтрацией, гео-поиском и пагинацией.
         /// 
-        /// **Примеры использования:**
+        /// **Ограничения:**
+        /// - Гео-поиск (`distance`) ограничен **200,000 метрами (200 км)**.
+        /// - При использовании `latitude` и `longitude` без `distance`, по умолчанию используется радиус **10,000 метров (10 км)**.
         /// 
-        /// 1. Поиск ресторанов в радиусе 5 км от центра города:
+        /// **Примеры использования (на основе данных Коста-Рики):**
+        /// 
+        /// 1. **Гео-поиск:** Найти все в радиусе 1 км от Zi Lounge в Playa del Coco.
         ///    ```
-        ///    GET /api/places/with-geo-status-tags?category=restaurant&amp;latitude=50.4501&amp;longitude=30.5234&amp;distance=5000
+        ///    GET /places/filters?latitude=10.550185&longitude=-85.697221&distance=1000
         ///    ```
         /// 
-        /// 2. Поиск открытых кафе с тегами "wifi" или "терраса":
+        /// 2. **Фильтр по категории и тегам:** Найти все "рестораны" (to-eat) в Guanacaste, где есть "Seafood" И "Pizza".
         ///    ```
-        ///    GET /api/places/with-geo-status-tags?category=cafe&amp;isOpen=true&amp;tags=wifi,терраса&amp;tagsMode=any
+        ///    GET /places/filters?category=to-eat&province=Guanacaste&tags=Seafood,Pizza&tagsMode=all
         ///    ```
         /// 
-        /// 3. Текстовый поиск с сортировкой по названию:
+        /// 3. **Текстовый поиск (q):** Найти места со словом "parties" в описании или названии.
         ///    ```
-        ///    GET /api/places/with-geo-status-tags?q=пицца&amp;sortField=name&amp;sortOrder=ASC&amp;page=1&amp;perPage=10
+        ///    GET /places/filters?q=parties
+        ///    ```
+        /// 
+        /// 4. **Фильтр "Открыто сейчас":** Найти все, что сейчас открыто, с сортировкой по имени (ASC).
+        ///    ```
+        ///    GET /places/filters?isOpen=true&sortField=name&sortOrder=ASC&page=1&perPage=20
         ///    ```
         /// 
         /// **Ответ содержит заголовки:**
-        /// - `X-Total-Count`: общее количество найденных записей
-        /// - `Access-Control-Expose-Headers`: список доступных заголовков для CORS
+        /// - `X-Total-Count`: Общее количество найденных записей.
+        /// - `Access-Control-Expose-Headers`: X-Total-Count.
         /// </remarks>
-        /// <param name="q">Текстовый запрос для поиска по названию, описанию и другим полям места. Пример: "кафе центр"</param>
-        /// <param name="province">Фильтр по провинции/области. Пример: "Киевская область"</param>
-        /// <param name="city">Фильтр по городу. Пример: "Киев"</param>
-        /// <param name="name">Фильтр по точному или частичному совпадению названия. Пример: "Старбакс"</param>
-        /// <param name="url">Фильтр по URL/веб-сайту места. Пример: "starbucks.com"</param>
-        /// <param name="category">Фильтр по категории места. Пример: "restaurant", "cafe", "hotel"</param>
-        /// <param name="status">Фильтр по статусу места. Пример: "active", "inactive", "pending"</param>
-        /// <param name="tags">Список тегов через запятую для фильтрации. Пример: "wifi,парковка,детская площадка"</param>
-        /// <param name="tagsMode">Режим фильтрации по тегам: "any" (любой из тегов) или "all" (все теги). По умолчанию: "any"</param>
-        /// <param name="latitude">Широта для геопространственного поиска в градусах. Пример: 50.4501</param>
-        /// <param name="longitude">Долгота для геопространственного поиска в градусах. Пример: 30.5234</param>
-        /// <param name="distance">Радиус поиска в метрах от указанных координат. Пример: 1000 (1 км), 5000 (5 км)</param>
-        /// <param name="isOpen">Фильтр по времени работы: true - только открытые места, false - только закрытые, null - все</param>
-        /// <param name="page">Номер страницы для пагинации (начиная с 1). По умолчанию: 1</param>
-        /// <param name="perPage">Количество записей на странице (1-100). По умолчанию: 20</param>
-        /// <param name="sortField">Поле для сортировки. Доступные значения: "name", "category", "status", "createdAt", "distance" (при геопоиске). По умолчанию: "name"</param>
-        /// <param name="sortOrder">Порядок сортировки: "ASC" (по возрастанию) или "DESC" (по убыванию). По умолчанию: "ASC"</param>
+        /// <param name="q">Текстовый запрос (поиск по name, description, category, address). Пример: "Lounge" или "parties"</param>
+        /// <param name="province">Фильтр по провинции (нечувствителен к регистру). Пример: "Guanacaste"</param>
+        /// <param name="city">Фильтр по городу (нечувствителен к регистру). Пример: "Playa del Coco"</param>
+        /// <param name="name">Фильтр по точному или частичному совпадению названия. Пример: "Zi Lounge"</param>
+        /// <param name="url">Фильтр по URL-слагу. Пример: "zi-lounge"</param>
+        /// <param name="category">Фильтр по категории. Пример: "to-eat", "services", "shops"</param>
+        /// <param name="status">Фильтр по статусу. По умолчанию (если не указан), сервис ищет только "active". Пример: "active"</param>
+        /// <param name="tags">Список тегов через запятую. Пример: "Restaurant,Bar,Seafood"</param>
+        /// <param name="tagsMode">Режим фильтрации: "any" (любой тег) или "all" (все теги). По умолчанию: "any"</param>
+        /// <param name="latitude">Широта для гео-поиска. Пример: 10.550185</param>
+        /// <param name="longitude">Долгота для гео-поиска. Пример: -85.697221</param>
+        /// <param name="distance">Радиус поиска в метрах. По умолчанию 10000 (10км). Максимум 200000 (200км). Пример: 5000</param>
+        /// <param name="isOpen">Фильтр по времени работы: true - только открытые, false - только закрытые, (не указано) - все</param>
+        /// <param name="page">Номер страницы (начиная с 1). По умолчанию: 1</param>
+        /// <param name="perPage">Количество на странице. По умолчанию: 20</param>
+        /// <param name="sortField">Поле сортировки. Доступны: "name", "category", "status", "createdAt", "distance" (при гео-поиске). По умолчанию: "name"</pa>
+        /// <param name="sortOrder">Порядок сортировки: "ASC" или "DESC". По умолчанию: "ASC"</param>
         /// <returns>Массив мест с информацией о пагинации в заголовках ответа</returns>
         [HttpGet("filters")]
         //[Authorize(Roles = SD.Role_Super_Admin + "," + SD.Role_Admin + "," + SD.Role_Manager)]
@@ -643,23 +677,37 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))]
         public async Task<IActionResult> GetPlacesWithGeoWithStatusWithTags(
             [FromQuery] string q = null,
-            [FromQuery] string province = null,
-            [FromQuery] string city = null,
+            [FromQuery] string province = null, 
+            [FromQuery] string city = null, 
             [FromQuery] string name = null,
             [FromQuery] string url = null,
-            [FromQuery] string category = null,
-            [FromQuery] string status = null,
+            [FromQuery] string category = null, 
+            [FromQuery] string status = null, //  (Blazor сам подставит "active")
             [FromQuery] string tags = null,
-            [FromQuery] string tagsMode = "any",
-            [FromQuery] double? latitude = null,
-            [FromQuery] double? longitude = null,
-            [FromQuery] double? distance = null,
+            [FromQuery] string tagsMode = "any", 
+            [FromQuery] double? latitude = null, 
+            [FromQuery] double? longitude = null, 
+            [FromQuery] double? distance = null, 
             [FromQuery] bool? isOpen = null,
             [FromQuery] int page = 1,
-            [FromQuery] int perPage = 20,
-            [FromQuery] string sortField = "name",
+            [FromQuery] int perPage = 20, 
+            [FromQuery] string sortField = "name", 
             [FromQuery] string sortOrder = "ASC")
         {
+            const double MAX_DISTANCE_METERS = 200000; // 200 км
+            //const double MAX_DISTANCE_METERS = 900000000; // тестовое ограничение
+
+            if (distance.HasValue)
+            {
+                if (distance.Value > MAX_DISTANCE_METERS)
+                {
+                    return BadRequest(new { error = $"Search distance cannot exceed {MAX_DISTANCE_METERS} meters (200 km)." });
+                }
+                if (distance.Value <= 0)
+                {
+                    return BadRequest(new { error = "Search distance must be a positive number." });
+                }
+            }
             var filter = new Dictionary<string, string>();
 
             // Основные фильтры поиска
@@ -720,5 +768,119 @@ namespace Guider.API.MVP.Controllers
                 return StatusCode(500, new { error = $"Ошибка при получении списка мест с геопоиском: {ex.Message}" });
             }
         }
+
+        /// <summary>
+        /// Отправляет запрос ("дергает вебхук") в Blazor приложение для сброса кеша
+        /// </summary>
+        private async Task TriggerCacheInvalidation(string? tag = null)
+        {
+            // 1. Получаем настройки
+            var blazorUrl = _configuration["BLAZOR_APP:URL"];
+            var secretKey = _configuration["BLAZOR_APP:CACHEKEY"];
+
+            // 2. Проверка наличия настроек с выводом предупреждения
+            if (string.IsNullOrEmpty(blazorUrl) || string.IsNullOrEmpty(secretKey))
+            {
+                Console.WriteLine("WARNING: Cache invalidation skipped. 'BLAZOR_APP:URL' or 'BLAZOR_APP:CACHEKEY' is missing in configuration.");
+                return;
+            }
+
+            try
+            {
+                var requestUrl = $"{blazorUrl}/cache/invalidate?key={secretKey}";
+                if (!string.IsNullOrEmpty(tag))
+                {
+                    requestUrl += $"&tag={tag}";
+                }
+
+                var client = _httpClientFactory.CreateClient();
+
+                // Устанавливаем короткий таймаут (например, 2 секунды). 
+                // Если Blazor лежит, мы не хотим, чтобы этот висящий запрос занимал ресурсы.
+                client.Timeout = TimeSpan.FromSeconds(2);
+
+                // ВАЖНО: Используем await здесь, чтобы оставаться внутри блока try/catch
+                // Если соединение не пройдет, исключение будет перехвачено ниже.
+                var response = await client.PostAsync(requestUrl, null);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"WARNING: Cache invalidation request failed. Status Code: {response.StatusCode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Это сообщение появится в консоли, если Blazor выключен или недоступен
+                Console.WriteLine($"WARNING: Failed to trigger Blazor cache invalidation (Is the app running?). Error: {ex.Message}");
+            }
+        }
+
+        // Метод Helper для проверки, нужно ли сбрасывать кеш провинций
+        // Проверяет входящий JSON на наличие критических полей
+        private bool ShouldInvalidateProvinces(JsonDocument jsonDoc)
+        {
+            if (jsonDoc == null) return false;
+
+            // Если меняется статус (активен/неактивен) - список может измениться
+            if (jsonDoc.RootElement.TryGetProperty("status", out _)) return true;
+
+            // Если меняется категория - место может уйти из фильтра провинций
+            if (jsonDoc.RootElement.TryGetProperty("category", out _)) return true;
+
+            // Если меняется адрес
+            if (jsonDoc.RootElement.TryGetProperty("address", out var addressElem))
+            {
+                // И внутри адреса меняется провинция
+                if (addressElem.TryGetProperty("province", out _)) return true;
+            }
+
+            return false;
+        }
+
+        // Метод Helper для ГОРОДОВ
+        private bool ShouldInvalidateCities(JsonDocument jsonDoc)
+        {
+            if (jsonDoc == null) return false;
+
+            // 1. Статус или Категория меняют состав активных городов
+            if (jsonDoc.RootElement.TryGetProperty("status", out _)) return true;
+            if (jsonDoc.RootElement.TryGetProperty("category", out _)) return true;
+
+            // 2. Изменение адреса
+            if (jsonDoc.RootElement.TryGetProperty("address", out var addressElem))
+            {
+                // Если сменился Город - очевидно сбрасываем
+                if (addressElem.TryGetProperty("city", out _)) return true;
+
+                // Если сменилась Провинция - тоже сбрасываем, т.к. фильтр городов часто зависит от провинции
+                // (активный город может "переехать" в другую провинцию)
+                if (addressElem.TryGetProperty("province", out _)) return true;
+            }
+
+            return false;
+        }
+
+        // Метод Helper для ТЕГОВ
+        private bool ShouldInvalidateTags(JsonDocument jsonDoc)
+        {
+            if (jsonDoc == null) return false;
+
+            // 1. Статус или Категория меняют состав активных тегов
+            if (jsonDoc.RootElement.TryGetProperty("status", out _)) return true;
+            if (jsonDoc.RootElement.TryGetProperty("category", out _)) return true;
+
+            // 2. Если изменился сам список тегов
+            if (jsonDoc.RootElement.TryGetProperty("tags", out _)) return true;
+
+            // 3. Изменение адреса (провинция/город) может повлиять на фильтры тегов
+            if (jsonDoc.RootElement.TryGetProperty("address", out var addressElem))
+            {
+                if (addressElem.TryGetProperty("city", out _)) return true;
+                if (addressElem.TryGetProperty("province", out _)) return true;
+            }
+
+            return false;
+        }
+
     }
 }

@@ -273,6 +273,7 @@ builder.Services.AddSingleton<PlaceService>();
 builder.Services.AddSingleton<ProvinceService>();
 builder.Services.AddSingleton<CitiesService>();
 builder.Services.AddSingleton<TagsService>();
+builder.Services.AddSingleton<SitemapService>();
 
 // Регистрация сервиса для работы с изображениями
 builder.Services.AddScoped<IImageService, ImageService>();
@@ -321,6 +322,13 @@ builder.Services.AddSwaggerGen(c =>
 
 
 builder.Services.AddSingleton<IMinioService, MinioService>();
+
+//  Регистрация HttpClient ---
+// Это позволит внедрять IHttpClientFactory в контроллеры
+builder.Services.AddHttpClient();
+// -------------------------------------
+
+builder.Services.AddMemoryCache();
 
 var app = builder.Build();
 

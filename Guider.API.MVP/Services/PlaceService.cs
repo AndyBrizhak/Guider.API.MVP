@@ -13,41 +13,60 @@
     using System.Text.Json;
     using System.Text.RegularExpressions;
     using System.Threading.Tasks;
+    using Microsoft.Extensions.Primitives; //  для IChangeToken
     public class PlaceService
     {
         private readonly IMongoCollection<BsonDocument> _placeCollection;
+        private CancellationTokenSource _provincesCts = new CancellationTokenSource();
+        private CancellationTokenSource _citiesCts = new CancellationTokenSource(); // Токен для городов
+        private CancellationTokenSource _tagsCts = new CancellationTokenSource(); //  для тегов
 
         public PlaceService(IOptions<MongoDbSettings> mongoSettings)
         {
             var client = new MongoClient(mongoSettings.Value.ConnectionString);
             var database = client.GetDatabase(mongoSettings.Value.DatabaseName);
-
-            // Old configuration
-            //_placeCollection = database.GetCollection<BsonDocument>(mongoSettings.Value.CollectionName);
-
-            // New configuration
-
+                        
             _placeCollection = database.GetCollection<BsonDocument>(
                 mongoSettings.Value.Collections["Places"]);
         }
 
-       
         /// Получить все документы из коллекции Places
         public async Task<List<BsonDocument>> GetAllAsync() =>
             await _placeCollection.Find(_ => true).ToListAsync();
 
-
-       public async Task<JsonDocument> GetPlacesAsync(Dictionary<string, string> filter = null)
+        public async Task<JsonDocument> GetPlacesAsync(Dictionary<string, string> filter = null)
         {
             try
             {
+                // === 1. ЛОКАЛЬНАЯ ФУНКЦИЯ ДЛЯ ГИБКОГО ПОИСКА (ЧПУ) ===
+                // Превращает "playa-del-coco" в паттерн, который найдет "Playa Del Coco"
+                // Работает для: Категорий, Провинций, Городов, Тегов
+                string MakeFlexible(string input)
+                {
+                    if (string.IsNullOrWhiteSpace(input)) return "";
+
+                    // Сначала заменяем дефисы и пробелы на универсальный разделитель
+                    var normalized = input.Trim()
+                        .Replace("-", "|")
+                        .Replace(" ", "|");
+
+                    // Экранируем спецсимволы
+                    var safe = Regex.Escape(normalized);
+
+                    // Заменяем наш маркер на гибкий паттерн
+                    return safe.Replace(@"\|", @"[\- ]");
+                }
+
                 FilterDefinition<BsonDocument> filterDefinition = Builders<BsonDocument>.Filter.Empty;
+
                 if (filter != null && filter.Count > 0)
                 {
                     var filterBuilder = Builders<BsonDocument>.Filter;
                     var filters = new List<FilterDefinition<BsonDocument>>();
 
-                    // Общий текстовый поиск по нескольким полям
+                    // --- ОБРАБОТКА ФИЛЬТРОВ ---
+
+                    // 1. Общий текстовый поиск (Q) - ОСТАВЛЕНО КАК БЫЛО
                     if (filter.TryGetValue("q", out string q) && !string.IsNullOrEmpty(q))
                     {
                         filters.Add(filterBuilder.Or(
@@ -58,58 +77,97 @@
                         ));
                     }
 
-                    // Улучшенный фильтр по провинции
+                    // 2. Провинция (ОБНОВЛЕНО: добавлена гибкость MakeFlexible)
                     if (filter.TryGetValue("province", out string province) && !string.IsNullOrEmpty(province))
                     {
-                        // Создаем более гибкий паттерн для поиска провинции
-                        // Ищем провинцию как точное совпадение или как часть названия
+                        var flex = MakeFlexible(province);
                         var provincePatterns = new List<FilterDefinition<BsonDocument>>();
 
-                        // 1. Точное совпадение (case-insensitive)
-                        provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression($"^{Regex.Escape(province)}$", "i")));
-
-                        // 2. Поиск в начале строки + возможные суффиксы типа "Province", "State", etc.
-                        provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression($"^{Regex.Escape(province)}\\s+(Province|State|Region)$", "i")));
-
-                        // 3. Поиск провинции как подстроки (если предыдущие не сработали)
-                        provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression(Regex.Escape(province), "i")));
+                        // Точное совпадение (с учетом гибкости)
+                        provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression($"^{flex}$", "i")));
+                        // Совпадение с суффиксами Province/State
+                        provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression($"^{flex}\\s+(Province|State|Region)$", "i")));
+                        // Поиск как подстроки
+                        provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression(flex, "i")));
 
                         filters.Add(filterBuilder.Or(provincePatterns));
                     }
 
-                    // Улучшенный фильтр по городу
+                    // 3. Город (ОБНОВЛЕНО: добавлена гибкость MakeFlexible)
                     if (filter.TryGetValue("city", out string city) && !string.IsNullOrEmpty(city))
                     {
-                        // Аналогично для городов - более гибкий поиск
+                        var flex = MakeFlexible(city);
                         var cityPatterns = new List<FilterDefinition<BsonDocument>>();
 
-                        // 1. Точное совпадение (case-insensitive)
-                        cityPatterns.Add(filterBuilder.Regex("address.city", new BsonRegularExpression($"^{Regex.Escape(city)}$", "i")));
-
-                        // 2. Поиск города как подстроки
-                        cityPatterns.Add(filterBuilder.Regex("address.city", new BsonRegularExpression(Regex.Escape(city), "i")));
+                        // Точное совпадение (с учетом гибкости)
+                        cityPatterns.Add(filterBuilder.Regex("address.city", new BsonRegularExpression($"^{flex}$", "i")));
+                        // Поиск как подстроки
+                        cityPatterns.Add(filterBuilder.Regex("address.city", new BsonRegularExpression(flex, "i")));
 
                         filters.Add(filterBuilder.Or(cityPatterns));
                     }
 
-                    // Фильтр по названию заведения
+                    // 4. Категория (ДОБАВЛЕНО: гибкий поиск)
+                    if (filter.TryGetValue("category", out string category) && !string.IsNullOrEmpty(category))
+                    {
+                        var flex = MakeFlexible(category);
+                        filters.Add(filterBuilder.Regex("category", new BsonRegularExpression($"^{flex}$", "i")));
+                    }
+
+                    // 5. Теги (ДОБАВЛЕНО: гибкий поиск + список)
+                    if (filter.TryGetValue("tags", out string tagsStr) && !string.IsNullOrEmpty(tagsStr))
+                    {
+                        // Разбиваем строку "tag1,tag2" на массив
+                        var tagsList = tagsStr.Split(',', StringSplitOptions.RemoveEmptyEntries);
+                        foreach (var tag in tagsList)
+                        {
+                            var flexTag = MakeFlexible(tag);
+                            // Добавляем условие: каждый тег должен присутствовать (логика AND)
+                            filters.Add(filterBuilder.Regex("tags", new BsonRegularExpression($"^{flexTag}$", "i")));
+                        }
+                    }
+
+                    // 6. Название (ОСТАВЛЕНО КАК БЫЛО)
                     if (filter.TryGetValue("name", out string name) && !string.IsNullOrEmpty(name))
                     {
                         filters.Add(filterBuilder.Regex("name", new BsonRegularExpression(Regex.Escape(name), "i")));
                     }
 
-                    // Фильтр по URL
+                    // 7. URL (ОСТАВЛЕНО КАК БЫЛО)
                     if (filter.TryGetValue("url", out string url) && !string.IsNullOrEmpty(url))
                     {
                         filters.Add(filterBuilder.Regex("url", new BsonRegularExpression(Regex.Escape(url), "i")));
                     }
 
-                    // Фильтр по статусу (если нужен)
+                    // 8. Статус (ОСТАВЛЕНО КАК БЫЛО)
                     if (filter.TryGetValue("status", out string status) && !string.IsNullOrEmpty(status))
                     {
                         filters.Add(filterBuilder.Eq("status", status));
                     }
 
+                    // 9. IsOpen (ВОССТАНОВЛЕНО / ДОБАВЛЕНО)
+                    if (filter.TryGetValue("isOpen", out string isOpenStr) && bool.TryParse(isOpenStr, out bool isOpen) && isOpen)
+                    {
+                        // Предполагается, что в БД есть поле isOpen типа boolean
+                        // Если логика сложнее (сверка часов), её нужно писать здесь. 
+                        // Пока оставляем базовую проверку флага:
+                        filters.Add(filterBuilder.Eq("isOpen", true));
+                    }
+
+                    // 10. Гео-поиск (Latitude, Longitude, Distance) - Добавим, если используется
+                    if (filter.TryGetValue("latitude", out string latStr) &&
+                        filter.TryGetValue("longitude", out string lngStr) &&
+                        filter.TryGetValue("distance", out string distStr) &&
+                        double.TryParse(latStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double lat) &&
+                        double.TryParse(lngStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double lng) &&
+                        double.TryParse(distStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double dist))
+                    {
+                        var point = new GeoJsonPoint<GeoJson2DGeographicCoordinates>(
+                           new GeoJson2DGeographicCoordinates(lng, lat));
+                        filters.Add(filterBuilder.Near("location", point, maxDistance: dist * 1000));
+                    }
+
+                    // Сборка фильтра
                     if (filters.Count > 0)
                     {
                         filterDefinition = filterBuilder.And(filters);
@@ -118,7 +176,7 @@
 
                 long totalCount = await _placeCollection.CountDocumentsAsync(filterDefinition);
 
-                // Сортировка с поддержкой вложенных полей
+                // --- СОРТИРОВКА (ОСТАВЛЕНО КАК БЫЛО) ---
                 string sortField = "name";
                 bool isDescending = false;
                 if (filter != null)
@@ -126,11 +184,8 @@
                     if (filter.TryGetValue("_sort", out string sort) && !string.IsNullOrEmpty(sort))
                     {
                         sortField = sort;
-                        // Поддержка сортировки по вложенным полям
-                        if (sort == "address.city")
-                            sortField = "address.city";
-                        else if (sort == "address.province")
-                            sortField = "address.province";
+                        if (sort == "address.city") sortField = "address.city";
+                        else if (sort == "address.province") sortField = "address.province";
                     }
                     if (filter.TryGetValue("_order", out string order) && !string.IsNullOrEmpty(order))
                     {
@@ -142,7 +197,13 @@
                     ? Builders<BsonDocument>.Sort.Descending(sortField)
                     : Builders<BsonDocument>.Sort.Ascending(sortField);
 
-                // Пагинация
+                // Вторичная сортировка для стабильности
+                if (sortField.ToLower() != "name")
+                {
+                    sortDefinition = sortDefinition.Ascending("name");
+                }
+
+                // --- ПАГИНАЦИЯ (ОСТАВЛЕНО КАК БЫЛО) ---
                 IFindFluent<BsonDocument, BsonDocument> query = _placeCollection.Find(filterDefinition).Sort(sortDefinition);
                 if (filter != null)
                 {
@@ -158,26 +219,25 @@
 
                 var documents = await query.ToListAsync();
 
-                // Формирование массива мест с корректным форматом id
+                // --- ФОРМИРОВАНИЕ ОТВЕТА (ОСТАВЛЕНО КАК БЫЛО) ---
                 var placesList = new List<object>();
                 foreach (var document in documents)
                 {
                     var jsonString = document.ToJson();
                     var jsonDoc = JsonDocument.Parse(jsonString);
-
-                    // Преобразуем весь документ в словарь
                     var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString);
 
-                    // Изменяем формат идентификатора
+                    // Форматирование ID
                     if (dict.ContainsKey("_id"))
                     {
                         var idObj = dict["_id"] as JsonElement?;
-                        if (idObj.HasValue && idObj.Value.ValueKind == JsonValueKind.Object)
+                        if (idObj.HasValue && idObj.Value.ValueKind == JsonValueKind.Object && idObj.Value.TryGetProperty("$oid", out var oidElement))
                         {
-                            if (idObj.Value.TryGetProperty("$oid", out var oidElement))
-                            {
-                                dict["id"] = oidElement.GetString();
-                            }
+                            dict["id"] = oidElement.GetString();
+                        }
+                        else if (idObj.HasValue)
+                        {
+                            dict["id"] = idObj.ToString();
                         }
                         dict.Remove("_id");
                     }
@@ -186,7 +246,6 @@
                     jsonDoc.Dispose();
                 }
 
-                // Формирование результирующего JSON документа
                 var result = new
                 {
                     success = true,
@@ -272,7 +331,6 @@
             }
         }
 
-
         /// Получить документ по локальнуому url
         public async Task<JsonDocument> GetByUrlAsync(string url, string status = null)
         {
@@ -351,7 +409,6 @@
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
             }
         }
-
 
         public async Task<JsonDocument> CreateAsync(JsonDocument jsonDocument)
         {
@@ -594,7 +651,6 @@
                 }));
             }
         }
-
 
        public async Task<JsonDocument> GetPlacesWithAllKeywordsAsync(
             decimal? lat,
@@ -873,9 +929,7 @@
             }
         }
 
-
-        
-        public async Task<JsonDocument> GetAvailableTagsAsync(
+          public async Task<JsonDocument> GetAvailableTagsAsync(
                                                                 string? category,
                                                                 List<string>? selectedTags)
         {
@@ -951,7 +1005,6 @@
             return JsonDocument.Parse(jsonString);
         }
 
-        
         public async Task<JsonDocument?> GetPlaceByNameCityProvinceAsync(string name, string city, string province)
         {
             var filter = Builders<BsonDocument>.Filter.And(
@@ -975,6 +1028,23 @@
         {
             try
             {
+                // === ЛОКАЛЬНАЯ ФУНКЦИЯ ДЛЯ ГИБКОГО ПОИСКА ===
+                string MakeFlexible(string input)
+                {
+                    if (string.IsNullOrWhiteSpace(input)) return "";
+
+                    // Сначала заменяем дефисы и пробелы на универсальный разделитель
+                    var normalized = input.Trim()
+                        .Replace("-", "|")
+                        .Replace(" ", "|");
+
+                    // Экранируем спецсимволы
+                    var safe = Regex.Escape(normalized);
+
+                    // Заменяем наш маркер на гибкий паттерн
+                    return safe.Replace(@"\|", @"[\- ]");
+                }
+
                 bool useGeoSearch = false;
                 double userLat = 0, userLng = 0, searchDistance = 10000;
 
@@ -987,14 +1057,29 @@
                         double.TryParse(lngStr, out userLng))
                     {
                         useGeoSearch = true;
+                                                 
+                        const double DEFAULT_DISTANCE_METERS = 10000; // 10 км
+                        const double MAX_DISTANCE_METERS = 200000;     // 200 км
+                        //const double MAX_DISTANCE_METERS = 50000000;     // тест
 
-                        // Дистанция в метрах (по умолчанию 10 км)
-                        searchDistance = 10000;
+                        searchDistance = DEFAULT_DISTANCE_METERS; // Устанавливаем значение по умолчанию
+
                         if (filter.TryGetValue("distance", out string distanceStr) &&
                             double.TryParse(distanceStr, out double parsedDistance))
                         {
-                            searchDistance = parsedDistance;
+                            if (parsedDistance > MAX_DISTANCE_METERS)
+                            {
+                                // Если запрос превышает лимит, принудительно устанавливаем лимит
+                                searchDistance = MAX_DISTANCE_METERS;
+                            }
+                            else if (parsedDistance > 0)
+                            {
+                                // Используем дистанцию пользователя, если она корректна
+                                searchDistance = parsedDistance;
+                            }
+                            // Если parsedDistance <= 0, останется значение по умолчанию (10000)
                         }
+                        
                     }
                 }
 
@@ -1037,22 +1122,24 @@
                         // Фильтр по провинции
                         if (filter.TryGetValue("province", out string province) && !string.IsNullOrEmpty(province))
                         {
+                            var flex = MakeFlexible(province);
                             queryConditions.Add(new BsonDocument("$or", new BsonArray
-                    {
-                        new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression($"^{Regex.Escape(province)}$", "i"))),
-                        new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression($"^{Regex.Escape(province)}\\s+(Province|State|Region)$", "i"))),
-                        new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression(Regex.Escape(province), "i")))
-                    }));
+                            {
+                                new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression($"^{flex}$", "i"))),
+                                new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression($"^{flex}\\s+(Province|State|Region)$", "i"))),
+                                new BsonDocument("address.province", new BsonDocument("$regex", new BsonRegularExpression(flex, "i")))
+                            }));
                         }
 
                         // Фильтр по городу
                         if (filter.TryGetValue("city", out string city) && !string.IsNullOrEmpty(city))
                         {
+                            var flex = MakeFlexible(city);
                             queryConditions.Add(new BsonDocument("$or", new BsonArray
-                    {
-                        new BsonDocument("address.city", new BsonDocument("$regex", new BsonRegularExpression($"^{Regex.Escape(city)}$", "i"))),
-                        new BsonDocument("address.city", new BsonDocument("$regex", new BsonRegularExpression(Regex.Escape(city), "i")))
-                    }));
+                            {
+                                new BsonDocument("address.city", new BsonDocument("$regex", new BsonRegularExpression($"^{flex}$", "i"))),
+                                new BsonDocument("address.city", new BsonDocument("$regex", new BsonRegularExpression(flex, "i")))
+                            }));
                         }
 
                         // Фильтр по названию
@@ -1070,7 +1157,8 @@
                         // Фильтр по категории
                         if (filter.TryGetValue("category", out string category) && !string.IsNullOrEmpty(category))
                         {
-                            queryConditions.Add(new BsonDocument("category", new BsonDocument("$regex", new BsonRegularExpression(Regex.Escape(category), "i"))));
+                            var flex = MakeFlexible(category);
+                            queryConditions.Add(new BsonDocument("category", new BsonDocument("$regex", new BsonRegularExpression($"^{flex}$", "i"))));
                         }
 
                         // Фильтр по статусу
@@ -1140,6 +1228,7 @@
                     // Добавляем $geoNear этап
                     pipeline.Add(new BsonDocument("$geoNear", new BsonDocument
                     {
+                        ["key"] = "location", //Явно указываем, какое поле индексировать
                         ["near"] = new BsonDocument
                         {
                             ["type"] = "Point",
@@ -1224,19 +1313,21 @@
                         // Фильтр по провинции
                         if (filter.TryGetValue("province", out string province) && !string.IsNullOrEmpty(province))
                         {
+                            var flex = MakeFlexible(province);
                             var provincePatterns = new List<FilterDefinition<BsonDocument>>();
-                            provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression($"^{Regex.Escape(province)}$", "i")));
-                            provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression($"^{Regex.Escape(province)}\\s+(Province|State|Region)$", "i")));
-                            provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression(Regex.Escape(province), "i")));
+                            provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression($"^{flex}$", "i")));
+                            provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression($"^{flex}\\s+(Province|State|Region)$", "i")));
+                            provincePatterns.Add(filterBuilder.Regex("address.province", new BsonRegularExpression(flex, "i")));
                             filters.Add(filterBuilder.Or(provincePatterns));
                         }
 
                         // Фильтр по городу
                         if (filter.TryGetValue("city", out string city) && !string.IsNullOrEmpty(city))
                         {
+                            var flex = MakeFlexible(city);
                             var cityPatterns = new List<FilterDefinition<BsonDocument>>();
-                            cityPatterns.Add(filterBuilder.Regex("address.city", new BsonRegularExpression($"^{Regex.Escape(city)}$", "i")));
-                            cityPatterns.Add(filterBuilder.Regex("address.city", new BsonRegularExpression(Regex.Escape(city), "i")));
+                            cityPatterns.Add(filterBuilder.Regex("address.city", new BsonRegularExpression($"^{flex}$", "i")));
+                            cityPatterns.Add(filterBuilder.Regex("address.city", new BsonRegularExpression(flex, "i")));
                             filters.Add(filterBuilder.Or(cityPatterns));
                         }
 
@@ -1255,7 +1346,8 @@
                         // Фильтр по категории
                         if (filter.TryGetValue("category", out string category) && !string.IsNullOrEmpty(category))
                         {
-                            filters.Add(filterBuilder.Regex("category", new BsonRegularExpression(Regex.Escape(category), "i")));
+                            var flex = MakeFlexible(category);
+                            filters.Add(filterBuilder.Regex("category", new BsonRegularExpression($"^{flex}$", "i")));
                         }
 
                         // Фильтр по статусу
@@ -1452,7 +1544,7 @@
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResult));
             }
         }
-       
+
         /// <summary>
         /// Получить список уникальных городов из коллекции Places с опциональной фильтрацией
         /// </summary>
@@ -1467,17 +1559,22 @@
                 // Добавляем стадию $match только если есть фильтры
                 var matchConditions = new BsonDocument();
 
-                // Фильтр по категории
+                // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+                // Фильтр по категории (НЕЧУВСТВИТЕЛЬНЫЙ К РЕГИСТРУ)
                 if (!string.IsNullOrEmpty(category))
                 {
-                    matchConditions.Add("category", category);
+                    // Ищем точное совпадение (^) ($) без учета регистра (i)
+                    matchConditions.Add("category", new BsonRegularExpression($"^{Regex.Escape(category)}$", "i"));
                 }
 
-                // Фильтр по провинции
+                // --- ИЗМЕНЕНИЕ ЗДЕСЬ ---
+                // Фильтр по провинции (НЕЧУВСТВИТЕЛЬНЫЙ К РЕГИСТРУ)
                 if (!string.IsNullOrEmpty(province))
                 {
-                    matchConditions.Add("address.province", province);
+                    // Ищем точное совпадение (^) ($) без учета регистра (i)
+                    matchConditions.Add("address.province", new BsonRegularExpression($"^{Regex.Escape(province)}$", "i"));
                 }
+                // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
                 // Добавляем стадию $match в начало pipeline, если есть условия
                 if (matchConditions.ElementCount > 0)
@@ -1543,42 +1640,43 @@
             }
         }
 
-        
         /// <summary>
-        /// Получить список уникальных провинций из коллекции Places с опциональной фильтрацией по категории
+        
+       
+        /// <summary>
+        /// Получить список уникальных провинций со слагами из коллекции Places.
         /// </summary>
-        /// <param name="category">Опциональная категория для фильтрации (например, "to-eat")</param>
         public async Task<JsonDocument> GetActiveProvincesAsync(string category = null)
         {
             try
             {
                 var pipeline = new List<BsonDocument>();
 
-                // Добавляем стадию $match только если указана категория
+                // 1. Фильтр по категории (если есть)
                 if (!string.IsNullOrEmpty(category))
                 {
                     pipeline.Add(new BsonDocument("$match", new BsonDocument
                     {
-                        { "category", category }
+                        { "category", new BsonRegularExpression($"^{Regex.Escape(category)}$", "i") }
                     }));
                 }
 
-                // Группируем по полю address.province и получаем уникальные значения
+                // 2. Группировка по названию провинции
                 pipeline.Add(new BsonDocument("$group", new BsonDocument
                 {
                     { "_id", "$address.province" }
                 }));
 
-                // Сортируем по алфавиту
+                // 3. Сортировка
                 pipeline.Add(new BsonDocument("$sort", new BsonDocument("_id", 1)));
 
-                // Фильтруем null значения
+                // 4. Фильтрация пустых значений
                 pipeline.Add(new BsonDocument("$match", new BsonDocument
                 {
                     { "_id", new BsonDocument("$ne", BsonNull.Value) }
                 }));
 
-                // Группируем все провинции в один массив
+                // 5. Сбор всех названий в массив
                 pipeline.Add(new BsonDocument("$group", new BsonDocument
                 {
                     { "_id", BsonNull.Value },
@@ -1587,25 +1685,41 @@
 
                 var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
 
+                // Если ничего не найдено
                 if (result == null || !result.Contains("allProvinces"))
                 {
-                    // Возвращаем пустой массив, если провинций нет
-                    var emptyResponse = new
+                    return JsonDocument.Parse(JsonSerializer.Serialize(new
                     {
                         success = true,
-                        data = new List<string>()
-                    };
-                    return JsonDocument.Parse(JsonSerializer.Serialize(emptyResponse));
+                        data = new List<object>()
+                    }));
                 }
 
-                // Извлекаем массив провинций
+                // 6. Преобразование в объекты { name, slug } ВНУТРИ СЕРВИСА
                 var provincesArray = result["allProvinces"].AsBsonArray;
-                var provincesList = provincesArray.Select(province => province.AsString).ToList();
 
+                var processedList = provincesArray.Select(p =>
+                {
+                    string name = p.AsString;
+
+                    // Логика генерации слага
+                    string slug = name.ToLower().Trim()
+                        .Replace(" ", "-")
+                        .Replace("á", "a")
+                        .Replace("é", "e")
+                        .Replace("í", "i")
+                        .Replace("ó", "o")
+                        .Replace("ú", "u")
+                        .Replace("ñ", "n");
+
+                    return new { name = name, slug = slug };
+                }).ToList();
+
+                // Возвращаем уже готовые объекты
                 var successResponse = new
                 {
                     success = true,
-                    data = provincesList
+                    data = processedList
                 };
 
                 return JsonDocument.Parse(JsonSerializer.Serialize(successResponse));
@@ -1621,14 +1735,18 @@
             }
         }
 
-        
         /// <summary>
         /// Получить список уникальных тегов из коллекции Places с опциональной фильтрацией
         /// </summary>
         /// <param name="category">Опциональная категория для фильтрации (например, "to-eat")</param>
         /// <param name="province">Опциональная провинция для фильтрации (например, "Guanacaste")</param>
         /// <param name="city">Опциональный город для фильтрации (например, "Liberia")</param>
-        public async Task<JsonDocument> GetActiveTagsAsync(string category = null, string province = null, string city = null)
+        /// <param name="selectedTags">Опциональный список тегов, которые нужно исключить из результатов (без учета регистра)</param>
+        public async Task<JsonDocument> GetActiveTagsAsync(
+            string category = null,
+            string province = null,
+            string city = null,
+            List<string> selectedTags = null)
         {
             try
             {
@@ -1637,22 +1755,38 @@
                 // Добавляем стадию $match только если есть фильтры
                 var matchConditions = new BsonDocument();
 
-                // Фильтр по категории
+                // Поиск по категории без учета регистра
                 if (!string.IsNullOrEmpty(category))
                 {
-                    matchConditions.Add("category", category);
+                    matchConditions.Add("category", new BsonRegularExpression($"^{Regex.Escape(category)}$", "i"));
                 }
 
-                // Фильтр по провинции
+                // Поиск по провинции без учета регистра
                 if (!string.IsNullOrEmpty(province))
                 {
-                    matchConditions.Add("address.province", province);
+                    matchConditions.Add("address.province", new BsonRegularExpression($"^{Regex.Escape(province)}$", "i"));
                 }
 
-                // Фильтр по городу
+                // Поиск по городу без учета регистра
                 if (!string.IsNullOrEmpty(city))
                 {
-                    matchConditions.Add("address.city", city);
+                    matchConditions.Add("address.city", new BsonRegularExpression($"^{Regex.Escape(city)}$", "i"));
+                }
+
+                // Если 'selectedTags' предоставлены, мы ищем документы,
+                // которые содержат ВСЕ эти теги (оператор $all)
+                if (selectedTags != null && selectedTags.Any())
+                {
+                    // Создаем BsonArray из BsonRegularExpression для $all без учета регистра
+                    var regexTags = new BsonArray();
+                    foreach (var tag in selectedTags)
+                    {
+                        // Ищем точное совпадение тега (^) ($) без учета регистра (i)
+                        regexTags.Add(new BsonRegularExpression($"^{Regex.Escape(tag)}$", "i"));
+                    }
+
+                    // Документ ДОЛЖЕН содержать ВСЕ теги из списка
+                    matchConditions.Add("tags", new BsonDocument("$all", regexTags));
                 }
 
                 // Добавляем стадию $match в начало pipeline, если есть условия
@@ -1664,26 +1798,45 @@
                 // Разворачиваем массив тегов
                 pipeline.Add(new BsonDocument("$unwind", "$tags"));
 
-                // Группируем по тегу для получения уникальных значений
+                // Группировка без учета регистра ---
+                // Группируем по lowercase-версии тега, но сохраняем оригинальное написание
                 pipeline.Add(new BsonDocument("$group", new BsonDocument
                 {
-                    { "_id", "$tags" }
+                    // _id будет содержать lowercase-версию
+                    { "_id", new BsonDocument("$toLower", "$tags") }, 
+                    // originalTag будет содержать первую встретившуюся оригинальную версию
+                    { "originalTag", new BsonDocument("$first", "$tags") }
                 }));
 
-                // Сортируем по алфавиту
+                // Исключаем теги, которые уже были выбраны, из финального списка
+                if (selectedTags != null && selectedTags.Any())
+                {
+                    var lowerSelectedTags = selectedTags.Select(t => t.ToLower()).ToList();
+                    pipeline.Add(new BsonDocument("$match", new BsonDocument
+                    {
+                        // Сравниваем _id (который уже в нижнем регистре)
+                        // с нашим списком в нижнем регистре
+                        { "_id", new BsonDocument("$nin", new BsonArray(lowerSelectedTags)) }
+                    }));
+                }
+
+                // Сортируем по алфавиту (по _id, который в нижнем регистре)
                 pipeline.Add(new BsonDocument("$sort", new BsonDocument("_id", 1)));
 
-                // Фильтруем null значения
+                
+                // Фильтруем null значения И ПУСТЫЕ СТРОКИ (проверяем _id)
+                // Используем $nin (not in), чтобы исключить и null, и ""
                 pipeline.Add(new BsonDocument("$match", new BsonDocument
                 {
-                    { "_id", new BsonDocument("$ne", BsonNull.Value) }
+                    { "_id", new BsonDocument("$nin", new BsonArray { BsonNull.Value, "" }) }
                 }));
-
+                
                 // Группируем все теги в один массив
                 pipeline.Add(new BsonDocument("$group", new BsonDocument
                 {
                     { "_id", BsonNull.Value },
-                    { "allTags", new BsonDocument("$push", "$_id") }
+                    // Добавляем в массив оригинальное написание тега
+                    { "allTags", new BsonDocument("$push", "$originalTag") }
                 }));
 
                 var result = await _placeCollection.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
@@ -1721,6 +1874,59 @@
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResponse));
             }
         }
+
+        /// <summary>
+        /// Получить токен отслеживания изменений для кеша провинций.
+        /// Если этот токен будет отменен, все связанные записи кеша сбросятся.
+        /// </summary>
+        public IChangeToken GetProvincesChangeToken()
+        {
+            return new CancellationChangeToken(_provincesCts.Token);
+        }
+
+        /// <summary>
+        /// Сбросить кеш всех активных провинций.
+        /// Вызывать при изменении полей: address.province, status, category.
+        /// </summary>
+        public void InvalidateProvincesCache()
+        {
+            // Отменяем текущий токен (это сбросит кеш)
+            _provincesCts.Cancel();
+            // Пересоздаем токен для будущих запросов
+            _provincesCts.Dispose();
+            _provincesCts = new CancellationTokenSource();
+        }
+
+        //  метод для Городов ---
+        public IChangeToken GetCitiesChangeToken()
+        {
+            return new CancellationChangeToken(_citiesCts.Token);
+        }
+
+        /// <summary>
+        /// Сбросить кеш всех активных городов.
+        /// Вызывать при изменении полей: address.city, address.province, status, category.
+        /// </summary>
+        public void InvalidateCitiesCache()
+        {
+            _citiesCts.Cancel();
+            _citiesCts.Dispose();
+            _citiesCts = new CancellationTokenSource();
+        }
+
+        // --- Методы для Тегов  ---
+        public IChangeToken GetTagsChangeToken()
+        {
+            return new CancellationChangeToken(_tagsCts.Token);
+        }
+
+        public void InvalidateTagsCache()
+        {
+            _tagsCts.Cancel();
+            _tagsCts.Dispose();
+            _tagsCts = new CancellationTokenSource();
+        }
+
     }
 
 
