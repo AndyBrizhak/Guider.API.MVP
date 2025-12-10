@@ -57,14 +57,17 @@ namespace Guider.API.MVP.Controllers
                 return BadRequest(new { message = "Username and password are required" });
             }
 
-            string username = loginRequest.Username;
+            // Identity хранит нормализованные данные в верхнем регистре.
+            // Подготавливаем входную строку один раз.
+            string normalizedInput = loginRequest.Username.ToUpper();
             string password = loginRequest.Password;
 
-            // Поиск пользователя (проверяем и по имени пользователя, и по email)
-            ApplicationUser userFromDb = _db.ApplicationUsers
+            // Используем NormalizedUserName и NormalizedEmail.
+            // Это стандартный подход для Identity, который решает проблему с null и производительностью.
+            ApplicationUser? userFromDb = _db.ApplicationUsers
                 .FirstOrDefault(u =>
-                    u.UserName.ToLower() == username.ToLower() ||
-                    u.Email.ToLower() == username.ToLower());
+                    u.NormalizedUserName == normalizedInput ||
+                    u.NormalizedEmail == normalizedInput);
 
             // Если пользователь не найден или пароль неверный
             if (userFromDb == null || !await _userManager.CheckPasswordAsync(userFromDb, password))
