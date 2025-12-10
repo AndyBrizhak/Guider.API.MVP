@@ -1,5 +1,4 @@
 ﻿
-
 using Guider.API.MVP.Data;
 using Guider.API.MVP.Models;
 using Guider.API.MVP.Models.Dto;
@@ -24,7 +23,6 @@ namespace Guider.API.MVP.Controllers
     public class AuthController : ControllerBase
     {
         private readonly ApplicationDbContext _db;
-        private readonly ApiResponse _response;
         private string secretKey;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
@@ -39,7 +37,6 @@ namespace Guider.API.MVP.Controllers
             _configuration = configuration;
             secretKey = configuration.GetValue<string>("ApiSettings:Secret") ??
                 throw new ArgumentNullException(nameof(configuration), "Secret key cannot be null");
-            _response = new ApiResponse();
             _roleManager = roleManager;
             _userManager = userManager;
         }
