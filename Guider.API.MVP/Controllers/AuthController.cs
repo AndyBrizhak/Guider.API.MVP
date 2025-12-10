@@ -157,9 +157,9 @@ namespace Guider.API.MVP.Controllers
             }
 
             // Получаем данные из объекта data
-            string userName = requestModel.username;
-            string email = requestModel.email;
-            string password = requestModel.password;
+            string userName = requestModel.username ?? string.Empty; // Добавлено, хотя SonarQube не ругался
+            string email = requestModel.email ?? string.Empty;
+            string password = requestModel.password ?? string.Empty;
             string role = SD.Role_User;
 
             // Валидация данных
