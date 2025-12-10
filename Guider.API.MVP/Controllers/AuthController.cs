@@ -615,9 +615,9 @@ namespace Guider.API.MVP.Controllers
             }
 
             // Получаем данные из объекта data
-            string userName = model.username;
-            string email = model.email;
-            string role = model.role;
+            string userName = model.username ?? string.Empty;
+            string email = model.email ?? string.Empty;
+            string role = model.role ?? string.Empty;
 
             if (string.IsNullOrEmpty(userName) && string.IsNullOrEmpty(email) && string.IsNullOrEmpty(role))
             {
