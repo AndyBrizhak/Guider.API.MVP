@@ -23,7 +23,7 @@ namespace Guider.API.MVP.Controllers
     public class AuthController : ControllerBase
     {
         private readonly ApplicationDbContext _db;
-        private string secretKey;
+        private readonly string secretKey;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IConfiguration _configuration;
