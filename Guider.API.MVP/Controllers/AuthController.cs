@@ -85,18 +85,25 @@ namespace Guider.API.MVP.Controllers
             // Создаем токен
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(secretKey);
+            // ... начало создания токена ...
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new System.Security.Claims.ClaimsIdentity(new[]
                 {
-            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userFromDb.Id.ToString()),
-            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, userFromDb.UserName),
-            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, userFromDb.Email),
-            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, userRole)
-            }),
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userFromDb.Id.ToString()),
+        
+                    // ИСПРАВЛЕНО: Добавлено ?? string.Empty
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, userFromDb.UserName ?? string.Empty),
+        
+                    // ИСПРАВЛЕНО: Добавлено ?? string.Empty (именно на это ругается SonarQube на скриншоте 2)
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, userFromDb.Email ?? string.Empty),
+
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, userRole)
+                }),
                 Expires = DateTime.UtcNow.AddDays(7),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
+            // ... продолжение метода ...
             var token = tokenHandler.CreateToken(tokenDescriptor);
             var tokenString = tokenHandler.WriteToken(token);
 
