@@ -743,7 +743,7 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden, Type = typeof(object))] // Нет прав
         [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(object))] // Пользователь не найден
         [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
-        public async Task<ActionResult> DeleteUser(string id, [FromBody] DeleteUserRequestDTO model = null)
+        public async Task<ActionResult> DeleteUser(string id, [FromBody] DeleteUserRequestDTO? model = null)
         {
             var userToDelete = await _userManager.FindByIdAsync(id);
             if (userToDelete == null)
