@@ -125,14 +125,14 @@ namespace Guider.API.MVP.Controllers
             /// </summary>
             /// <example>admin</example>
             [JsonPropertyName("username")]
-            public string Username { get; set; }
+            public string? Username { get; set; }
 
             /// <summary>
             /// Пароль.
             /// </summary>
             /// <example>Password123!</example>
             [JsonPropertyName("password")]
-            public string Password { get; set; }
+            public string? Password { get; set; }
         }
 
         /// <summary>
