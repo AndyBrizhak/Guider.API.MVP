@@ -28,42 +28,49 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// Получить список слагов (URL) для генерации sitemap.xml.
+        /// Получить данные для генерации sitemap.xml (URL + LastModified).
         /// </summary>
         /// <remarks>
-        /// Возвращает простой список строк с URL-адресами мест (поле "url" из БД).
-        /// Используется frontend-приложением для генерации файла карты сайта.
+        /// Возвращает JSON массив объектов.
+        /// Формат: [{ "url": "slug-name", "lastMod": "2024-12-13" }, ...]
         /// </remarks>
-        /// <returns>Список строк (slugs)</returns>
         [HttpGet("places-slugs")]
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<string>))]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))] // Тип теперь object (динамический JSON)
         [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(object))]
         [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))]
         public async Task<IActionResult> GetPlaceSlugs()
         {
             try
             {
-                // Пытаемся получить данные из кеша (или создать их, если нет)
-                var slugs = await _memoryCache.GetOrCreateAsync(SD.SitemapCacheKey, async entry =>
+                // Пытаемся получить данные из кеша
+                var sitemapData = await _memoryCache.GetOrCreateAsync(SD.SitemapCacheKey, async entry =>
                 {
-                    // Настройка: хранить 168 часа (но мы сбросим вручную раньше, если данные изменятся)
+                    // Настройка: хранить 24 часа
                     entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24);
 
-                    // --- Логика получения данных из БД  ---
+                    // --- Логика получения данных из БД ---
                     var result = await _sitemapService.GetPlaceSlugsAsync();
 
+                    // Проверяем структуру ответа: { "success": true, "data": [...] }
                     if (result.RootElement.TryGetProperty("success", out var successElement) &&
                         successElement.GetBoolean() &&
                         result.RootElement.TryGetProperty("data", out var dataElement))
                     {
-                        return JsonSerializer.Deserialize<List<string>>(dataElement.GetRawText());
+                        // ИСПРАВЛЕНИЕ:
+                        // Мы не десериализуем в List<string>, так как там теперь объекты.
+                        // Мы используем .Clone(), чтобы создать копию JsonElement, 
+                        // которая будет жить в кеше после того, как JsonDocument будет уничтожен.
+                        return dataElement.Clone();
                     }
 
-                    return new List<string>();
+                    // Если данных нет или ошибка — возвращаем "undefined" (или пустой массив)
+                    // Создаем пустой JsonElement
+                    using var emptyDoc = JsonDocument.Parse("[]");
+                    return emptyDoc.RootElement.Clone();
                     // -------------------------------------------------------
                 });
 
-                return Ok(slugs);
+                return Ok(sitemapData);
             }
             catch (Exception ex)
             {
