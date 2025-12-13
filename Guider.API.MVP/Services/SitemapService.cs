@@ -28,51 +28,65 @@ namespace Guider.API.MVP.Services
         {
             try
             {
-                // 1. Фильтр: выбираем только опубликованные/активные места
-                // Если у вас есть поле "status", лучше фильтровать по нему.
-                // Если нет, используем пустой фильтр: Builders<BsonDocument>.Filter.Empty
                 var filter = Builders<BsonDocument>.Filter.Eq("status", "active");
 
-                // Если поля status в старых документах нет, можно использовать $or или просто брать все:
-                // var filter = Builders<BsonDocument>.Filter.Empty;
+                // 1.  Добавляем "updatedAt" в проекцию
+                var projection = Builders<BsonDocument>.Projection
+                    .Include("url")
+                    .Include("updatedAt") // <-- Добавили поле
+                    .Exclude("_id");
 
-                // 2. Проекция: Нам нужно только поле "url"
-                var projection = Builders<BsonDocument>.Projection.Include("url").Exclude("_id");
-
-                // 3. Выполняем запрос к БД
                 var bsonDocuments = await _placeCollection
                     .Find(filter)
                     .Project(projection)
                     .ToListAsync();
 
-                // 4. Извлекаем значения слагов в список строк
-                var slugs = new List<string>();
+                // 2.  Формируем список анонимных объектов вместо простого списка строк
+                var sitemapData = new List<object>();
+
                 foreach (var doc in bsonDocuments)
                 {
                     if (doc.Contains("url") && !doc["url"].IsBsonNull)
                     {
-                        slugs.Add(doc["url"].AsString);
+                        string url = doc["url"].AsString;
+                        string lastModDate = DateTime.UtcNow.ToString("yyyy-MM-dd"); // Значение по умолчанию
+
+                        // Проверяем, есть ли дата в документе
+                        if (doc.Contains("updatedAt") && !doc["updatedAt"].IsBsonNull)
+                        {
+                            // Конвертируем BsonDateTime в строку формата W3C (YYYY-MM-DD)
+                            // BsonDateTime приводится к C# DateTime через .ToUniversalTime()
+                            lastModDate = doc["updatedAt"].ToUniversalTime().ToString("yyyy-MM-dd");
+                        }
+                        else
+                        {
+                            // ЛАЙФХАК: Если у старых документов нет даты, 
+                            // можно временно отдавать фиксированную дату или текущую,
+                            // пока вы их не пересохраните.
+                            lastModDate = "2024-01-01";
+                        }
+
+                        // Добавляем объект в список
+                        sitemapData.Add(new { url = url, lastMod = lastModDate });
                     }
                 }
 
-                // 5. Формируем успешный ответ в стиле PlaceService
+                // 3. Возвращаем структуру
                 var result = new
                 {
                     success = true,
-                    data = slugs
+                    data = sitemapData // Теперь это массив объектов
                 };
 
                 return JsonDocument.Parse(JsonSerializer.Serialize(result));
             }
             catch (Exception ex)
             {
-                // Обработка ошибок в стиле PlaceService
                 var errorResult = new
                 {
                     success = false,
-                    error = $"An error occurred while retrieving sitemap slugs: {ex.Message}"
+                    error = $"Error: {ex.Message}"
                 };
-
                 return JsonDocument.Parse(JsonSerializer.Serialize(errorResult));
             }
         }
