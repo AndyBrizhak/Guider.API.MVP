@@ -1,5 +1,4 @@
 ﻿
-
 using Guider.API.MVP.Data;
 using Guider.API.MVP.Models;
 using Guider.API.MVP.Models.Dto;
@@ -24,8 +23,7 @@ namespace Guider.API.MVP.Controllers
     public class AuthController : ControllerBase
     {
         private readonly ApplicationDbContext _db;
-        private readonly ApiResponse _response;
-        private string secretKey;
+        private readonly string secretKey;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IConfiguration _configuration;
@@ -39,7 +37,6 @@ namespace Guider.API.MVP.Controllers
             _configuration = configuration;
             secretKey = configuration.GetValue<string>("ApiSettings:Secret") ??
                 throw new ArgumentNullException(nameof(configuration), "Secret key cannot be null");
-            _response = new ApiResponse();
             _roleManager = roleManager;
             _userManager = userManager;
         }
@@ -60,14 +57,17 @@ namespace Guider.API.MVP.Controllers
                 return BadRequest(new { message = "Username and password are required" });
             }
 
-            string username = loginRequest.Username;
+            // Identity хранит нормализованные данные в верхнем регистре.
+            // Подготавливаем входную строку один раз.
+            string normalizedInput = loginRequest.Username.ToUpper();
             string password = loginRequest.Password;
 
-            // Поиск пользователя (проверяем и по имени пользователя, и по email)
-            ApplicationUser userFromDb = _db.ApplicationUsers
+            // Используем NormalizedUserName и NormalizedEmail.
+            // Это стандартный подход для Identity, который решает проблему с null и производительностью.
+            ApplicationUser? userFromDb = _db.ApplicationUsers
                 .FirstOrDefault(u =>
-                    u.UserName.ToLower() == username.ToLower() ||
-                    u.Email.ToLower() == username.ToLower());
+                    u.NormalizedUserName == normalizedInput ||
+                    u.NormalizedEmail == normalizedInput);
 
             // Если пользователь не найден или пароль неверный
             if (userFromDb == null || !await _userManager.CheckPasswordAsync(userFromDb, password))
@@ -85,18 +85,25 @@ namespace Guider.API.MVP.Controllers
             // Создаем токен
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(secretKey);
+            // ... начало создания токена ...
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new System.Security.Claims.ClaimsIdentity(new[]
                 {
-            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userFromDb.Id.ToString()),
-            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, userFromDb.UserName),
-            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, userFromDb.Email),
-            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, userRole)
-            }),
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, userFromDb.Id.ToString()),
+        
+                    // ИСПРАВЛЕНО: Добавлено ?? string.Empty
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, userFromDb.UserName ?? string.Empty),
+        
+                    // ИСПРАВЛЕНО: Добавлено ?? string.Empty (именно на это ругается SonarQube на скриншоте 2)
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, userFromDb.Email ?? string.Empty),
+
+                    new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, userRole)
+                }),
                 Expires = DateTime.UtcNow.AddDays(7),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
+            // ... продолжение метода ...
             var token = tokenHandler.CreateToken(tokenDescriptor);
             var tokenString = tokenHandler.WriteToken(token);
 
@@ -118,14 +125,14 @@ namespace Guider.API.MVP.Controllers
             /// </summary>
             /// <example>admin</example>
             [JsonPropertyName("username")]
-            public string Username { get; set; }
+            public string? Username { get; set; }
 
             /// <summary>
             /// Пароль.
             /// </summary>
             /// <example>Password123!</example>
             [JsonPropertyName("password")]
-            public string Password { get; set; }
+            public string? Password { get; set; }
         }
 
         /// <summary>
@@ -150,9 +157,9 @@ namespace Guider.API.MVP.Controllers
             }
 
             // Получаем данные из объекта data
-            string userName = requestModel.username;
-            string email = requestModel.email;
-            string password = requestModel.password;
+            string userName = requestModel.username ?? string.Empty; // Добавлено, хотя SonarQube не ругался
+            string email = requestModel.email ?? string.Empty;
+            string password = requestModel.password ?? string.Empty;
             string role = SD.Role_User;
 
             // Валидация данных
@@ -608,9 +615,9 @@ namespace Guider.API.MVP.Controllers
             }
 
             // Получаем данные из объекта data
-            string userName = model.username;
-            string email = model.email;
-            string role = model.role;
+            string userName = model.username ?? string.Empty;
+            string email = model.email ?? string.Empty;
+            string role = model.role ?? string.Empty;
 
             if (string.IsNullOrEmpty(userName) && string.IsNullOrEmpty(email) && string.IsNullOrEmpty(role))
             {
@@ -736,7 +743,7 @@ namespace Guider.API.MVP.Controllers
         [ProducesResponseType(StatusCodes.Status403Forbidden, Type = typeof(object))] // Нет прав
         [ProducesResponseType(StatusCodes.Status404NotFound, Type = typeof(object))] // Пользователь не найден
         [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))] // Ошибка сервера
-        public async Task<ActionResult> DeleteUser(string id, [FromBody] DeleteUserRequestDTO model = null)
+        public async Task<ActionResult> DeleteUser(string id, [FromBody] DeleteUserRequestDTO? model = null)
         {
             var userToDelete = await _userManager.FindByIdAsync(id);
             if (userToDelete == null)
