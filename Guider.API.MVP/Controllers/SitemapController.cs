@@ -2,24 +2,18 @@
 using Guider.API.MVP.Utility;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
-using System.Net;
 using System.Text.Json;
 
 namespace Guider.API.MVP.Controllers
 {
-    [Route("sitemap")] // По аналогии с [Route("places")]
+    [Route("sitemap")]
     [ApiController]
     [Produces("application/json")]
-    [Tags("Sitemap")] // Группировка в Swagger
+    [Tags("Sitemap")]
     public class SitemapController : ControllerBase
     {
         private readonly SitemapService _sitemapService;
-
-        // Добавляем поле для кеша
         private readonly IMemoryCache _memoryCache;
-        // Ключ, по которому будем хранить данные
-        //private const string SITEMAP_CACHE_KEY = "sitemap_slugs_list";
-
 
         public SitemapController(SitemapService sitemapService, IMemoryCache memoryCache)
         {
@@ -28,42 +22,45 @@ namespace Guider.API.MVP.Controllers
         }
 
         /// <summary>
-        /// Получить список слагов (URL) для генерации sitemap.xml.
+        /// Получить данные для генерации sitemap.xml (URL + LastModified).
         /// </summary>
         /// <remarks>
-        /// Возвращает простой список строк с URL-адресами мест (поле "url" из БД).
-        /// Используется frontend-приложением для генерации файла карты сайта.
+        /// Возвращает JSON массив объектов.
+        /// Формат: [{ "url": "slug", "lastMod": "2024-12-13" }, ...]
         /// </remarks>
-        /// <returns>Список строк (slugs)</returns>
         [HttpGet("places-slugs")]
-        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<string>))]
-        [ProducesResponseType(StatusCodes.Status400BadRequest, Type = typeof(object))]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(object))]
         [ProducesResponseType(StatusCodes.Status500InternalServerError, Type = typeof(object))]
-        public async Task<IActionResult> GetPlaceSlugs()
+        public async Task<IActionResult> GetSitemapData()
         {
             try
             {
-                // Пытаемся получить данные из кеша (или создать их, если нет)
-                var slugs = await _memoryCache.GetOrCreateAsync(SD.SitemapCacheKey, async entry =>
+                // Пытаемся получить данные из кеша
+                // Используем тот же ключ, что и раньше, или новый, если хотите сбросить старый кеш
+                var sitemapData = await _memoryCache.GetOrCreateAsync(SD.SitemapCacheKey, async entry =>
                 {
-                    // Настройка: хранить 168 часа (но мы сбросим вручную раньше, если данные изменятся)
+                    // Настройка: хранить 24 часа
                     entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24);
 
-                    // --- Логика получения данных из БД  ---
-                    var result = await _sitemapService.GetPlaceSlugsAsync();
+                    // --- ИЗМЕНЕНИЕ ЗДЕСЬ: Вызываем новый метод сервиса ---
+                    var result = await _sitemapService.GetFullSitemapDataAsync();
+                    // -----------------------------------------------------
 
+                    // Проверяем структуру ответа: { "success": true, "data": [...] }
                     if (result.RootElement.TryGetProperty("success", out var successElement) &&
                         successElement.GetBoolean() &&
                         result.RootElement.TryGetProperty("data", out var dataElement))
                     {
-                        return JsonSerializer.Deserialize<List<string>>(dataElement.GetRawText());
+                        // ВАЖНО: Клонируем данные, чтобы они сохранились в кеше после уничтожения JsonDocument
+                        return dataElement.Clone();
                     }
 
-                    return new List<string>();
-                    // -------------------------------------------------------
+                    // Если данных нет или ошибка — возвращаем пустой массив
+                    using var emptyDoc = JsonDocument.Parse("[]");
+                    return emptyDoc.RootElement.Clone();
                 });
 
-                return Ok(slugs);
+                return Ok(sitemapData);
             }
             catch (Exception ex)
             {

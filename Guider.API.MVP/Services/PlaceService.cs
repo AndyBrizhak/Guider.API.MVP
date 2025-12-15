@@ -436,6 +436,20 @@
                     document.Remove("longitude");
                 }
 
+                // ---------------------------------------------------------------------
+                // Добавляем дату создания/обновления (UTC)
+                // Гарантируем, что поле установлено сервером прямо сейчас
+                // ---------------------------------------------------------------------
+                if (document.Contains("updatedAt"))
+                {
+                    document["updatedAt"] = DateTime.UtcNow;
+                }
+                else
+                {
+                    document.Add("updatedAt", DateTime.UtcNow);
+                }
+                // ---------------------------------------------------------------------
+
                 // Check for unique name  
                 if (document.Contains("name"))
                 {
@@ -465,6 +479,8 @@
                         return JsonDocument.Parse(JsonSerializer.Serialize(new { success = false, message = "The 'url' field must be unique." }));
                     }
                 }
+
+
 
                 // Создание заведения в базе данных
                 await _placeCollection.InsertOneAsync(document);
@@ -530,6 +546,19 @@
                     updatedDocument.Remove("latitude");
                     updatedDocument.Remove("longitude");
                 }
+
+                // ---------------------------------------------------------------------
+                // Принудительно обновляем дату изменения (UTC)
+                // ---------------------------------------------------------------------
+                if (updatedDocument.Contains("updatedAt"))
+                {
+                    updatedDocument["updatedAt"] = DateTime.UtcNow;
+                }
+                else
+                {
+                    updatedDocument.Add("updatedAt", DateTime.UtcNow);
+                }
+                // ---------------------------------------------------------------------
 
                 // Check for unique name
                 if (updatedDocument.Contains("name"))
@@ -1640,9 +1669,7 @@
             }
         }
 
-        /// <summary>
         
-       
         /// <summary>
         /// Получить список уникальных провинций со слагами из коллекции Places.
         /// </summary>
